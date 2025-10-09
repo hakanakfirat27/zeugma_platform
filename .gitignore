@@ -1,0 +1,27 @@
+# Environment variables - DON'T UPLOAD THESE!
+.env
+*.env
+
+# Python
+*.py[cod]
+__pycache__/
+*.pyc
+venv/
+env/
+.venv/
+
+# Django
+*.log
+db.sqlite3
+db.sqlite3-journal
+media/
+staticfiles/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
