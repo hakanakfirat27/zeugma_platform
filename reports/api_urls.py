@@ -5,6 +5,8 @@ from .views import (
     FilterOptionsAPIView,
     SuperdatabaseRecordDetailAPIView
 )
+from .views import DatabaseStatsAPIView
+
 
 urlpatterns = [
     # This URL will be at /api/records/
@@ -12,4 +14,5 @@ urlpatterns = [
     path('records/<uuid:factory_id>/', SuperdatabaseRecordDetailAPIView.as_view(), name='api-record-detail'),
     path('stats/', DashboardStatsAPIView.as_view(), name='api-dashboard-stats'),
     path('filter-options/', FilterOptionsAPIView.as_view(), name='api-filter-options'),
+    path('database-stats/', DatabaseStatsAPIView.as_view(), name='api-database-stats'),
 ]

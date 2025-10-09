@@ -95,3 +95,43 @@ class SuperdatabaseRecordDetailAPIView(generics.RetrieveAPIView):
     serializer_class = SuperdatabaseRecordSerializer
     lookup_field = 'factory_id' # Tell the view to find records by our UUID field
     permission_classes = [IsAuthenticated]
+
+
+class DatabaseStatsAPIView(APIView):
+    """Efficient stats endpoint"""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, format=None):
+        queryset = SuperdatabaseRecord.objects.all()
+        filterset = SuperdatabaseRecordFilter(request.GET, queryset=queryset)
+        queryset = filterset.qs
+
+        total_count = queryset.count()
+
+        countries_data = queryset.values('country').annotate(
+            count=Count('id')
+        ).filter(
+            country__isnull=False
+        ).order_by('-count')
+
+        top_countries = list(countries_data[:10])
+        countries_count = countries_data.count()
+
+        all_countries = list(
+            queryset.values_list('country', flat=True)
+            .distinct()
+            .order_by('country')
+        )
+        all_countries = [c for c in all_countries if c]
+
+        return Response({
+            'total_count': total_count,
+            'countries_count': countries_count,
+            'top_countries': [
+                {'name': item['country'], 'count': item['count']}
+                for item in top_countries
+            ],
+            'all_countries': all_countries
+        })
+
+

@@ -20,14 +20,25 @@ export const useRecords = (filters) => {
       if (filters.page_size) {
         params.append('page_size', filters.page_size);
       }
+      // Handle ordering/sorting
       if (filters.ordering) {
         params.append('ordering', filters.ordering);
       }
+      // Handle country filter
+      if (filters.countries) {
+        params.append('countries', filters.countries);
+      }
 
-      // Add boolean filters
+      // FIXED: Add boolean filters - Handle both true AND false
       Object.keys(filters).forEach(key => {
-        if (typeof filters[key] === 'boolean' && filters[key]) {
-          params.append(key, 'true');
+        // Skip already handled filters
+        if (['category', 'search', 'page', 'page_size', 'ordering'].includes(key)) {
+          return;
+        }
+
+        // Handle boolean filters (both include=true and exclude=false)
+        if (typeof filters[key] === 'boolean') {
+          params.append(key, filters[key].toString());
         }
       });
 
