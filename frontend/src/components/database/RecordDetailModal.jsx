@@ -108,6 +108,7 @@ const RecordDetailModal = ({ factoryId, onClose, isGuest }) => {
                             rel="noopener noreferrer"
                             className="text-blue-600 hover:text-blue-700 flex items-center gap-1"
                           >
+                          className="text-blue-600 hover:text-blue-700 flex items-center gap-1">
                             {record.website}
                             <ExternalLink className="w-4 h-4" />
 

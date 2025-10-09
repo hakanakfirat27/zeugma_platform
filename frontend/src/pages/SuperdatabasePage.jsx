@@ -1,6 +1,6 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, SlidersHorizontal, Download, Upload, Trash2, Edit, Plus, BarChart3, TrendingUp, Users, X, ArrowLeft, RotateCcw } from 'lucide-react';
+import { Search, SlidersHorizontal, Download, Upload, Trash2, Edit, Plus, BarChart3, TrendingUp, Users, X, ArrowLeft } from 'lucide-react';
 import { useRecords, useFilterOptions } from '../hooks/useDatabase';
 import { CATEGORIES } from '../constants/categories';
 import { useAuth } from '../contexts/AuthContext';
@@ -10,15 +10,15 @@ import RecordDetailModal from '../components/database/RecordDetailModal';
 import Pagination from '../components/database/Pagination';
 import LoadingSpinner from '../components/LoadingSpinner';
 import api from '../utils/api';
+import FilterSidebar from '../components/database/FilterSidebar';
 
 const SuperdatabasePage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [selectedCategory, setSelectedCategory] = useState('INJECTION');
+  const [selectedCategory, setSelectedCategory] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchTerms, setSearchTerms] = useState([]);
   const [filters, setFilters] = useState({});
-  const [countryFilters, setCountryFilters] = useState([]); // NEW: Country filter
+  const [countryFilters, setCountryFilters] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [selectedRecord, setSelectedRecord] = useState(null);
@@ -27,24 +27,91 @@ const SuperdatabasePage = () => {
   const [showStats, setShowStats] = useState(true);
   const [ordering, setOrdering] = useState('');
 
-  // Stats from new backend endpoint
-  const [stats, setStats] = useState({
-    total: 0,
-    countriesCount: 0,
-    topCountries: [],
-    allCountries: [] // For country filter dropdown
-  });
-  const [statsLoading, setStatsLoading] = useState(false);
+// Stats from backend endpoint
+const [stats, setStats] = useState({
+  total: 0,
+  countriesCount: 0,
+  topCountries: [],
+  allCountries: []
+});
+const [statsLoading, setStatsLoading] = useState(false);
 
-  const combinedSearch = searchTerms.join(' ');
+// Fetch ALL countries ONCE when component mounts or category changes
+useEffect(() => {
+  const fetchAllCountries = async () => {
+    try {
+      const params = new URLSearchParams();
+      if (selectedCategory && selectedCategory !== 'ALL') {
+        params.append('category', selectedCategory);
+      }
+      const response = await api.get(`/api/database-stats/?${params.toString()}`);
+
+      setStats(prev => ({
+        ...prev,
+        allCountries: response.data.all_countries || []
+      }));
+    } catch (error) {
+      console.error('Failed to fetch countries:', error);
+    }
+  };
+
+  fetchAllCountries();
+}, [selectedCategory]); // Only refetch when category changes
+
+// Fetch other stats when filters change
+useEffect(() => {
+  const fetchStats = async () => {
+    setStatsLoading(true);
+    try {
+      const params = new URLSearchParams();
+
+      if (selectedCategory && selectedCategory !== 'ALL') {
+        params.append('category', selectedCategory);
+      }
+      if (searchQuery) {
+        params.append('search', searchQuery);
+      }
+      if (countryFilters.length > 0) {
+        params.append('countries', countryFilters.join(','));
+      }
+
+      // Add filters
+      Object.keys(filters).forEach(key => {
+        if (filters[key] === true) {
+          params.append(key, 'true');
+        } else if (filters[key] === false) {
+          params.append(key, 'false');
+        }
+      });
+
+      const response = await api.get(`/api/database-stats/?${params.toString()}`);
+
+      setStats(prev => ({
+        ...prev, // Keep allCountries from previous state
+        total: response.data.total_count,
+        countriesCount: response.data.countries_count,
+        topCountries: response.data.top_countries || []
+      }));
+
+    } catch (error) {
+      console.error('Failed to fetch stats:', error);
+    } finally {
+      setStatsLoading(false);
+    }
+  };
+
+  fetchStats();
+}, [selectedCategory, searchQuery, filters, countryFilters]);
+
+
 
   const { data: recordsData, isLoading } = useRecords({
     category: selectedCategory,
-    search: combinedSearch,
+    search: searchQuery,
     page: currentPage,
     page_size: pageSize,
     ordering: ordering,
-    countries: countryFilters.join(','), // NEW: Pass country filters
+    countries: countryFilters.join(','),
     ...filters,
   });
 
@@ -54,124 +121,7 @@ const SuperdatabasePage = () => {
   const totalCount = recordsData?.count || 0;
   const totalPages = Math.ceil(totalCount / pageSize);
 
-  // FIXED: Fetch stats from new backend endpoint
-  useEffect(() => {
-    const fetchStats = async () => {
-      setStatsLoading(true);
-      try {
-        const params = new URLSearchParams();
-
-        if (selectedCategory && selectedCategory !== 'ALL') {
-          params.append('category', selectedCategory);
-        }
-        if (combinedSearch) {
-          params.append('search', combinedSearch);
-        }
-        if (countryFilters.length > 0) {
-          params.append('countries', countryFilters.join(','));
-        }
-
-        // Add filters
-        Object.keys(filters).forEach(key => {
-          if (filters[key] === true) {
-            params.append(key, 'true');
-          } else if (filters[key] === false) {
-            params.append(key, 'false');
-          }
-        });
-
-        // NEW: Use efficient stats endpoint
-        const response = await api.get(`/api/database-stats/?${params.toString()}`);
-
-        setStats({
-          total: response.data.total_count,
-          countriesCount: response.data.countries_count,
-          topCountries: response.data.top_countries || [],
-          allCountries: response.data.all_countries || []
-        });
-
-      } catch (error) {
-        console.error('Failed to fetch stats:', error);
-      } finally {
-        setStatsLoading(false);
-      }
-    };
-
-    fetchStats();
-  }, [selectedCategory, combinedSearch, filters, countryFilters]);
-
   const activeFiltersCount = Object.keys(filters).filter(key => filters[key] !== undefined).length + countryFilters.length;
-
-  const activeFilterChips = useMemo(() => {
-    const chips = [];
-
-    // Regular filters
-    Object.entries(filters)
-      .filter(([_, value]) => value !== undefined)
-      .forEach(([key, value]) => {
-        const option = filterOptions.find(opt => opt.field === key);
-        chips.push({
-          type: 'filter',
-          key,
-          label: option?.label || key.replace(/_/g, ' '),
-          filterType: value === true ? 'Include' : 'Exclude'
-        });
-      });
-
-    // Country filters
-    countryFilters.forEach(country => {
-      chips.push({
-        type: 'country',
-        key: country,
-        label: country,
-        filterType: 'Country'
-      });
-    });
-
-    return chips;
-  }, [filters, filterOptions, countryFilters]);
-
-  const handleAddSearchTerm = () => {
-    if (searchQuery.trim() && !searchTerms.includes(searchQuery.trim())) {
-      setSearchTerms([...searchTerms, searchQuery.trim()]);
-      setSearchQuery('');
-      setCurrentPage(1);
-    }
-  };
-
-  const handleRemoveSearchTerm = (term) => {
-    setSearchTerms(searchTerms.filter(t => t !== term));
-    setCurrentPage(1);
-  };
-
-  const handleClearSearch = () => {
-    setSearchTerms([]);
-    setSearchQuery('');
-    setCurrentPage(1);
-  };
-
-  const handleSearchKeyDown = (e) => {
-    if (e.key === 'Enter') {
-      handleAddSearchTerm();
-    }
-  };
-
-  const removeFilter = (chip) => {
-    if (chip.type === 'filter') {
-      const newFilters = { ...filters };
-      delete newFilters[chip.key];
-      setFilters(newFilters);
-    } else if (chip.type === 'country') {
-      setCountryFilters(countryFilters.filter(c => c !== chip.key));
-    }
-    setCurrentPage(1);
-  };
-
-  const clearAllFilters = () => {
-    setFilters({});
-    setCountryFilters([]);
-    setCurrentPage(1);
-  };
 
   const toggleRecordSelection = (factoryId) => {
     const newSelected = new Set(selectedRecords);
@@ -363,95 +313,94 @@ const SuperdatabasePage = () => {
             </div>
           </div>
 
-          {/* FIXED: Simplified Search - No "Active search:" label */}
+          {/* SIMPLIFIED Live Search */}
           <div className="mb-6">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
               <input
                 type="text"
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyDown={handleSearchKeyDown}
-                placeholder="Search by company name, country, region... (Press Enter to add)"
-                className="w-full pl-10 pr-24 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setCurrentPage(1);
+                }}
+                placeholder="Search by company name, country, region..."
+                className="w-full pl-10 pr-10 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
               />
-              <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex items-center gap-2">
-                {searchQuery && (
-                  <button
-                    onClick={() => setSearchQuery('')}
-                    className="p-1 hover:bg-gray-100 rounded"
-                    title="Clear input"
-                  >
-                    <X className="w-4 h-4 text-gray-400" />
-                  </button>
-                )}
+              {searchQuery && (
                 <button
-                  onClick={handleAddSearchTerm}
-                  disabled={!searchQuery.trim()}
-                  className="px-3 py-1 bg-indigo-600 text-white rounded text-sm hover:bg-indigo-700 disabled:opacity-50"
+                  onClick={() => {
+                    setSearchQuery('');
+                    setCurrentPage(1);
+                  }}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  title="Clear search"
                 >
-                  Add
+                  <X className="w-4 h-4" />
                 </button>
-              </div>
+              )}
             </div>
-
-            {/* Search Tags - NO LABEL, just tags and reset */}
-            {searchTerms.length > 0 && (
-              <div className="mt-3 flex items-center gap-2">
-                <div className="flex flex-wrap gap-2 flex-1">
-                  {searchTerms.map((term) => (
-                    <span
-                      key={term}
-                      className="inline-flex items-center gap-2 px-3 py-1.5 rounded bg-blue-100 text-blue-800 border border-blue-300 text-sm font-medium"
-                    >
-                      {term}
-                      <button
-                        onClick={() => handleRemoveSearchTerm(term)}
-                        className="hover:opacity-70"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </span>
-                  ))}
-                </div>
-                <button
-                  onClick={handleClearSearch}
-                  className="flex items-center gap-1 px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900 border border-gray-300 rounded hover:bg-gray-50"
-                  title="Clear all search terms"
-                >
-                  <RotateCcw className="w-4 h-4" />
-                  Reset
-                </button>
-              </div>
-            )}
           </div>
 
-          {/* Active Filters */}
-          {activeFilterChips.length > 0 && (
+          {/* Active Filters Chips */}
+          {(Object.keys(filters).length > 0 || countryFilters.length > 0) && (
             <div className="mb-4">
               <div className="flex items-center gap-2 mb-2">
-                <span className="text-sm text-gray-600">Active filters:</span>
+                <span className="text-sm font-medium text-gray-700">Active filters:</span>
                 <button
-                  onClick={clearAllFilters}
-                  className="text-sm text-blue-600 hover:text-blue-700 underline"
+                  onClick={() => {
+                    setFilters({});
+                    setCountryFilters([]);
+                    setCurrentPage(1);
+                  }}
+                  className="text-sm text-indigo-600 hover:text-indigo-700 font-medium"
                 >
                   Clear all
                 </button>
               </div>
               <div className="flex flex-wrap gap-2">
-                {activeFilterChips.map(chip => (
+                {/* Boolean Filters */}
+                {Object.entries(filters)
+                  .filter(([_, value]) => value !== undefined)
+                  .map(([key, value]) => {
+                    const option = filterOptions.find(opt => opt.field === key);
+                    return (
+                      <span
+                        key={key}
+                        className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium ${
+                          value === true
+                            ? 'bg-green-100 text-green-800 border border-green-300'
+                            : 'bg-red-100 text-red-800 border border-red-300'
+                        }`}
+                      >
+                        {option?.label || key.replace(/_/g, ' ')}: {value ? 'Include' : 'Exclude'}
+                        <button
+                          onClick={() => {
+                            const newFilters = { ...filters };
+                            delete newFilters[key];
+                            setFilters(newFilters);
+                            setCurrentPage(1);
+                          }}
+                          className="hover:opacity-70"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </span>
+                    );
+                  })}
+
+                {/* Country Filters */}
+                {countryFilters.map(country => (
                   <span
-                    key={`${chip.type}-${chip.key}`}
-                    className={`inline-flex items-center gap-2 px-3 py-1.5 rounded text-sm font-medium ${
-                      chip.type === 'country' ? 'bg-purple-100 text-purple-800 border border-purple-300' :
-                      chip.filterType === 'Include'
-                        ? 'bg-green-100 text-green-800 border border-green-300'
-                        : 'bg-red-100 text-red-800 border border-red-300'
-                    }`}
+                    key={country}
+                    className="inline-flex items-center gap-2 px-3 py-1.5 bg-purple-100 text-purple-800 border border-purple-300 rounded-full text-sm font-medium"
                   >
-                    {chip.label}{chip.filterType !== 'Country' ? `: ${chip.filterType}` : ''}
+                    Country: {country}
                     <button
-                      onClick={() => removeFilter(chip)}
+                      onClick={() => {
+                        setCountryFilters(countryFilters.filter(c => c !== country));
+                        setCurrentPage(1);
+                      }}
                       className="hover:opacity-70"
                     >
                       <X className="w-4 h-4" />
@@ -559,19 +508,25 @@ const SuperdatabasePage = () => {
         </div>
       </div>
 
-      {/* Filter Drawer with Country Filter */}
+      {/* Filter Sidebar */}
       {showFilters && (
-        <FilterDrawer
+        <FilterSidebar
           isOpen={showFilters}
           onClose={() => setShowFilters(false)}
           filters={filters}
-          setFilters={setFilters}
-          countryFilters={countryFilters}
-          setCountryFilters={setCountryFilters}
           filterOptions={filterOptions}
+          countryFilters={countryFilters}
+          onCountryFilterChange={setCountryFilters}
           allCountries={stats.allCountries}
-          clearAllFilters={clearAllFilters}
-          setCurrentPage={setCurrentPage}
+          onApply={(newFilters) => {
+            setFilters(newFilters);
+            setCurrentPage(1);
+          }}
+          onReset={() => {
+            setFilters({});
+            setCountryFilters([]);
+            setCurrentPage(1);
+          }}
         />
       )}
 
@@ -594,188 +549,6 @@ const SuperdatabasePage = () => {
         }
       `}</style>
     </DashboardLayout>
-  );
-};
-
-// NEW: Filter Drawer Component with Country Filter
-const FilterDrawer = ({
-  isOpen,
-  onClose,
-  filters,
-  setFilters,
-  countryFilters,
-  setCountryFilters,
-  filterOptions,
-  allCountries,
-  clearAllFilters,
-  setCurrentPage
-}) => {
-  const [countrySearch, setCountrySearch] = useState('');
-
-  // Filter countries based on search
-  const filteredCountries = allCountries.filter(country =>
-    country.toLowerCase().includes(countrySearch.toLowerCase())
-  );
-
-  const toggleCountry = (country) => {
-    if (countryFilters.includes(country)) {
-      setCountryFilters(countryFilters.filter(c => c !== country));
-    } else {
-      setCountryFilters([...countryFilters, country]);
-    }
-    setCurrentPage(1);
-  };
-
-  return (
-    <>
-      <div
-        className="fixed inset-0 bg-black bg-opacity-50 z-40"
-        onClick={onClose}
-      />
-
-      <div className="fixed right-0 top-0 h-full w-96 bg-white shadow-xl z-50 flex flex-col animate-slide-in">
-        <div className="px-6 py-4 border-b bg-indigo-600 text-white">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold">Filters</h3>
-            <button
-              onClick={onClose}
-              className="text-white hover:text-gray-200"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-6 space-y-4">
-          {/* NEW: Country Filter with Live Search */}
-          <div className="border rounded-lg p-4 bg-purple-50">
-            <h4 className="font-semibold text-gray-900 mb-3">Country</h4>
-
-            {/* Live Search */}
-            <div className="relative mb-3">
-              <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <input
-                type="text"
-                value={countrySearch}
-                onChange={(e) => setCountrySearch(e.target.value)}
-                placeholder="Search countries..."
-                className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-purple-500"
-              />
-            </div>
-
-            {/* Selected Countries */}
-            {countryFilters.length > 0 && (
-              <div className="mb-3 flex flex-wrap gap-1">
-                {countryFilters.map(country => (
-                  <span
-                    key={country}
-                    className="inline-flex items-center gap-1 px-2 py-1 bg-purple-600 text-white rounded text-xs"
-                  >
-                    {country}
-                    <button onClick={() => toggleCountry(country)}>
-                      <X className="w-3 h-3" />
-                    </button>
-                  </span>
-                ))}
-              </div>
-            )}
-
-            {/* Country List */}
-            <div className="max-h-48 overflow-y-auto space-y-1">
-              {filteredCountries.length === 0 ? (
-                <p className="text-sm text-gray-500 text-center py-2">No countries found</p>
-              ) : (
-                filteredCountries.map(country => (
-                  <label
-                    key={country}
-                    className="flex items-center gap-2 cursor-pointer p-2 hover:bg-purple-100 rounded"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={countryFilters.includes(country)}
-                      onChange={() => toggleCountry(country)}
-                      className="rounded border-gray-300 text-purple-600"
-                    />
-                    <span className="text-sm text-gray-700">{country}</span>
-                  </label>
-                ))
-              )}
-            </div>
-          </div>
-
-          {/* Regular Filters */}
-          {filterOptions.map(option => (
-            <div key={option.field} className="border rounded-lg p-4">
-              <div className="flex items-center justify-between mb-3">
-                <h4 className="font-semibold text-gray-900">{option.label}</h4>
-                <span className="text-sm text-gray-500">{option.count}</span>
-              </div>
-
-              <div className="space-y-2">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name={option.field}
-                    checked={filters[option.field] === undefined}
-                    onChange={() => {
-                      const newFilters = { ...filters };
-                      delete newFilters[option.field];
-                      setFilters(newFilters);
-                      setCurrentPage(1);
-                    }}
-                    className="w-4 h-4"
-                  />
-                  <span className="text-sm text-gray-600">Any</span>
-                </label>
-
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name={option.field}
-                    checked={filters[option.field] === true}
-                    onChange={() => {
-                      setFilters({ ...filters, [option.field]: true });
-                      setCurrentPage(1);
-                    }}
-                    className="w-4 h-4 text-green-600"
-                  />
-                  <span className="text-sm text-gray-900">Include</span>
-                </label>
-
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name={option.field}
-                    checked={filters[option.field] === false}
-                    onChange={() => {
-                      setFilters({ ...filters, [option.field]: false });
-                      setCurrentPage(1);
-                    }}
-                    className="w-4 h-4 text-red-600"
-                  />
-                  <span className="text-sm text-gray-900">Exclude</span>
-                </label>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <div className="border-t p-4 bg-gray-50 flex items-center gap-3">
-          <button
-            onClick={clearAllFilters}
-            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-100"
-          >
-            Clear All
-          </button>
-          <button
-            onClick={onClose}
-            className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
-          >
-            Apply Filters
-          </button>
-        </div>
-      </div>
-    </>
   );
 };
 

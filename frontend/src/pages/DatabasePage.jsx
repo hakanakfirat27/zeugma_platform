@@ -3,9 +3,7 @@ import { Search, Download, SlidersHorizontal, X, BarChart3, Globe, Package, Tren
 import { useAuth } from '../contexts/AuthContext';
 import { useRecords, useFilterOptions } from '../hooks/useDatabase';
 import { exportToExcel, exportSelectedRecords } from '../utils/excelExport';
-
-
-
+import FilterSidebar from '../components/database/FilterSidebar';
 
 const CATEGORIES = [
   { value: 'ALL', label: 'All Categories' },
@@ -25,6 +23,7 @@ const EnhancedDatabasePage = () => {
   const [selectedCategory, setSelectedCategory] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [filters, setFilters] = useState({});
+  const [countryFilters, setCountryFilters] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [selectedRecord, setSelectedRecord] = useState(null);
@@ -38,6 +37,7 @@ const EnhancedDatabasePage = () => {
     search: searchQuery,
     page: currentPage,
     page_size: pageSize,
+    countries: countryFilters.join(','),
     ...filters,
   });
 
@@ -56,70 +56,67 @@ const EnhancedDatabasePage = () => {
       total: totalCount,
       countries: countries.size,
       categories: categories.size,
-      showing: displayRecords.length
+      showing: displayRecords.length,
+      allCountries: Array.from(countries).sort()
     };
   }, [records, totalCount, displayRecords.length]);
 
-const handleExportToExcel = async () => {
-  if (isGuest) {
-    setShowUpgradeModal(true);
-    return;
-  }
-
-  try {
-    // Show loading state
-    const exportButton = document.querySelector('[data-export-button]');
-    if (exportButton) {
-      exportButton.disabled = true;
-      exportButton.textContent = 'Exporting...';
+  const handleExportToExcel = async () => {
+    if (isGuest) {
+      setShowUpgradeModal(true);
+      return;
     }
 
-    let result;
+    try {
+      const exportButton = document.querySelector('[data-export-button]');
+      if (exportButton) {
+        exportButton.disabled = true;
+        exportButton.textContent = 'Exporting...';
+      }
 
-    // Export selected records or all records
-    if (selectedRecords.size > 0) {
-      result = await exportSelectedRecords(
-        selectedRecords,
-        records,
-        {
-          filename: 'zeugma_selected_export',
-          isGuest: isGuest,
-          category: selectedCategory,
-          filters: filters,
-          userEmail: user?.email || user?.username
-        }
-      );
-    } else {
-      result = await exportToExcel(
-        displayRecords,
-        {
-          filename: 'zeugma_database_export',
-          isGuest: isGuest,
-          category: selectedCategory,
-          filters: filters,
-          userEmail: user?.email || user?.username
-        }
-      );
+      let result;
+
+      if (selectedRecords.size > 0) {
+        result = await exportSelectedRecords(
+          selectedRecords,
+          records,
+          {
+            filename: 'zeugma_selected_export',
+            isGuest: isGuest,
+            category: selectedCategory,
+            filters: filters,
+            userEmail: user?.email || user?.username
+          }
+        );
+      } else {
+        result = await exportToExcel(
+          displayRecords,
+          {
+            filename: 'zeugma_database_export',
+            isGuest: isGuest,
+            category: selectedCategory,
+            filters: filters,
+            userEmail: user?.email || user?.username
+          }
+        );
+      }
+
+      if (result.success) {
+        alert(`✅ Success! Exported ${result.recordCount} records to ${result.filename}`);
+      }
+
+      if (exportButton) {
+        exportButton.disabled = false;
+        exportButton.textContent = selectedRecords.size > 0
+          ? `Export (${selectedRecords.size})`
+          : 'Export All';
+      }
+
+    } catch (error) {
+      console.error('Export failed:', error);
+      alert('❌ Export failed. Please try again.');
     }
-
-    // Show success message
-    if (result.success) {
-      alert(`✅ Success! Exported ${result.recordCount} records to ${result.filename}`);
-    }
-
-    // Reset button state
-    if (exportButton) {
-      exportButton.disabled = false;
-      exportButton.textContent = selectedRecords.size > 0
-        ? `Export (${selectedRecords.size})`
-        : 'Export All';
-    }
-
-  } catch (error) {
-    console.error('Export failed:', error);
-    alert('❌ Export failed. Please try again.');
-  }
-};
+  };
 
   const handleApplySavedFilter = (savedFilter) => {
     setFilters(savedFilter.filters);
@@ -166,15 +163,16 @@ const handleExportToExcel = async () => {
               >
                 <SlidersHorizontal className="w-4 h-4" />
                 {showFilters ? 'Hide' : 'Show'} Filters
-                {Object.keys(filters).length > 0 && (
+                {(Object.keys(filters).length + countryFilters.length) > 0 && (
                   <span className="bg-blue-600 text-white text-xs px-2 py-0.5 rounded-full">
-                    {Object.keys(filters).length}
+                    {Object.keys(filters).length + countryFilters.length}
                   </span>
                 )}
               </button>
 
               <button
                 onClick={handleExportToExcel}
+                data-export-button
                 className={`px-4 py-2 rounded-lg flex items-center gap-2 ${
                   isGuest
                     ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
@@ -313,70 +311,25 @@ const handleExportToExcel = async () => {
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden">
         {/* Filter Sidebar */}
-        {showFilters && (
-          <div className="w-80 bg-white border-r overflow-y-auto flex-shrink-0">
-            <div className="p-4 border-b sticky top-0 bg-white z-10">
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="font-semibold text-gray-900">Advanced Filters</h3>
-                {Object.keys(filters).length > 0 && (
-                  <button
-                    onClick={() => setFilters({})}
-                    className="text-sm text-blue-600 hover:text-blue-700"
-                  >
-                    Clear all
-                  </button>
-                )}
-              </div>
-            </div>
-
-            <div className="p-4 space-y-4">
-              {filterOptions.map(option => (
-                <div key={option.field} className="border rounded-lg p-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="font-medium text-sm">{option.label}</span>
-                    <span className="text-xs text-gray-500">{option.count}</span>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="flex items-center gap-2 text-sm cursor-pointer">
-                      <input
-                        type="radio"
-                        name={option.field}
-                        checked={filters[option.field] === undefined}
-                        onChange={() => {
-                          const newFilters = { ...filters };
-                          delete newFilters[option.field];
-                          setFilters(newFilters);
-                        }}
-                        className="text-gray-400"
-                      />
-                      <span className="text-gray-600">Any</span>
-                    </label>
-                    <label className="flex items-center gap-2 text-sm cursor-pointer">
-                      <input
-                        type="radio"
-                        name={option.field}
-                        checked={filters[option.field] === true}
-                        onChange={() => setFilters({ ...filters, [option.field]: true })}
-                        className="text-blue-600"
-                      />
-                      <span className="text-gray-900">Include</span>
-                    </label>
-                    <label className="flex items-center gap-2 text-sm cursor-pointer">
-                      <input
-                        type="radio"
-                        name={option.field}
-                        checked={filters[option.field] === false}
-                        onChange={() => setFilters({ ...filters, [option.field]: false })}
-                        className="text-red-600"
-                      />
-                      <span className="text-gray-900">Exclude</span>
-                    </label>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+        <FilterSidebar
+          isOpen={showFilters}
+          onClose={() => setShowFilters(false)}
+          filters={filters}
+          onFilterChange={setFilters}
+          filterOptions={filterOptions}
+          countryFilters={countryFilters}
+          onCountryFilterChange={setCountryFilters}
+          allCountries={stats.allCountries || []}
+          onApply={(newFilters) => {
+            setFilters(newFilters);
+            setCurrentPage(1);
+          }}
+          onReset={() => {
+            setFilters({});
+            setCountryFilters([]);
+            setCurrentPage(1);
+          }}
+        />
 
         {/* Data Table Area */}
         <div className="flex-1 flex flex-col bg-white overflow-hidden">
