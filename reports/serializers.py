@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import SuperdatabaseRecord
+from .models import SuperdatabaseRecord, DashboardWidget
 from .fields import (
     COMMON_FIELDS, CONTACT_FIELDS, INJECTION_FIELDS, BLOW_FIELDS, ROTO_FIELDS,
     PE_FILM_FIELDS, SHEET_FIELDS, PIPE_FIELDS, TUBE_HOSE_FIELDS, PROFILE_FIELDS,
@@ -7,6 +7,7 @@ from .fields import (
 )
 
 
+# --- Superdatabase Record Serilalizer Class ---
 class SuperdatabaseRecordSerializer(serializers.ModelSerializer):
     display_fields = serializers.SerializerMethodField()
     # --- NEW: This field will provide a map of field names to their correct labels ---
@@ -35,3 +36,30 @@ class SuperdatabaseRecordSerializer(serializers.ModelSerializer):
             field.name: field.verbose_name
             for field in obj._meta.fields
         }
+
+
+# --- Dashboard Widget Serializer Class ---
+class DashboardWidgetSerializer(serializers.ModelSerializer):
+    """Serializer for dashboard widgets"""
+
+    class Meta:
+        model = DashboardWidget
+        fields = [
+            'id',
+            'widget_key',
+            'title',
+            'description',
+            'icon',
+            'category',
+            'width',
+            'height',
+            'is_enabled',
+            'display_order',
+            'settings',
+            'required_permission',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = ['created_at', 'updated_at']
+
+

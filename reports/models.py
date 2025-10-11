@@ -2,7 +2,13 @@
 import uuid
 from django.db import models
 from django.conf import settings
+from django.contrib.auth import get_user_model
 
+
+User = get_user_model()
+
+
+# --- Company Category Class ---
 # This class defines the 10 main categories for a company record.
 class CompanyCategory(models.TextChoices):
     INJECTION = 'INJECTION', 'Injection Moulders'
@@ -16,6 +22,8 @@ class CompanyCategory(models.TextChoices):
     CABLE = 'CABLE', 'Cable Extruders'
     COMPOUNDER = 'COMPOUNDER', 'Compounders'
 
+
+# --- Superdatabase Record Class ---
 class SuperdatabaseRecord(models.Model):
     
     # This is the unique identifier for every factory record.
@@ -449,8 +457,7 @@ class SuperdatabaseRecord(models.Model):
         return f"{self.company_name} ({self.get_category_display()})"
 
 
-# --- The models below are unchanged and crucial for selling reports ---
-
+# --- Custom Reports Class ---
 class CustomReport(models.Model):
     title = models.CharField(max_length=255, unique=True)
     description = models.TextField()
@@ -460,6 +467,7 @@ class CustomReport(models.Model):
         return self.title
 
 
+# --- Subscription Class ---
 class Subscription(models.Model):
     client = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     report = models.ForeignKey(CustomReport, on_delete=models.CASCADE)
@@ -474,3 +482,101 @@ class Subscription(models.Model):
 
     def __str__(self):
         return f"{self.client.username}'s subscription to {self.report.title}"
+
+
+# --- Widget Category Class ---
+class WidgetCategory(models.TextChoices):
+    OVERVIEW = 'OVERVIEW', 'Overview'
+    ANALYTICS = 'ANALYTICS', 'Analytics'
+    ACTIVITY = 'ACTIVITY', 'Activity'
+    ALERTS = 'ALERTS', 'Alerts'
+    REPORTS = 'REPORTS', 'Reports'
+
+
+# --- Dashboard Widget Class ---
+class DashboardWidget(models.Model):
+    """
+    Stores configuration for dashboard widgets.
+    Each widget can be enabled/disabled and positioned.
+    """
+    # Widget identification
+    widget_key = models.CharField(
+        max_length=100,
+        unique=True,
+        help_text="Unique identifier for the widget (e.g., 'subscription_expiry')"
+    )
+
+    # Display information
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    icon = models.CharField(
+        max_length=50,
+        blank=True,
+        help_text="Lucide icon name (e.g., 'TrendingUp', 'Users')"
+    )
+
+    # Widget properties
+    category = models.CharField(
+        max_length=20,
+        choices=WidgetCategory.choices,
+        default=WidgetCategory.OVERVIEW
+    )
+
+    # Widget size (grid columns it takes)
+    width = models.IntegerField(
+        default=1,
+        help_text="Width in grid columns (1-4)"
+    )
+    height = models.IntegerField(
+        default=1,
+        help_text="Height in grid rows (1-3)"
+    )
+
+    # Status and ordering
+    is_enabled = models.BooleanField(default=True)
+    display_order = models.IntegerField(default=0)
+
+    # Settings (JSON field for widget-specific configuration)
+    settings = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Widget-specific settings as JSON"
+    )
+
+    # Permissions
+    required_permission = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="Permission required to view this widget"
+    )
+
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['display_order', 'title']
+        verbose_name = 'Dashboard Widget'
+        verbose_name_plural = 'Dashboard Widgets'
+
+    def __str__(self):
+        return f"{self.title} ({'Enabled' if self.is_enabled else 'Disabled'})"
+
+
+# --- User Widget Preference Class ---
+class UserWidgetPreference(models.Model):
+    """
+    Allows individual users to customize their dashboard.
+    Optional feature for personalization.
+    """
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='widget_preferences')
+    widget = models.ForeignKey(DashboardWidget, on_delete=models.CASCADE)
+    is_visible = models.BooleanField(default=True)
+    position = models.IntegerField(default=0)
+
+    class Meta:
+        unique_together = ['user', 'widget']
+        ordering = ['position']
+
+    def __str__(self):
+        return f"{self.user.username} - {self.widget.title}"

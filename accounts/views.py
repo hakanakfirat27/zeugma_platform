@@ -1,183 +1,145 @@
-from django.contrib.auth import login, authenticate
-from django.contrib.auth.forms import AuthenticationForm
-from django.shortcuts import render, redirect
-from django.urls import reverse_lazy
-from django.views.decorators.csrf import csrf_exempt
-from django.utils.decorators import method_decorator
-from .forms import GuestSignUpForm
-from .models import UserRole
-from django.views import generic
-from rest_framework import generics, status
-from rest_framework.permissions import IsAuthenticated, AllowAny
-from rest_framework.response import Response
-from rest_framework.views import APIView
-from .serializers import UserSerializer
+# accounts/views.py
+from django.contrib.auth import authenticate, login as auth_login, logout as auth_logout, get_user_model
+from django.http import JsonResponse
+from django.views.decorators.http import require_http_methods
+from django.views.decorators.csrf import ensure_csrf_cookie
+import json
+
+User = get_user_model()
 
 
-# NEW: API-based Login View
-class LoginAPIView(APIView):
-    permission_classes = [AllowAny]
+@require_http_methods(["POST"])
+def login_view(request):
+    """Handle user login"""
+    try:
+        data = json.loads(request.body)
+        username = data.get('username')
+        password = data.get('password')
 
-    def post(self, request):
-        username = request.data.get('username')
-        password = request.data.get('password')
-
-        if not username or not password:
-            return Response(
-                {'detail': 'Username and password are required'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+        print(f"Login attempt for username: {username}")
 
         user = authenticate(request, username=username, password=password)
 
         if user is not None:
-            login(request, user)
+            auth_login(request, user)
 
-            # Force session to be saved
-            request.session.save()
+            user_data = {
+                'id': user.id,
+                'username': user.username,
+                'email': user.email,
+                'role': user.role,
+                'is_staff': user.is_staff,
+                'is_superuser': user.is_superuser,
+            }
 
-            serializer = UserSerializer(user)
+            print(f"✓ Login successful for {username}, role: {user.role}")
 
-            response = Response({
-                'detail': 'Login successful',
-                'user': serializer.data
-            }, status=status.HTTP_200_OK)
-
-            # Ensure session cookie is set in response
-            if request.session.session_key:
-                response.set_cookie(
-                    key='sessionid',
-                    value=request.session.session_key,
-                    max_age=1209600,
-                    httponly=True,
-                    samesite='Lax',
-                    secure=False,
-                )
-
-            return response
+            return JsonResponse({
+                'success': True,
+                'user': user_data
+            })
         else:
-            return Response(
-                {'detail': 'Invalid credentials'},
-                status=status.HTTP_401_UNAUTHORIZED
-            )
+            print(f"✗ Login failed for {username}: Invalid credentials")
+            return JsonResponse({
+                'success': False,
+                'error': 'Invalid username or password'
+            }, status=401)
+
+    except Exception as e:
+        print(f"Login error: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
 
 
-# NEW: API-based Logout View
-class LogoutAPIView(APIView):
-    permission_classes = [IsAuthenticated]
+@require_http_methods(["POST"])
+def logout_view(request):
+    """Handle user logout"""
+    if request.user.is_authenticated:
+        print(f"User {request.user.username} logging out")
+    auth_logout(request)
+    return JsonResponse({'success': True, 'message': 'Logged out successfully'})
 
-    def post(self, request):
-        from django.contrib.auth import logout
-        logout(request)
-        return Response({'detail': 'Logout successful'}, status=status.HTTP_200_OK)
+
+@require_http_methods(["GET"])
+def user_view(request):
+    """Get current authenticated user data"""
+    print(f"User endpoint called. Authenticated: {request.user.is_authenticated}")
+
+    if request.user.is_authenticated:
+        user_data = {
+            'id': request.user.id,
+            'username': request.user.username,
+            'email': request.user.email,
+            'role': request.user.role,
+            'is_staff': request.user.is_staff,
+            'is_superuser': request.user.is_superuser,
+        }
+        print(f"Returning user data for {request.user.username}")
+        return JsonResponse(user_data)
+    else:
+        print("User not authenticated")
+        return JsonResponse({
+            'error': 'Not authenticated'
+        }, status=401)
 
 
-# NEW: API-based Signup View
-class SignupAPIView(APIView):
-    permission_classes = [AllowAny]
+@require_http_methods(["POST"])
+def signup_view(request):
+    """Handle user registration"""
+    try:
+        data = json.loads(request.body)
+        username = data.get('username')
+        email = data.get('email')
+        password = data.get('password')
 
-    def post(self, request):
-        from django.contrib.auth.password_validation import validate_password
-        from django.core.exceptions import ValidationError
+        print(f"Signup attempt for username: {username}")
 
-        username = request.data.get('username')
-        email = request.data.get('email')
-        first_name = request.data.get('first_name', '')
-        last_name = request.data.get('last_name', '')
-        password1 = request.data.get('password1')
-        password2 = request.data.get('password2')
-
-        # Validation
-        if not username or not email or not password1 or not password2:
-            return Response(
-                {'detail': 'All required fields must be filled'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        if password1 != password2:
-            return Response(
-                {'detail': 'Passwords do not match'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        # Check if username exists
-        from .models import User
         if User.objects.filter(username=username).exists():
-            return Response(
-                {'detail': 'Username already exists'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return JsonResponse({
+                'success': False,
+                'error': 'Username already exists'
+            }, status=400)
 
         if User.objects.filter(email=email).exists():
-            return Response(
-                {'detail': 'Email already exists'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return JsonResponse({
+                'success': False,
+                'error': 'Email already exists'
+            }, status=400)
 
-        # Validate password strength
-        try:
-            validate_password(password1)
-        except ValidationError as e:
-            return Response(
-                {'detail': ' '.join(e.messages)},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        # Create user
         user = User.objects.create_user(
             username=username,
             email=email,
-            first_name=first_name,
-            last_name=last_name,
-            password=password1,
-            role=UserRole.GUEST
+            password=password
         )
 
-        return Response(
-            {'detail': 'User created successfully'},
-            status=status.HTTP_201_CREATED
-        )
+        print(f"✓ User created: {username}, role: {user.role}")
+
+        auth_login(request, user)
+
+        user_data = {
+            'id': user.id,
+            'username': user.username,
+            'email': user.email,
+            'role': user.role,
+            'is_staff': user.is_staff,
+        }
+
+        return JsonResponse({
+            'success': True,
+            'user': user_data
+        })
+
+    except Exception as e:
+        print(f"Signup error: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
 
 
-@method_decorator(csrf_exempt, name='dispatch')
-class SignUpView(generic.CreateView):
-    form_class = GuestSignUpForm
-    success_url = reverse_lazy('accounts:login')
-    template_name = 'accounts/signup.html'
-
-
-class HomeView(generic.TemplateView):
-    template_name = 'home.html'
-
-
-def custom_login_view(request):
-    if request.method == 'POST':
-        form = AuthenticationForm(request, data=request.POST)
-        if form.is_valid():
-            username = form.cleaned_data.get('username')
-            password = form.cleaned_data.get('password')
-            user = authenticate(username=username, password=password)
-            if user is not None:
-                login(request, user)
-
-                if user.role in [UserRole.SUPERADMIN, UserRole.STAFF_ADMIN] or user.is_superuser:
-                    return redirect('dashboard:staff_dashboard')
-                elif user.role == UserRole.CLIENT:
-                    return redirect('dashboard:client_dashboard')
-                else:
-                    return redirect('dashboard:guest_dashboard')
-    else:
-        form = AuthenticationForm()
-
-    return render(request, 'accounts/login.html', {'form': form})
-
-
-class CurrentUserAPIView(APIView):
-    permission_classes = [AllowAny]  # Changed from IsAuthenticated
-
-    def get(self, request):
-        if request.user.is_authenticated:
-            serializer = UserSerializer(request.user)
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        else:
-            return Response(None, status=status.HTTP_200_OK)
+@ensure_csrf_cookie
+def csrf_view(request):
+    """Get CSRF token"""
+    return JsonResponse({'detail': 'CSRF cookie set'})

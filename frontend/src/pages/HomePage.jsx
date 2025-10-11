@@ -1,119 +1,151 @@
-import { Link } from 'react-router-dom';
+// frontend/src/pages/HomePage.jsx
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Database, Users, TrendingUp, Shield } from 'lucide-react';
 
 const HomePage = () => {
-  const { isAuthenticated, user, logout } = useAuth();
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
 
-  const getDashboardLink = () => {
-    if (user?.role === 'SUPERADMIN' || user?.role === 'STAFF_ADMIN') {
-      return '/dashboard';
+  // Function to get the correct dashboard URL based on user role
+  const getDashboardUrl = () => {
+    if (!user) return '/login';
+
+    switch (user.role) {
+      case 'SUPERADMIN':
+      case 'STAFF_ADMIN':
+        return '/staff-dashboard';
+      case 'CLIENT':
+        return '/client-dashboard';
+      case 'GUEST':
+        return '/guest-dashboard';
+      default:
+        return '/guest-dashboard';
     }
-    if (user?.role === 'CLIENT') {
-      return '/dashboard/client';
-    }
-    if (user?.role === 'GUEST') {
-      return '/dashboard/guest';
-    }
-    return '/';
+  };
+
+  const handleDashboardClick = () => {
+    const dashboardUrl = getDashboardUrl();
+    console.log('Navigating to:', dashboardUrl, 'User role:', user?.role);
+    navigate(dashboardUrl);
+  };
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login');
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
-      <header className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex justify-between items-center">
+    <div className="min-h-screen bg-gray-50">
+      {/* Navigation */}
+      <nav className="bg-white shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
             <div className="flex items-center gap-2">
               <Database className="w-8 h-8 text-blue-600" />
-              <h1 className="text-2xl font-bold text-gray-900">Zeugma Research</h1>
+              <span className="text-xl font-bold text-gray-900">Zeugma Research</span>
             </div>
 
             <div className="flex items-center gap-4">
-              {isAuthenticated ? (
+              {user ? (
                 <>
                   <span className="text-sm text-gray-600">
-                    Hello, <span className="font-medium">{user?.username}</span>
+                    Hello, <span className="font-semibold">{user.username}</span>
                   </span>
-                  <Link to={getDashboardLink()} className="btn-primary">
+                  <button
+                    onClick={handleDashboardClick}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
                     Dashboard
-                  </Link>
-                  <button onClick={logout} className="btn-secondary">
+                  </button>
+                  <button
+                    onClick={handleLogout}
+                    className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                  >
                     Log Out
                   </button>
                 </>
               ) : (
                 <>
-                  <Link to="/login" className="btn-secondary">
+                  <button
+                    onClick={() => navigate('/login')}
+                    className="px-4 py-2 text-gray-700 hover:text-gray-900"
+                  >
                     Log In
-                  </Link>
-                  <Link to="/signup" className="btn-primary">
+                  </button>
+                  <button
+                    onClick={() => navigate('/signup')}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
                     Sign Up
-                  </Link>
+                  </button>
                 </>
               )}
             </div>
           </div>
         </div>
-      </header>
+      </nav>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-        <div className="text-center mb-16">
-          <h2 className="text-5xl font-bold text-gray-900 mb-4">
+      {/* Hero Section */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+        <div className="text-center">
+          <h1 className="text-5xl font-bold text-gray-900 mb-4">
             Global Plastic Industry Database
-          </h2>
-          <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+          </h1>
+          <p className="text-xl text-gray-600 mb-8">
             Access comprehensive data on plastic manufacturers, processors, and suppliers worldwide
           </p>
-
-          {!isAuthenticated && (
-            <div className="mt-8 flex justify-center gap-4">
-              <Link to="/signup" className="btn-primary text-lg px-8 py-3">
-                Get Started
-              </Link>
-              <Link to="/login" className="btn-secondary text-lg px-8 py-3">
-                Log In
-              </Link>
-            </div>
-          )}
         </div>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8 mt-16">
-          <div className="card text-center">
+        {/* Features */}
+        <div className="grid md:grid-cols-4 gap-6 mt-12">
+          <div className="bg-white p-6 rounded-lg shadow-sm text-center">
             <Database className="w-12 h-12 text-blue-600 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Comprehensive Data</h3>
-            <p className="text-gray-600 text-sm">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              Comprehensive Data
+            </h3>
+            <p className="text-sm text-gray-600">
               Access detailed information on manufacturers across 10 categories
             </p>
           </div>
 
-          <div className="card text-center">
+          <div className="bg-white p-6 rounded-lg shadow-sm text-center">
             <Users className="w-12 h-12 text-blue-600 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Global Coverage</h3>
-            <p className="text-gray-600 text-sm">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              Global Coverage
+            </h3>
+            <p className="text-sm text-gray-600">
               Companies from every major plastics-producing region worldwide
             </p>
           </div>
 
-          <div className="card text-center">
+          <div className="bg-white p-6 rounded-lg shadow-sm text-center">
             <TrendingUp className="w-12 h-12 text-blue-600 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Advanced Filtering</h3>
-            <p className="text-gray-600 text-sm">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              Advanced Filtering
+            </h3>
+            <p className="text-sm text-gray-600">
               Powerful search and filter tools to find exactly what you need
             </p>
           </div>
 
-          <div className="card text-center">
+          <div className="bg-white p-6 rounded-lg shadow-sm text-center">
             <Shield className="w-12 h-12 text-blue-600 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Secure & Reliable</h3>
-            <p className="text-gray-600 text-sm">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              Secure & Reliable
+            </h3>
+            <p className="text-sm text-gray-600">
               Enterprise-grade security with subscription-based access control
             </p>
           </div>
         </div>
 
+        {/* Categories */}
         <div className="mt-16">
-          <h3 className="text-2xl font-bold text-center mb-8">Database Categories</h3>
-          <div className="grid md:grid-cols-2 lg:grid-cols-5 gap-4">
+          <h2 className="text-3xl font-bold text-gray-900 text-center mb-8">
+            Database Categories
+          </h2>
+          <div className="grid md:grid-cols-5 gap-4">
             {[
               'Injection Moulders',
               'Blow Moulders',
@@ -124,23 +156,18 @@ const HomePage = () => {
               'Tube & Hose Extruders',
               'Profile Extruders',
               'Cable Extruders',
-              'Compounders',
+              'Compounders'
             ].map((category) => (
-              <div key={category} className="card text-center py-4 hover:shadow-md transition-shadow">
+              <div
+                key={category}
+                className="bg-white p-4 rounded-lg shadow-sm text-center hover:shadow-md transition-shadow cursor-pointer"
+              >
                 <p className="font-medium text-gray-900">{category}</p>
               </div>
             ))}
           </div>
         </div>
-      </main>
-
-      <footer className="bg-white border-t mt-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <p className="text-center text-gray-600">
-            © 2025 Zeugma Research. All rights reserved.
-          </p>
-        </div>
-      </footer>
+      </div>
     </div>
   );
 };

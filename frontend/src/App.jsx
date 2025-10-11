@@ -1,90 +1,75 @@
-import SuperdatabasePage from './pages/SuperdatabasePage';
+// frontend/src/App.jsx
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { useAuth } from './contexts/AuthContext';
-import LoadingSpinner from './components/LoadingSpinner';
+import { AuthProvider } from './contexts/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 
-// Auth pages
+// Import pages
+import HomePage from './pages/HomePage';
 import LoginPage from './pages/auth/LoginPage';
 import SignupPage from './pages/auth/SignupPage';
-
-// Dashboard pages
 import StaffDashboard from './pages/dashboards/StaffDashboard';
 import ClientDashboard from './pages/dashboards/ClientDashboard';
 import GuestDashboard from './pages/dashboards/GuestDashboard';
-
-// Database page
-import DatabasePage from './pages/DatabasePage';
-
-// Public pages
-import HomePage from './pages/HomePage';
+import SuperdatabasePage from './pages/SuperdatabasePage';
+import WidgetManagement from './pages/dashboards/WidgetManagement';
 
 function App() {
-  const { loading } = useAuth();
-
-  if (loading) {
-    return <LoadingSpinner fullScreen />;
-  }
-
   return (
-    <Routes>
-      {/* Public routes */}
-      <Route path="/" element={<HomePage />} />
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/signup" element={<SignupPage />} />
+    <AuthProvider>
+      <Routes>
+        {/* Public routes */}
+        <Route path="/" element={<HomePage />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/signup" element={<SignupPage />} />
 
-      {/* Protected Staff Dashboard */}
-      <Route
-        path="/dashboard"
-        element={
-          <ProtectedRoute requiredRole={['SUPERADMIN', 'STAFF_ADMIN']}>
-            <StaffDashboard />
-          </ProtectedRoute>
-        }
-      />
+        {/* Protected routes */}
+        <Route
+          path="/staff-dashboard"
+          element={
+            <ProtectedRoute>
+              <StaffDashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/client-dashboard"
+          element={
+            <ProtectedRoute>
+              <ClientDashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/guest-dashboard"
+          element={
+            <ProtectedRoute>
+              <GuestDashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/superdatabase"
+          element={
+            <ProtectedRoute>
+              <SuperdatabasePage />
+            </ProtectedRoute>
+          }
+        />
 
-      <Route
-        path="/superdatabase"
-        element={
-          <ProtectedRoute requiredRole={['SUPERADMIN', 'STAFF_ADMIN']}>
-            <SuperdatabasePage />
-          </ProtectedRoute>
-        }
-      />
+        {/* Widget Management route */}
+        <Route
+          path="/widget-management"
+          element={
+            <ProtectedRoute>
+              <WidgetManagement />
+            </ProtectedRoute>
+          }
+        />
 
-      {/* Protected Client Dashboard */}
-      <Route
-        path="/dashboard/client"
-        element={
-          <ProtectedRoute requiredRole="CLIENT">
-            <ClientDashboard />
-          </ProtectedRoute>
-        }
-      />
-
-      {/* Protected Guest Dashboard */}
-      <Route
-        path="/dashboard/guest"
-        element={
-          <ProtectedRoute requiredRole="GUEST">
-            <GuestDashboard />
-          </ProtectedRoute>
-        }
-      />
-
-      {/* Database Page - Accessible to all authenticated users */}
-      <Route
-        path="/database"
-        element={
-          <ProtectedRoute requiredRole={['SUPERADMIN', 'STAFF_ADMIN', 'CLIENT', 'GUEST']}>
-            <DatabasePage />
-          </ProtectedRoute>
-        }
-      />
-
-      {/* Catch all - redirect to home */}
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+        {/* Catch all */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </AuthProvider>
   );
 }
 

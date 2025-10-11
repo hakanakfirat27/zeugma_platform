@@ -98,20 +98,19 @@ const RecordDetailModal = ({ factoryId, onClose, isGuest }) => {
                     {renderField('Phone Number', record?.phone_number)}
                     {renderField('Email', record?.company_email)}
 
-                    {!isGuest && record?.website && (
+                    {record?.website && (
                       <div className="py-3 border-b">
                         <dt className="text-sm font-medium text-gray-500 mb-1">Website</dt>
                         <dd className="text-sm">
-
+                          <a
                             href={record.website}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-blue-600 hover:text-blue-700 flex items-center gap-1"
                           >
-                          className="text-blue-600 hover:text-blue-700 flex items-center gap-1">
                             {record.website}
                             <ExternalLink className="w-4 h-4" />
-
+                          </a>
                         </dd>
                       </div>
                     )}
