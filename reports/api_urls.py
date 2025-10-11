@@ -1,5 +1,6 @@
 
 from django.urls import path, include
+from . import views
 from rest_framework.routers import DefaultRouter
 from .views import (
     SuperdatabaseRecordListAPIView,
@@ -10,6 +11,7 @@ from .views import (
     DatabaseStatsAPIView,
     DashboardWidgetViewSet,
     EnabledWidgetsAPIView,
+
 )
 
 # Create a router for ViewSets
@@ -24,7 +26,8 @@ urlpatterns = [
     path('dashboard-stats/', EnhancedDashboardStatsAPIView.as_view(), name='api-enhanced-dashboard-stats'),
     path('filter-options/', FilterOptionsAPIView.as_view(), name='api-filter-options'),
     path('database-stats/', DatabaseStatsAPIView.as_view(), name='api-database-stats'),
-
+    path('dashboard/stats/', views.dashboard_stats, name='dashboard_stats'),
+    path('widgets/update_order/', views.update_widget_order, name='update_widget_order'),
     # Widget management endpoints
     path('enabled-widgets/', EnabledWidgetsAPIView.as_view(), name='api-enabled-widgets'),
     path('', include(router.urls)),  # This adds all widget CRUD endpoints

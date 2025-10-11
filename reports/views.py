@@ -1,11 +1,14 @@
 from django.db.models import Count, Q
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
+from django.contrib.auth import get_user_model
 
 from .models import CustomReport, SuperdatabaseRecord, Subscription, DashboardWidget
 from accounts.models import User, UserRole
 
 from rest_framework import generics, viewsets, status
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -20,6 +23,147 @@ from .fields import (
     INJECTION_FIELDS, BLOW_FIELDS, ROTO_FIELDS, PE_FILM_FIELDS, SHEET_FIELDS,
     PIPE_FIELDS, TUBE_HOSE_FIELDS, PROFILE_FIELDS, CABLE_FIELDS, COMPOUNDER_FIELDS, ALL_COMMONS
 )
+
+User = get_user_model()
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def dashboard_stats(request):
+    """Return REAL dashboard statistics from database"""
+    try:
+        from .models import SuperDatabaseRecord
+
+        now = timezone.now()
+        thirty_days_ago = now - timedelta(days=30)
+        sixty_days_ago = now - timedelta(days=60)
+
+        # Count records
+        total_records = SuperDatabaseRecord.objects.count()
+
+        # Count users by type
+        total_clients = User.objects.filter(user_type='CLIENT').count()
+        staff_members = User.objects.filter(user_type='STAFF').count()
+        guest_users = User.objects.filter(user_type='GUEST').count()
+
+        # Recent records
+        try:
+            recent_records = SuperDatabaseRecord.objects.filter(
+                created_at__gte=thirty_days_ago
+            ).count()
+        except:
+            recent_records = 0
+
+        # Recent activity
+        try:
+            recent_activity = SuperDatabaseRecord.objects.filter(
+                updated_at__gte=thirty_days_ago
+            ).count()
+        except:
+            recent_activity = recent_records
+
+        # New clients this month
+        new_clients = User.objects.filter(
+            user_type='CLIENT',
+            date_joined__gte=thirty_days_ago
+        ).count()
+
+        # Conversion rate
+        converted_clients = User.objects.filter(
+            user_type='CLIENT',
+            date_joined__gte=thirty_days_ago
+        ).count()
+
+        previous_converted = User.objects.filter(
+            user_type='CLIENT',
+            date_joined__gte=sixty_days_ago,
+            date_joined__lt=thirty_days_ago
+        ).count()
+
+        previous_guests = User.objects.filter(
+            user_type='GUEST',
+            date_joined__gte=sixty_days_ago,
+            date_joined__lt=thirty_days_ago
+        ).count()
+
+        previous_conversion_rate = (
+            (previous_converted / previous_guests * 100)
+            if previous_guests > 0 else 0
+        )
+
+        stats = {
+            'total_records': total_records,
+            'total_clients': total_clients,
+            'staff_members': staff_members,
+            'guest_users': guest_users,
+            'recent_records': recent_records,
+            'recent_activity': recent_activity,
+            'new_clients': new_clients,
+            'converted_clients': converted_clients,
+            'previous_conversion_rate': round(previous_conversion_rate, 1),
+            'custom_reports': 0,
+            'active_subscriptions': 0,
+            'total_subscriptions': 0,
+        }
+
+        return Response(stats)
+
+    except Exception as e:
+        print(f"Error: {str(e)}")
+        return Response({
+            'total_records': 0,
+            'total_clients': 0,
+            'staff_members': 0,
+            'guest_users': 0,
+            'recent_records': 0,
+            'recent_activity': 0,
+            'new_clients': 0,
+            'converted_clients': 0,
+            'previous_conversion_rate': 0,
+            'custom_reports': 0,
+            'active_subscriptions': 0,
+            'total_subscriptions': 0,
+        })
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def update_widget_order(request):
+    """
+    Update the display order of widgets
+    """
+    try:
+        from .models import DashboardWidget
+
+        widgets_data = request.data.get('widgets', [])
+
+        if not widgets_data:
+            return Response(
+                {'error': 'No widget data provided'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Update each widget's display_order
+        for widget_data in widgets_data:
+            widget_id = widget_data.get('id')
+            display_order = widget_data.get('display_order')
+
+            if widget_id and display_order is not None:
+                DashboardWidget.objects.filter(id=widget_id).update(
+                    display_order=display_order
+                )
+
+        return Response({
+            'success': True,
+            'message': f'Updated order for {len(widgets_data)} widgets'
+        })
+
+    except Exception as e:
+        return Response(
+            {'error': str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
 
 
 # --- Dashboard Stats APIView Class ---
