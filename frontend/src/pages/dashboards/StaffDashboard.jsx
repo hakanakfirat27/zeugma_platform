@@ -267,39 +267,7 @@ const StaffDashboard = () => {
 
             {/* Action Buttons */}
             <div className="flex items-center gap-3">
-              {/* DARK MODE - LEFT of Lock */}
-              <button
-                onClick={() => {
-                  // Toggle using parent's state through localStorage and event
-                  const currentDark = localStorage.getItem('darkMode') === 'true';
-                  const newDark = !currentDark;
-                  localStorage.setItem('darkMode', newDark.toString());
 
-                  // Toggle the class immediately
-                  if (newDark) {
-                    document.documentElement.classList.add('dark');
-                  } else {
-                    document.documentElement.classList.remove('dark');
-                  }
-
-                  // Trigger state update in DashboardLayout
-                  window.dispatchEvent(new Event('storage'));
-                }}
-                className="px-4 py-2.5 bg-white/10 hover:bg-white/20 backdrop-blur-sm rounded-lg transition-all flex items-center gap-2 font-medium"
-                title="Toggle Dark Mode"
-              >
-                {document.documentElement.classList.contains('dark') ? (
-                  <>
-                    <Sun className="w-4 h-4" />
-                    <span className="hidden sm:inline">Light</span>
-                  </>
-                ) : (
-                  <>
-                    <Moon className="w-4 h-4" />
-                    <span className="hidden sm:inline">Dark</span>
-                  </>
-                )}
-              </button>
 
               {/* LOCK BUTTON */}
               <button

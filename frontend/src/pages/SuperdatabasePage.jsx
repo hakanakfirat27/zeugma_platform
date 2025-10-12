@@ -12,7 +12,7 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import api from '../utils/api';
 import FilterSidebar from '../components/database/FilterSidebar';
 
-  const SuperdatabasePage = () => {
+const SuperdatabasePage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [selectedCategory, setSelectedCategory] = useState('ALL');

@@ -141,11 +141,7 @@ const LoginPage = () => {
           </p>
         </div>
 
-        {/* Debug Info */}
-        <div className="mt-4 p-3 bg-gray-800 text-green-400 rounded text-xs font-mono">
-          <p>✓ Backend: Running on port 8000</p>
-          <p>✓ Check Console (F12) for logs</p>
-        </div>
+
       </div>
     </div>
   );
