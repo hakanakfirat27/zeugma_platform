@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Settings, RefreshCw, Lock, Unlock, Download, GripVertical } from 'lucide-react';
+import { Settings, RefreshCw, Lock, Unlock, Download, GripVertical, Moon, Sun } from 'lucide-react';
 import {
   DndContext,
   closestCenter,
@@ -116,7 +116,7 @@ const StaffDashboard = () => {
       setWidgets(enabledWidgets);
 
       try {
-        const statsResponse = await api.get('/api/dashboard/stats/');
+        const statsResponse = await api.get('/api/dashboard/');
         setStats(statsResponse.data);
       } catch (statsError) {
         console.log('Stats endpoint not available, using default data');
@@ -243,6 +243,7 @@ const StaffDashboard = () => {
   return (
     <DashboardLayout>
       {/* Enhanced Header */}
+{/* Header */}
       <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white px-8 py-8 shadow-lg">
         <div className="max-w-7xl mx-auto">
           <div className="flex items-center justify-between">
@@ -266,6 +267,41 @@ const StaffDashboard = () => {
 
             {/* Action Buttons */}
             <div className="flex items-center gap-3">
+              {/* DARK MODE - LEFT of Lock */}
+              <button
+                onClick={() => {
+                  // Toggle using parent's state through localStorage and event
+                  const currentDark = localStorage.getItem('darkMode') === 'true';
+                  const newDark = !currentDark;
+                  localStorage.setItem('darkMode', newDark.toString());
+
+                  // Toggle the class immediately
+                  if (newDark) {
+                    document.documentElement.classList.add('dark');
+                  } else {
+                    document.documentElement.classList.remove('dark');
+                  }
+
+                  // Trigger state update in DashboardLayout
+                  window.dispatchEvent(new Event('storage'));
+                }}
+                className="px-4 py-2.5 bg-white/10 hover:bg-white/20 backdrop-blur-sm rounded-lg transition-all flex items-center gap-2 font-medium"
+                title="Toggle Dark Mode"
+              >
+                {document.documentElement.classList.contains('dark') ? (
+                  <>
+                    <Sun className="w-4 h-4" />
+                    <span className="hidden sm:inline">Light</span>
+                  </>
+                ) : (
+                  <>
+                    <Moon className="w-4 h-4" />
+                    <span className="hidden sm:inline">Dark</span>
+                  </>
+                )}
+              </button>
+
+              {/* LOCK BUTTON */}
               <button
                 onClick={toggleLock}
                 className={`px-4 py-2.5 backdrop-blur-sm rounded-lg transition-all flex items-center gap-2 font-medium ${
@@ -306,7 +342,6 @@ const StaffDashboard = () => {
             </div>
           </div>
 
-          {/* Saving Indicator */}
           {isSaving && (
             <div className="mt-3 flex items-center gap-2 text-indigo-100 text-sm">
               <RefreshCw className="w-4 h-4 animate-spin" />

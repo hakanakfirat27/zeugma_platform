@@ -125,6 +125,7 @@ def dashboard_stats(request):
             'total_subscriptions': 0,
         })
 
+
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def update_widget_order(request):
@@ -164,21 +165,137 @@ def update_widget_order(request):
         )
 
 
-
-
 # --- Dashboard Stats APIView Class ---
 class DashboardStatsAPIView(APIView):
     """
-    An API view to provide summary statistics for the dashboard homepage.
+    Returns REAL dashboard statistics - NO MOCK DATA
     """
     permission_classes = [IsAuthenticated]
 
     def get(self, request, format=None):
-        client_count = User.objects.filter(role=UserRole.CLIENT).count()
-        report_count = CustomReport.objects.count()
-        data = {'total_clients': client_count, 'total_reports': report_count}
-        return Response(data)
+        now = timezone.now()
+        thirty_days_ago = now - timedelta(days=30)
 
+        # REAL counts from database
+        total_records = SuperdatabaseRecord.objects.count()
+        total_clients = User.objects.filter(role=UserRole.CLIENT).count()
+        total_staff = User.objects.filter(role=UserRole.STAFF_ADMIN).count()
+        total_guests = User.objects.filter(role=UserRole.GUEST).count()
+        total_reports = CustomReport.objects.count()
+
+        # Real active subscriptions count
+        today = timezone.now().date()
+        active_subscriptions = Subscription.objects.filter(
+            start_date__lte=today,
+            end_date__gte=today
+        ).count()
+
+        # Recent records added in last 30 days
+        recent_records = SuperdatabaseRecord.objects.filter(
+            date_added__gte=thirty_days_ago
+        ).count()
+
+        # Recent activity (updated records in last 30 days)
+        recent_activity = SuperdatabaseRecord.objects.filter(
+            last_updated__gte=thirty_days_ago
+        ).count()
+
+        # New clients in last 30 days
+        new_clients = User.objects.filter(
+            role=UserRole.CLIENT,
+            date_joined__gte=thirty_days_ago
+        ).count()
+
+        # Staff members count
+        staff_members = User.objects.filter(role=UserRole.STAFF_ADMIN).count()
+
+        # Guest users count
+        guest_users = User.objects.filter(role=UserRole.GUEST).count()
+
+        # Records by category - REAL DATA
+        records_by_category = list(
+            SuperdatabaseRecord.objects.values('category')
+            .annotate(count=Count('id'))
+            .order_by('-count')
+        )
+
+        category_labels = []
+        category_data = []
+        for item in records_by_category:
+            try:
+                from .models import CompanyCategory
+                category_display = dict(CompanyCategory.choices).get(
+                    item['category'],
+                    item['category']
+                )
+            except:
+                category_display = item['category']
+
+            category_labels.append(category_display)
+            category_data.append(item['count'])
+
+        # Top countries - REAL DATA
+        top_countries = list(
+            SuperdatabaseRecord.objects.values('country')
+            .annotate(count=Count('id'))
+            .filter(country__isnull=False, country__gt='')
+            .order_by('-count')[:10]
+        )
+
+        # Top materials - REAL DATA
+        material_fields = ['hdpe', 'ldpe', 'pp', 'pvc', 'pet', 'pa', 'abs', 'ps']
+        materials_data = []
+        for field in material_fields:
+            count = SuperdatabaseRecord.objects.filter(**{field: True}).count()
+            if count > 0:
+                materials_data.append({
+                    'name': field.upper(),
+                    'count': count
+                })
+        materials_data = sorted(materials_data, key=lambda x: x['count'], reverse=True)[:8]
+
+        # Monthly trend - REAL DATA (last 6 months)
+        monthly_data = []
+        for i in range(5, -1, -1):
+            month_start = timezone.now().replace(day=1) - timedelta(days=30 * i)
+            month_end = (month_start + timedelta(days=32)).replace(day=1)
+
+            count = SuperdatabaseRecord.objects.filter(
+                date_added__gte=month_start,
+                date_added__lt=month_end
+            ).count()
+
+            monthly_data.append({
+                'month': month_start.strftime('%b'),
+                'count': count
+            })
+
+        return Response({
+            # Overview stats - ALL REAL
+            'total_records': total_records,
+            'total_clients': total_clients,
+            'total_staff': total_staff,
+            'staff_members': staff_members,
+            'total_guests': total_guests,
+            'guest_users': guest_users,
+            'total_reports': total_reports,
+            'custom_reports': total_reports,
+            'active_subscriptions': active_subscriptions,
+
+            # Activity stats - ALL REAL
+            'recent_records': recent_records,
+            'recent_activity': recent_activity,
+            'new_clients': new_clients,
+
+            # Chart data - ALL REAL
+            'records_by_category': {
+                'labels': category_labels,
+                'data': category_data
+            },
+            'top_countries': top_countries,
+            'top_materials': materials_data,
+            'monthly_trend': monthly_data,
+        })
 
 # --- Superdatabase Record List APIView Class ---
 class SuperdatabaseRecordListAPIView(generics.ListAPIView):

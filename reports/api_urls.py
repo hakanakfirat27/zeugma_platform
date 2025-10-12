@@ -23,10 +23,13 @@ urlpatterns = [
     path('records/', SuperdatabaseRecordListAPIView.as_view(), name='api-record-list'),
     path('records/<uuid:factory_id>/', SuperdatabaseRecordDetailAPIView.as_view(), name='api-record-detail'),
     path('stats/', DashboardStatsAPIView.as_view(), name='api-dashboard-stats'),
+    path('dashboard/', DashboardStatsAPIView.as_view(), name='dashboard-stats'),
     path('dashboard-stats/', EnhancedDashboardStatsAPIView.as_view(), name='api-enhanced-dashboard-stats'),
+    # Superdatabase endpoints
+    path('superdatabase/', SuperdatabaseRecordListAPIView.as_view(), name='superdatabase-list'),
+    path('superdatabase/<uuid:factory_id>/', SuperdatabaseRecordDetailAPIView.as_view(), name='superdatabase-detail'),
     path('filter-options/', FilterOptionsAPIView.as_view(), name='api-filter-options'),
     path('database-stats/', DatabaseStatsAPIView.as_view(), name='api-database-stats'),
-    path('dashboard/stats/', views.dashboard_stats, name='dashboard_stats'),
     path('widgets/update_order/', views.update_widget_order, name='update_widget_order'),
     # Widget management endpoints
     path('enabled-widgets/', EnabledWidgetsAPIView.as_view(), name='api-enabled-widgets'),
