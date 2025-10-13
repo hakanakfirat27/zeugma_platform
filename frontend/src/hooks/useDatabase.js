@@ -1,4 +1,6 @@
-import { useQuery } from '@tanstack/react-query';
+// frontend/src/hooks/useDatabase.js
+
+import { useQuery, keepPreviousData } from '@tanstack/react-query'; // <-- IMPORT keepPreviousData
 import api from '../utils/api';
 
 export const useRecords = (filters) => {
@@ -32,7 +34,7 @@ export const useRecords = (filters) => {
       // FIXED: Add boolean filters - Handle both true AND false
       Object.keys(filters).forEach(key => {
         // Skip already handled filters
-        if (['category', 'search', 'page', 'page_size', 'ordering'].includes(key)) {
+        if (['category', 'search', 'page', 'page_size', 'ordering', 'countries'].includes(key)) { // Added 'countries' to skip list
           return;
         }
 
@@ -45,7 +47,10 @@ export const useRecords = (filters) => {
       const response = await api.get(`/api/records/?${params.toString()}`);
       return response.data;
     },
-    keepPreviousData: true,
+    // --- THIS IS THE FIX ---
+    // This tells React Query to show the previous page's data
+    // as a placeholder while the new page is loading.
+    placeholderData: keepPreviousData,
   });
 };
 

@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Database, LogOut, Moon, Sun } from 'lucide-react';
+import { LayoutDashboard, Database, LogOut, Moon, Sun, Maximize, Minimize } from 'lucide-react';
 
 const DashboardLayout = ({ children }) => {
   const { user, logout } = useAuth();
@@ -20,7 +20,9 @@ const DashboardLayout = ({ children }) => {
     return false;
   });
 
-  // Apply dark mode class to document
+  // --- ADDED: State for fullscreen mode ---
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
   useEffect(() => {
     if (darkMode) {
       document.documentElement.classList.add('dark');
@@ -30,8 +32,32 @@ const DashboardLayout = ({ children }) => {
     localStorage.setItem('darkMode', darkMode.toString());
   }, [darkMode]);
 
+  // --- ADDED: useEffect to sync with browser's fullscreen state ---
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(Boolean(document.fullscreenElement));
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
+
+
   const toggleDarkMode = () => {
     setDarkMode(prev => !prev);
+  };
+
+
+  // --- ADDED: Function to toggle browser fullscreen mode ---
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(err => {
+        console.error(`Error attempting to enable full-screen mode: ${err.message} (${err.name})`);
+      });
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      }
+    }
   };
 
   const isActive = (path) => {
@@ -126,6 +152,16 @@ const DashboardLayout = ({ children }) => {
 
         {/* Bottom Section */}
         <div className={`p-4 border-t space-y-2 ${darkMode ? 'border-gray-800' : 'border-gray-700'}`}>
+
+          {/* --- ADDED: Fullscreen Button --- */}
+          <button
+            onClick={toggleFullscreen}
+            className={`w-full flex items-center gap-3 px-3 py-3 rounded-lg transition-all ${darkMode ? 'text-gray-300 hover:bg-gray-900 hover:text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
+          >
+            {isFullscreen ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
+            <span className="font-medium">{isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}</span>
+          </button>
+
           {/* Dark Mode Toggle */}
           <button
             onClick={toggleDarkMode}

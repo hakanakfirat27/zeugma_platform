@@ -6,6 +6,7 @@ import {
   flexRender,
 } from '@tanstack/react-table';
 import { ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react';
+import { CheckCircle, MinusCircle, Search, Edit, Trash, Download, Filter, Eye } from 'lucide-react'; // Changed X to MinusCircle, Check to CheckCircle
 
 // Inlined to resolve import issues
 const CATEGORY_COLORS = {

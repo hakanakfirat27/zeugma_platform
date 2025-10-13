@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useRecords, useFilterOptions } from '../hooks/useDatabase';
 import { exportToExcel, exportSelectedRecords } from '../utils/excelExport';
 import FilterSidebar from '../components/database/FilterSidebar';
+import Pagination from '../components/database/Pagination';
 
 const CATEGORIES = [
   { value: 'ALL', label: 'All Categories' },
@@ -448,21 +449,19 @@ const EnhancedDatabasePage = () => {
           </div>
 
           {/* Pagination */}
-          {!recordsLoading && displayRecords.length > 0 && !isGuest && (
-            <div className="border-t px-6 py-4 flex items-center justify-between">
-              <div className="text-sm text-gray-700">
-                Showing <strong>1</strong> to <strong>{displayRecords.length}</strong> of{' '}
-                <strong>{totalCount}</strong> results
-              </div>
-              <div className="flex items-center gap-2">
-                <button className="px-3 py-1 border rounded hover:bg-gray-50">Previous</button>
-                <button className="px-3 py-1 bg-blue-600 text-white rounded">1</button>
-                <button className="px-3 py-1 border rounded hover:bg-gray-50">2</button>
-                <button className="px-3 py-1 border rounded hover:bg-gray-50">3</button>
-                <button className="px-3 py-1 border rounded hover:bg-gray-50">Next</button>
-              </div>
-            </div>
-          )}
+        {!recordsLoading && totalCount > 0 && !isGuest && (
+            <Pagination
+                currentPage={currentPage}
+                totalPages={Math.ceil(totalCount / pageSize)}
+                totalCount={totalCount}
+                pageSize={pageSize}
+                onPageChange={setCurrentPage}
+                onPageSizeChange={(size) => {
+                    setPageSize(size);
+                    setCurrentPage(1); // Reset to page 1 when size changes
+                }}
+            />
+        )}
         </div>
       </div>
 
