@@ -1,5 +1,4 @@
 // frontend/src/pages/dashboards/StaffDashboard.jsx
-// COMPACT LAYOUT VERSION - Widgets stay together
 
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -47,14 +46,9 @@ const SortableWidget = ({ widget, stats, onRefresh, isLocked }) => {
     <div
       ref={setNodeRef}
       style={style}
-      className={`
-        mb-6
-        ${isDragging ? 'z-50 cursor-grabbing' : ''}
-        ${!isLocked ? 'cursor-grab' : ''}
-      `}
+      className={`mb-6 ${isDragging ? 'z-50 cursor-grabbing' : ''} ${!isLocked ? 'cursor-grab' : ''}`}
     >
       <div className="relative group">
-        {/* Drag Handle - Only visible when unlocked */}
         {!isLocked && (
           <div
             {...attributes}
@@ -65,13 +59,8 @@ const SortableWidget = ({ widget, stats, onRefresh, isLocked }) => {
             <GripVertical className="w-5 h-5 text-gray-600" />
           </div>
         )}
-
         <div className={!isLocked ? 'pointer-events-none' : ''}>
-          <WidgetRenderer
-            widget={widget}
-            stats={stats}
-            onRefresh={onRefresh}
-          />
+          <WidgetRenderer widget={widget} stats={stats} onRefresh={onRefresh} />
         </div>
       </div>
     </div>
@@ -87,6 +76,23 @@ const StaffDashboard = () => {
   const [isLocked, setIsLocked] = useState(true);
   const [activeId, setActiveId] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [darkMode, setDarkMode] = useState(false);
+
+  useEffect(() => {
+    const root = window.document.documentElement;
+    if (darkMode) {
+      root.classList.add('dark');
+    } else {
+      root.classList.remove('dark');
+    }
+    return () => {
+      root.classList.remove('dark');
+    };
+  }, [darkMode]);
+
+  const toggleDarkMode = () => {
+    setDarkMode(prev => !prev);
+  };
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -106,15 +112,11 @@ const StaffDashboard = () => {
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
-
       const widgetsResponse = await api.get('/api/widgets/');
-
       const enabledWidgets = widgetsResponse.data
         .filter(w => w.is_enabled)
         .sort((a, b) => a.display_order - b.display_order);
-
       setWidgets(enabledWidgets);
-
       try {
         const statsResponse = await api.get('/api/dashboard/');
         setStats(statsResponse.data);
@@ -127,7 +129,6 @@ const StaffDashboard = () => {
           guest_users: 0,
         });
       }
-
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
     } finally {
@@ -142,22 +143,17 @@ const StaffDashboard = () => {
   const handleDragEnd = async (event) => {
     const { active, over } = event;
     setActiveId(null);
-
     if (!over || active.id === over.id) {
       return;
     }
-
     const oldIndex = widgets.findIndex(w => w.id === active.id);
     const newIndex = widgets.findIndex(w => w.id === over.id);
-
     if (oldIndex !== -1 && newIndex !== -1) {
       const newWidgets = arrayMove(widgets, oldIndex, newIndex);
-
       const updatedWidgets = newWidgets.map((widget, index) => ({
         ...widget,
         display_order: index + 1
       }));
-
       setWidgets(updatedWidgets);
       await saveWidgetOrder(updatedWidgets);
     }
@@ -166,14 +162,8 @@ const StaffDashboard = () => {
   const saveWidgetOrder = async (updatedWidgets) => {
     try {
       setIsSaving(true);
-
-      const orderData = updatedWidgets.map(w => ({
-        id: w.id,
-        display_order: w.display_order
-      }));
-
+      const orderData = updatedWidgets.map(w => ({ id: w.id, display_order: w.display_order }));
       await api.post('/api/widgets/update_order/', { widgets: orderData });
-
       console.log('Widget order saved successfully');
     } catch (error) {
       console.error('Error saving widget order:', error);
@@ -187,10 +177,6 @@ const StaffDashboard = () => {
     setRefreshing(true);
     await fetchDashboardData();
     setTimeout(() => setRefreshing(false), 500);
-  };
-
-  const handleExport = () => {
-    alert('Dashboard export coming soon!');
   };
 
   const toggleLock = () => {
@@ -209,16 +195,13 @@ const StaffDashboard = () => {
 
   const activeWidget = widgets.find(w => w.id === activeId);
 
-  // Organize widgets into rows based on their width
   const organizeWidgetsIntoRows = () => {
     const rows = [];
     let currentRow = [];
     let currentRowWidth = 0;
-    const maxRowWidth = 4; // 4 columns grid
-
+    const maxRowWidth = 4;
     widgets.forEach((widget) => {
       const widgetWidth = widget.width || 1;
-
       if (currentRowWidth + widgetWidth <= maxRowWidth) {
         currentRow.push(widget);
         currentRowWidth += widgetWidth;
@@ -230,11 +213,9 @@ const StaffDashboard = () => {
         currentRowWidth = widgetWidth;
       }
     });
-
     if (currentRow.length > 0) {
       rows.push(currentRow);
     }
-
     return rows;
   };
 
@@ -242,8 +223,7 @@ const StaffDashboard = () => {
 
   return (
     <DashboardLayout>
-      {/* Enhanced Header */}
-{/* Header */}
+      {/* Header */}
       <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white px-8 py-8 shadow-lg">
         <div className="max-w-7xl mx-auto">
           <div className="flex items-center justify-between">
@@ -265,11 +245,14 @@ const StaffDashboard = () => {
               </p>
             </div>
 
-            {/* Action Buttons */}
             <div className="flex items-center gap-3">
-
-
-              {/* LOCK BUTTON */}
+              <button
+                onClick={toggleDarkMode}
+                className="p-2.5 backdrop-blur-sm rounded-lg transition-all bg-white/10 hover:bg-white/20"
+                title={darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+              >
+                {darkMode ? <Sun className="w-10 h-6" /> : <Moon className="w-10 h-6" />}
+              </button>
               <button
                 onClick={toggleLock}
                 className={`px-4 py-2.5 backdrop-blur-sm rounded-lg transition-all flex items-center gap-2 font-medium ${
@@ -282,7 +265,6 @@ const StaffDashboard = () => {
                 {isLocked ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
                 <span className="hidden sm:inline">{isLocked ? 'Locked' : 'Lock'}</span>
               </button>
-
               <button
                 onClick={handleRefresh}
                 disabled={refreshing || isSaving}
@@ -291,7 +273,6 @@ const StaffDashboard = () => {
                 <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
                 <span className="hidden sm:inline">Refresh</span>
               </button>
-
               <button
                 onClick={() => navigate('/widget-management')}
                 className="px-4 py-2.5 bg-white/90 hover:bg-white text-indigo-600 rounded-lg transition-all flex items-center gap-2 font-semibold shadow-lg"
@@ -299,17 +280,8 @@ const StaffDashboard = () => {
                 <Settings className="w-4 h-4" />
                 <span className="hidden sm:inline">Settings</span>
               </button>
-
-              <button
-                onClick={handleExport}
-                className="px-4 py-2.5 bg-white/10 hover:bg-white/20 backdrop-blur-sm rounded-lg transition-all flex items-center gap-2 font-medium"
-              >
-                <Download className="w-4 h-4" />
-                <span className="hidden sm:inline">Export</span>
-              </button>
             </div>
           </div>
-
           {isSaving && (
             <div className="mt-3 flex items-center gap-2 text-indigo-100 text-sm">
               <RefreshCw className="w-4 h-4 animate-spin" />
@@ -320,7 +292,7 @@ const StaffDashboard = () => {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 overflow-auto bg-gray-50">
+      <div className="flex-1 overflow-auto bg-gray-50 dark:bg-gray-900">
         <div className="max-w-7xl mx-auto p-8">
           <style>{`
             @keyframes fadeIn {
@@ -335,7 +307,6 @@ const StaffDashboard = () => {
             }
           `}</style>
 
-          {/* Help Text when unlocked */}
           {!isLocked && widgets.length > 0 && (
             <div className="mb-6 p-4 bg-yellow-50 border-l-4 border-yellow-400 rounded-lg">
               <div className="flex items-center gap-3">
@@ -350,7 +321,6 @@ const StaffDashboard = () => {
             </div>
           )}
 
-          {/* Widget Grid with Drag & Drop - COMPACT LAYOUT */}
           <DndContext
             sensors={sensors}
             collisionDetection={closestCenter}
@@ -361,7 +331,6 @@ const StaffDashboard = () => {
               items={widgets.map(w => w.id)}
               strategy={verticalListSortingStrategy}
             >
-              {/* Render widgets row by row for compact layout */}
               {widgetRows.map((row, rowIndex) => (
                 <div
                   key={rowIndex}
@@ -386,8 +355,6 @@ const StaffDashboard = () => {
                 </div>
               ))}
             </SortableContext>
-
-            {/* Drag Overlay */}
             <DragOverlay>
               {activeWidget ? (
                 <div className="opacity-90 cursor-grabbing max-w-md">
@@ -401,7 +368,6 @@ const StaffDashboard = () => {
             </DragOverlay>
           </DndContext>
 
-          {/* Empty State */}
           {widgets.length === 0 && (
             <div className="text-center py-16">
               <Settings className="w-20 h-20 text-gray-300 mx-auto mb-4" />
@@ -421,6 +387,22 @@ const StaffDashboard = () => {
           )}
         </div>
       </div>
+
+      <style>{`
+        .dark .bg-gray-50 { background-color: #111827; }
+        .dark .bg-white { background-color: #1f2937; }
+        .dark .card {
+            background-color: #1f2937;
+            border-color: #374151;
+         }
+        .dark .text-gray-900 { color: #f9fafb; }
+        .dark .text-gray-800 { color: #f3f4f6; }
+        .dark .text-gray-700 { color: #e5e7eb; }
+        .dark .text-gray-600 { color: #d1d5db; }
+        .dark .text-gray-500 { color: #9ca3af; }
+        .dark .border, .dark .border-b, .dark .border-t, .dark .border-l-4, .dark .border-gray-100, .dark .border-gray-200 { border-color: #374151; }
+        .dark .divide-y > :not([hidden]) ~ :not([hidden]) { border-color: #374151; }
+      `}</style>
     </DashboardLayout>
   );
 };

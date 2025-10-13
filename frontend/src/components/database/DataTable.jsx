@@ -5,8 +5,7 @@ import {
   getSortedRowModel,
   flexRender,
 } from '@tanstack/react-table';
-import { ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react';
-import { CheckCircle, MinusCircle, Search, Edit, Trash, Download, Filter, Eye } from 'lucide-react'; // Changed X to MinusCircle, Check to CheckCircle
+import { ChevronUp, ChevronDown, ChevronsUpDown, CheckCircle, MinusCircle } from 'lucide-react';
 
 // Inlined to resolve import issues
 const CATEGORY_COLORS = {
@@ -72,7 +71,9 @@ const DataTable = ({
           cell: ({ row }) => {
             const value = row.original[field];
             if (typeof value === 'boolean') {
-              return value ? <span className="text-green-500 font-bold text-lg">✓</span> : <span className="text-red-500 font-bold text-lg">✗</span>;
+              return value
+                ? <CheckCircle className="w-5 h-5 text-green-500" />
+                : <MinusCircle className="w-5 h-5 text-red-500" />;
             }
              if (field === 'last_updated' && value) {
               return new Date(value).toLocaleDateString();

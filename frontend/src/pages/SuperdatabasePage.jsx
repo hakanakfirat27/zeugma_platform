@@ -144,18 +144,18 @@ useEffect(() => {
   return (
     <DashboardLayout>
       {/* Header */}
-      <div className="bg-indigo-600 text-white px-8 py-6">
+    <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white px-8 py-8 shadow-lg">
         <div className="flex items-center gap-3 mb-2">
           <button
-            onClick={() => navigate('/dashboard')}
-            className="p-2 hover:bg-indigo-700 rounded-lg transition-colors"
+            onClick={() => navigate('/staff-dashboard')}
+            className="p-2 hover:bg-white/10 rounded-lg transition-colors"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
           <h1 className="text-2xl font-bold">Superdatabase Management</h1>
         </div>
-        <p className="text-indigo-100 text-sm ml-14">Complete administrative control over all records</p>
-      </div>
+        <p className="text-indigo-100 text-sm ml-12">Complete administrative control over all records</p>
+    </div>
 
       {/* Content */}
       <div className="flex-1 overflow-auto bg-white">
