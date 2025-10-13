@@ -1,3 +1,4 @@
+import { FileText } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, SlidersHorizontal, Download, Upload, Trash2, Edit, Plus, BarChart3, TrendingUp, Users, X, ArrowLeft } from 'lucide-react';
@@ -140,6 +141,37 @@ useEffect(() => {
       setSelectedRecords(new Set(records.map(r => r.factory_id)));
     }
   };
+  // Add this NEW function after selectAllRecords
+  const handleCreateReport = () => {
+    // This object will store all our filters
+    const filterCriteria = {};
+
+    // Step 1: Add category if user selected one (not "ALL")
+    if (selectedCategory && selectedCategory !== 'ALL') {
+      filterCriteria.category = selectedCategory;
+    }
+
+    // Step 2: Add country filters if any are selected
+    if (countryFilters.length > 0) {
+      filterCriteria.country = countryFilters;
+    }
+
+    // Step 3: Add material/property filters (only the ones that are TRUE)
+    Object.keys(filters).forEach(key => {
+      if (filters[key] === true) {
+        filterCriteria[key] = true;
+      }
+    });
+
+    // Step 4: Navigate to create report page with all this data
+    navigate('/custom-reports/create', {
+      state: {
+        filterCriteria: filterCriteria,
+        recordCount: totalCount,
+        selectedCategory: selectedCategory !== 'ALL' ? selectedCategory : null
+      }
+    });
+  };
 
   return (
     <DashboardLayout>
@@ -162,28 +194,45 @@ useEffect(() => {
         <div className="max-w-7xl mx-auto px-8 py-6">
           {/* Action Bar */}
           <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setShowStats(!showStats)}
-                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2"
-              >
-                <BarChart3 className="w-4 h-4" />
-                {showStats ? 'Hide' : 'Show'} Stats
-              </button>
+<div className="flex items-center gap-3">
+  <button
+    onClick={() => setShowStats(!showStats)}
+    className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2"
+  >
+    <BarChart3 className="w-4 h-4" />
+    {showStats ? 'Hide' : 'Show'} Stats
+  </button>
 
-              <button
-                onClick={() => setShowFilters(true)}
-                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2"
-              >
-                <SlidersHorizontal className="w-4 h-4" />
-                Filters
-                {activeFiltersCount > 0 && (
-                  <span className="bg-blue-600 text-white text-xs px-2 py-0.5 rounded-full">
-                    {activeFiltersCount}
-                  </span>
-                )}
-              </button>
-            </div>
+  <button
+    onClick={() => setShowFilters(true)}
+    className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2"
+  >
+    <SlidersHorizontal className="w-4 h-4" />
+    Filters
+    {activeFiltersCount > 0 && (
+      <span className="bg-blue-600 text-white text-xs px-2 py-0.5 rounded-full">
+        {activeFiltersCount}
+      </span>
+    )}
+  </button>
+
+  {/* NEW BUTTON HERE */}
+  {(activeFiltersCount > 0 || totalCount > 0) && (
+    <button
+      onClick={handleCreateReport}
+      className="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg hover:from-purple-700 hover:to-indigo-700 flex items-center gap-2 shadow-md transition-all"
+      title="Create custom report from current filters"
+    >
+      <FileText className="w-4 h-4" />
+      Create Report from Filters
+      {totalCount > 0 && (
+        <span className="bg-white bg-opacity-20 px-2 py-0.5 rounded-full text-xs">
+          {totalCount} records
+        </span>
+      )}
+    </button>
+  )}
+</div>
 
             <div className="flex items-center gap-3">
               <button

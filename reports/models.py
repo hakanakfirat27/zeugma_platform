@@ -2,7 +2,9 @@
 import uuid
 from django.db import models
 from django.conf import settings
+from django.utils import timezone
 from django.contrib.auth import get_user_model
+from decimal import Decimal
 
 
 User = get_user_model()
@@ -286,6 +288,7 @@ class SuperdatabaseRecord(models.Model):
     water_tank_other_tanks = models.BooleanField("Water Tank/Other Tanks", default=False)
     window = models.BooleanField("Window", default=False)
     yellow_fats = models.BooleanField("Yellow Fats", default=False)
+
     # Text descriptions for application areas
     automotive_description = models.TextField("Automotive Description", blank=True)
     electrical_description = models.TextField("Electrical Description", blank=True)
@@ -457,32 +460,206 @@ class SuperdatabaseRecord(models.Model):
         return f"{self.company_name} ({self.get_category_display()})"
 
 
+# --- CUSTOM REPORT MODELS ---
+
+# --- Subscription Plan Class ---
+class SubscriptionPlan(models.TextChoices):
+    MONTHLY = 'MONTHLY', 'Monthly'
+    ANNUAL = 'ANNUAL', 'Annual'
+
+
+# --- Subscription Status Class ---
+class SubscriptionStatus(models.TextChoices):
+    ACTIVE = 'ACTIVE', 'Active'
+    EXPIRED = 'EXPIRED', 'Expired'
+    CANCELLED = 'CANCELLED', 'Cancelled'
+    PENDING = 'PENDING', 'Pending'
+
+
 # --- Custom Reports Class ---
 class CustomReport(models.Model):
+    """
+    Custom reports that can be created from the superdatabase.
+    These can be sold to clients via subscriptions.
+    """
+    report_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     title = models.CharField(max_length=255, unique=True)
     description = models.TextField()
-    filter_criteria = models.JSONField(help_text="JSON object with filter rules, e.g., {'country': 'Germany', 'pvc': True}")
+    filter_criteria = models.JSONField(
+        help_text="JSON object with filter rules",
+        default=dict
+    )
+
+    # Pricing
+    monthly_price = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        help_text="Monthly subscription price"
+    )
+    annual_price = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        help_text="Annual subscription price"
+    )
+
+    # Status
+    is_active = models.BooleanField(default=True)
+    is_featured = models.BooleanField(default=False)
+
+    # Metadata
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='created_reports'
+    )
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    # Cache the count
+    record_count = models.IntegerField(default=0, editable=False)
+
+    class Meta:
+        ordering = ['-created_at']
 
     def __str__(self):
         return self.title
 
+    def update_record_count(self):
+        """Update the cached record count based on filter criteria"""
+        from django.db.models import Q
+        queryset = SuperdatabaseRecord.objects.all()
+
+        if self.filter_criteria:
+            filter_q = Q()
+            for field, value in self.filter_criteria.items():
+                if isinstance(value, list):
+                    # Handle multiple values (OR condition)
+                    field_q = Q()
+                    for v in value:
+                        field_q |= Q(**{field: v})
+                    filter_q &= field_q
+                else:
+                    filter_q &= Q(**{field: value})
+            queryset = queryset.filter(filter_q)
+
+        self.record_count = queryset.count()
+        self.save(update_fields=['record_count'])
+        return self.record_count
+
+    def get_filtered_records(self):
+        """Get all records matching this report's criteria"""
+        from django.db.models import Q
+        queryset = SuperdatabaseRecord.objects.all()
+
+        if self.filter_criteria:
+            filter_q = Q()
+            for field, value in self.filter_criteria.items():
+                if isinstance(value, list):
+                    field_q = Q()
+                    for v in value:
+                        field_q |= Q(**{field: v})
+                    filter_q &= field_q
+                else:
+                    filter_q &= Q(**{field: value})
+            queryset = queryset.filter(filter_q)
+
+        return queryset
+
 
 # --- Subscription Class ---
 class Subscription(models.Model):
-    client = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
-    report = models.ForeignKey(CustomReport, on_delete=models.CASCADE)
-    start_date = models.DateField()
-    end_date = models.DateField()
+    """
+    Client subscriptions to custom reports
+    """
+    subscription_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    client = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='subscriptions',
+        null=True,
+        blank=True
+    )
+    report = models.ForeignKey(
+        CustomReport,
+        on_delete=models.CASCADE,
+        related_name='subscriptions',
+        null=True,
+        blank=True
+    )
+
+    # Subscription details
+    plan = models.CharField(
+        max_length=20,
+        choices=SubscriptionPlan.choices,
+        default=SubscriptionPlan.MONTHLY
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=SubscriptionStatus.choices,
+        default=SubscriptionStatus.PENDING
+    )
+
+    # Dates
+    start_date = models.DateField(null=True, blank=True)
+    end_date = models.DateField(null=True, blank=True)
+
+    # Payment
+    amount_paid = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        unique_together = ['client', 'report', 'start_date']
+
+    def __str__(self):
+        return f"{self.client.username}'s {self.plan} subscription to {self.report.title}"
 
     @property
     def is_active(self):
-        from django.utils import timezone
+        """Check if subscription is currently active"""
+        if self.status != SubscriptionStatus.ACTIVE:
+            return False
         today = timezone.now().date()
         return self.start_date <= today <= self.end_date
 
-    def __str__(self):
-        return f"{self.client.username}'s subscription to {self.report.title}"
+    @property
+    def days_remaining(self):
+        """Calculate days remaining in subscription"""
+        if not self.is_active:
+            return 0
+        today = timezone.now().date()
+        return (self.end_date - today).days
 
+    def renew(self, plan=None):
+        """Renew the subscription"""
+        from dateutil.relativedelta import relativedelta
+
+        if plan:
+            self.plan = plan
+
+        self.start_date = self.end_date + timezone.timedelta(days=1)
+
+        if self.plan == SubscriptionPlan.MONTHLY:
+            self.end_date = self.start_date + relativedelta(months=1)
+            self.amount_paid = self.report.monthly_price
+        else:
+            self.end_date = self.start_date + relativedelta(years=1)
+            self.amount_paid = self.report.annual_price
+
+        self.status = SubscriptionStatus.ACTIVE
+        self.save()
+
+    def cancel(self):
+        """Cancel the subscription"""
+        self.status = SubscriptionStatus.CANCELLED
+        self.save()
 
 # --- Widget Category Class ---
 class WidgetCategory(models.TextChoices):

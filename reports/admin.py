@@ -51,5 +51,18 @@ class SuperdatabaseRecordAdmin(admin.ModelAdmin):
     search_fields = ('company_name', 'country', 'website')
 
 
-admin.site.register(CustomReport)
-admin.site.register(Subscription)
+@admin.register(CustomReport)
+class CustomReportAdmin(admin.ModelAdmin):
+    list_display = ['title', 'is_active', 'is_featured', 'monthly_price', 'annual_price', 'record_count', 'created_at']
+    list_filter = ['is_active', 'is_featured', 'created_at']
+    search_fields = ['title', 'description']
+    readonly_fields = ['report_id', 'record_count', 'created_at', 'updated_at']
+
+
+@admin.register(Subscription)
+class SubscriptionAdmin(admin.ModelAdmin):
+    list_display = ['client', 'report', 'plan', 'status', 'start_date', 'end_date', 'is_active']
+    list_filter = ['status', 'plan', 'start_date', 'end_date']
+    search_fields = ['client__username', 'client__email', 'report__title']
+    readonly_fields = ['subscription_id', 'created_at', 'updated_at']
+

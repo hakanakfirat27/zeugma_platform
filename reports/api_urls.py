@@ -11,7 +11,20 @@ from .views import (
     DatabaseStatsAPIView,
     DashboardWidgetViewSet,
     EnabledWidgetsAPIView,
-
+)
+from .custom_report_views import (
+    CustomReportListCreateAPIView,
+    CustomReportDetailAPIView,
+    ReportPreviewAPIView,
+    ReportRecordsAPIView,
+    SubscriptionListCreateAPIView,
+    SubscriptionDetailAPIView,
+    MySubscriptionsAPIView,
+    MyActiveReportsAPIView,
+    renew_subscription,
+    cancel_subscription,
+    ClientListAPIView,
+    SubscriptionStatsAPIView
 )
 
 # Create a router for ViewSets
@@ -34,6 +47,24 @@ urlpatterns = [
     # Widget management endpoints
     path('enabled-widgets/', EnabledWidgetsAPIView.as_view(), name='api-enabled-widgets'),
     path('', include(router.urls)),  # This adds all widget CRUD endpoints
+
+    # Custom Reports URLs
+    path('custom-reports/', CustomReportListCreateAPIView.as_view(), name='api-custom-report-list'),
+    path('custom-reports/<uuid:report_id>/', CustomReportDetailAPIView.as_view(), name='api-custom-report-detail'),
+    path('custom-reports/<uuid:report_id>/records/', ReportRecordsAPIView.as_view(), name='api-report-records'),
+    path('report-preview/', ReportPreviewAPIView.as_view(), name='api-report-preview'),
+
+    # Subscription URLs
+    path('subscriptions/', SubscriptionListCreateAPIView.as_view(), name='api-subscription-list'),
+    path('subscriptions/<uuid:subscription_id>/', SubscriptionDetailAPIView.as_view(), name='api-subscription-detail'),
+    path('subscriptions/<uuid:subscription_id>/renew/', renew_subscription, name='api-subscription-renew'),
+    path('subscriptions/<uuid:subscription_id>/cancel/', cancel_subscription, name='api-subscription-cancel'),
+    path('my-subscriptions/', MySubscriptionsAPIView.as_view(), name='api-my-subscriptions'),
+    path('my-active-reports/', MyActiveReportsAPIView.as_view(), name='api-my-active-reports'),
+    path('subscription-stats/', SubscriptionStatsAPIView.as_view(), name='api-subscription-stats'),
+
+    # Client Management URLs
+    path('clients/', ClientListAPIView.as_view(), name='api-client-list'),
 ]
 
 # The router automatically creates these endpoints:

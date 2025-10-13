@@ -3,13 +3,43 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Database, LogOut, Maximize, Minimize } from 'lucide-react';
+import { LayoutDashboard, Database, LogOut, Maximize, Minimize, FileText, CreditCard } from 'lucide-react';
 
 const DashboardLayout = ({ children }) => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // An array to define all navigation links, including their paths, icons, and roles.
+  // Using FileText and CreditCard from lucide-react as substitutes for DocumentIcon and CreditCardIcon.
+  const navLinks = [
+    {
+      name: 'Dashboard',
+      path: '/staff-dashboard',
+      icon: LayoutDashboard,
+      roles: ['SUPERADMIN', 'STAFF_ADMIN']
+    },
+    {
+      name: 'Superdatabase',
+      path: '/superdatabase',
+      icon: Database,
+      roles: ['SUPERADMIN']
+    },
+    {
+      name: 'Custom Reports',
+      path: '/custom-reports',
+      icon: FileText,
+      roles: ['SUPERADMIN', 'STAFF_ADMIN', 'CLIENT']
+    },
+    {
+      name: 'Subscriptions',
+      path: '/subscriptions',
+      icon: CreditCard,
+      roles: ['SUPERADMIN', 'STAFF_ADMIN', 'CLIENT']
+    }
+  ];
+
 
   useEffect(() => {
     const handleFullscreenChange = () => {
@@ -53,19 +83,19 @@ const DashboardLayout = ({ children }) => {
     return location.pathname === path;
   };
 
-const getUserInitials = () => {
-  if (user?.full_name) {
-    const names = user.full_name.split(' ');
-    if (names.length >= 2) {
-      return (names[0][0] + (names[names.length - 1][0] || '')).toUpperCase();
+  const getUserInitials = () => {
+    if (user?.full_name) {
+      const names = user.full_name.split(' ');
+      if (names.length >= 2) {
+        return (names[0][0] + (names[names.length - 1][0] || '')).toUpperCase();
+      }
+      return user.full_name.substring(0, 2).toUpperCase();
     }
-    return user.full_name.substring(0, 2).toUpperCase();
-  }
-  if (user?.username) {
-    return user.username.substring(0, 2).toUpperCase();
-  }
-  return 'U';
-};
+    if (user?.username) {
+      return user.username.substring(0, 2).toUpperCase();
+    }
+    return 'U';
+  };
 
   const getUserRole = () => {
     if (!user?.role) return 'User';
@@ -82,10 +112,10 @@ const getUserInitials = () => {
         <div className="p-6 border-b border-gray-700">
           <div className="flex flex-col items-center text-center">
             <div className="relative mb-4">
-              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-2xl font-bold shadow-lg ring-4 ring-indigo-500/20">
+              <div className="w-14 h-14 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-l font-bold shadow-lg ring-4 ring-indigo-500/20">
                 {getUserInitials()}
               </div>
-              <div className="absolute bottom-0 right-0 w-5 h-5 bg-green-500 rounded-full border-4 border-gray-800"></div>
+              <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-1 border-gray-800"></div>
             </div>
             <div>
               <h3 className="text-lg font-bold text-white mb-1">
@@ -104,28 +134,25 @@ const getUserInitials = () => {
             Management
           </p>
           <div className="space-y-1">
-            <button
-              onClick={() => navigate('/staff-dashboard')}
-              className={`w-full flex items-center gap-3 px-3 py-3 rounded-lg transition-all ${
-                isActive('/staff-dashboard')
-                  ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/30'
-                  : 'text-gray-300 hover:bg-gray-800 hover:text-white'
-              }`}
-            >
-              <LayoutDashboard className="w-5 h-5" />
-              <span className="font-medium">Dashboard</span>
-            </button>
-            <button
-              onClick={() => navigate('/superdatabase')}
-              className={`w-full flex items-center gap-3 px-3 py-3 rounded-lg transition-all ${
-                isActive('/superdatabase')
-                  ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/30'
-                  : 'text-gray-300 hover:bg-gray-800 hover:text-white'
-              }`}
-            >
-              <Database className="w-5 h-5" />
-              <span className="font-medium">Superdatabase</span>
-            </button>
+            {navLinks
+              .filter(link => user?.role && link.roles.includes(user.role.toUpperCase()))
+              .map((link) => {
+                const Icon = link.icon;
+                return (
+                  <button
+                    key={link.name}
+                    onClick={() => navigate(link.path)}
+                    className={`w-full flex items-center gap-3 px-3 py-3 rounded-lg transition-all ${
+                      isActive(link.path)
+                        ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/30'
+                        : 'text-gray-300 hover:bg-gray-800 hover:text-white'
+                    }`}
+                  >
+                    <Icon className="w-5 h-5" />
+                    <span className="font-medium">{link.name}</span>
+                  </button>
+                );
+              })}
           </div>
         </nav>
 

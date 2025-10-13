@@ -12,9 +12,13 @@ import ClientDashboard from './pages/dashboards/ClientDashboard';
 import GuestDashboard from './pages/dashboards/GuestDashboard';
 import SuperdatabasePage from './pages/SuperdatabasePage';
 import WidgetManagement from './pages/dashboards/WidgetManagement';
+import CustomReportsPage from './pages/CustomReportsPage';
+import CreateReportPage from './pages/CreateReportPage';
+import SubscriptionManagementPage from './pages/SubscriptionManagementPage';
 
 function App() {
   return (
+
     <AuthProvider>
       <Routes>
         {/* Public routes */}
@@ -68,8 +72,45 @@ function App() {
 
         {/* Catch all */}
         <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+
+        // Custom Reports Routes
+        <Route
+          path="/custom-reports"
+          element={
+            <ProtectedRoute>
+              <CustomReportsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/custom-reports/create"
+          element={
+            <ProtectedRoute>
+              <CreateReportPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/custom-reports/:reportId/edit"
+          element={
+            <ProtectedRoute>
+              <CreateReportPage />
+            </ProtectedRoute>
+          }
+        />
+
+        // Subscription Management Routes
+        <Route
+          path="/subscriptions"
+          element={
+            <ProtectedRoute>
+              <SubscriptionManagementPage />
+            </ProtectedRoute>
+          }
+        />
+              </Routes>
     </AuthProvider>
+
   );
 }
 
