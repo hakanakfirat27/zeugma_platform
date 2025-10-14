@@ -1,4 +1,4 @@
-// frontend/src/App.jsx
+
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -15,10 +15,10 @@ import WidgetManagement from './pages/dashboards/WidgetManagement';
 import CustomReportsPage from './pages/CustomReportsPage';
 import CreateReportPage from './pages/CreateReportPage';
 import SubscriptionManagementPage from './pages/SubscriptionManagementPage';
+import UserManagementPage from './pages/UserManagementPage'; // NEW IMPORT
 
 function App() {
   return (
-
     <AuthProvider>
       <Routes>
         {/* Public routes */}
@@ -27,90 +27,27 @@ function App() {
         <Route path="/signup" element={<SignupPage />} />
 
         {/* Protected routes */}
-        <Route
-          path="/staff-dashboard"
-          element={
-            <ProtectedRoute>
-              <StaffDashboard />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/client-dashboard"
-          element={
-            <ProtectedRoute>
-              <ClientDashboard />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/guest-dashboard"
-          element={
-            <ProtectedRoute>
-              <GuestDashboard />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/superdatabase"
-          element={
-            <ProtectedRoute>
-              <SuperdatabasePage />
-            </ProtectedRoute>
-          }
-        />
+        <Route path="/staff-dashboard" element={<ProtectedRoute><StaffDashboard /></ProtectedRoute>} />
+        <Route path="/client-dashboard" element={<ProtectedRoute><ClientDashboard /></ProtectedRoute>} />
+        <Route path="/guest-dashboard" element={<ProtectedRoute><GuestDashboard /></ProtectedRoute>} />
+        <Route path="/superdatabase" element={<ProtectedRoute><SuperdatabasePage /></ProtectedRoute>} />
+        <Route path="/widget-management" element={<ProtectedRoute><WidgetManagement /></ProtectedRoute>} />
 
-        {/* Widget Management route */}
-        <Route
-          path="/widget-management"
-          element={
-            <ProtectedRoute>
-              <WidgetManagement />
-            </ProtectedRoute>
-          }
-        />
+        {/* User Management Route */}
+        <Route path="/user-management" element={<ProtectedRoute><UserManagementPage /></ProtectedRoute>} />
+
+        {/* Custom Reports Routes */}
+        <Route path="/custom-reports" element={<ProtectedRoute><CustomReportsPage /></ProtectedRoute>} />
+        <Route path="/custom-reports/create" element={<ProtectedRoute><CreateReportPage /></ProtectedRoute>} />
+        <Route path="/custom-reports/:reportId/edit" element={<ProtectedRoute><CreateReportPage /></ProtectedRoute>} />
+
+        {/* Subscription Management Routes */}
+        <Route path="/subscriptions" element={<ProtectedRoute><SubscriptionManagementPage /></ProtectedRoute>} />
 
         {/* Catch all */}
         <Route path="*" element={<Navigate to="/" replace />} />
-
-        // Custom Reports Routes
-        <Route
-          path="/custom-reports"
-          element={
-            <ProtectedRoute>
-              <CustomReportsPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/custom-reports/create"
-          element={
-            <ProtectedRoute>
-              <CreateReportPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/custom-reports/:reportId/edit"
-          element={
-            <ProtectedRoute>
-              <CreateReportPage />
-            </ProtectedRoute>
-          }
-        />
-
-        // Subscription Management Routes
-        <Route
-          path="/subscriptions"
-          element={
-            <ProtectedRoute>
-              <SubscriptionManagementPage />
-            </ProtectedRoute>
-          }
-        />
-              </Routes>
+      </Routes>
     </AuthProvider>
-
   );
 }
 

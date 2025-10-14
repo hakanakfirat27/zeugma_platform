@@ -1,61 +1,73 @@
-# accounts/views.py
 
 from django.contrib.auth import authenticate, login as auth_login, logout as auth_logout
 from django.views.decorators.csrf import ensure_csrf_cookie
+from rest_framework import viewsets, status
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated, IsAdminUser
+from rest_framework.response import Response
+from rest_framework.filters import SearchFilter, OrderingFilter
+from django.contrib.auth import get_user_model
+from .serializers import UserSerializer, UserManagementSerializer
+from .pagination import CustomPagination
 from django.http import JsonResponse
 import json
-
-# --- NEW IMPORTS ---
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
 from .serializers import UserSerializer # Import your UserSerializer
 
-# --- UPDATED: login_view ---
-# Now uses @api_view decorator and the UserSerializer
+User = get_user_model()
+
+
+class UserViewSet(viewsets.ModelViewSet):
+    """
+    API endpoint that allows staff users to be viewed or edited.
+    """
+    queryset = User.objects.all().order_by('-date_joined')
+    permission_classes = [IsAdminUser] # Only staff can access
+    pagination_class = CustomPagination
+    filter_backends = [SearchFilter, OrderingFilter]
+    search_fields = ['username', 'email', 'first_name', 'last_name']
+    ordering_fields = ['username', 'email', 'date_joined', 'last_login', 'role']
+
+    def get_serializer_class(self):
+        # Use a different, more detailed serializer for management actions
+        if self.action in ['create', 'update', 'partial_update']:
+            return UserManagementSerializer
+        return UserSerializer # Use the safe, read-only serializer for listing/retrieving
+
+
 @api_view(['POST'])
 @ensure_csrf_cookie
 def login_view(request):
     data = request.data
     username = data.get('username')
     password = data.get('password')
-
     user = authenticate(request, username=username, password=password)
-
     if user is not None:
         auth_login(request, user)
-        # Use the serializer to get the full user data
         serializer = UserSerializer(user)
         return Response({'user': serializer.data})
     else:
-        return Response({'error': 'Invalid credentials'}, status=400)
+        return Response({'error': 'Invalid credentials'}, status=status.HTTP_400_BAD_REQUEST)
 
-# --- UPDATED: logout_view ---
-# Now uses @api_view decorator
+
 @api_view(['POST'])
 def logout_view(request):
     auth_logout(request)
     return Response({'message': 'Logged out successfully'})
 
-# --- UPDATED: signup_view ---
-# This view was missing but is needed by your frontend AuthContext
+
 @api_view(['POST'])
 @ensure_csrf_cookie
 def signup_view(request):
-    # (Implementation for signup can be added here if needed)
-    # For now, we'll return an error to avoid confusion
-    return Response({'error': 'Signup not implemented on this endpoint'}, status=501)
+    serializer = UserManagementSerializer(data=request.data)
+    if serializer.is_valid():
+        user = serializer.save()
+        # You can choose to log them in directly or require email verification
+        return Response(UserSerializer(user).data, status=status.HTTP_201_CREATED)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-# --- UPDATED: user_view ---
-# This is the most important change.
-# It now uses the UserSerializer to return the full user object.
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def user_view(request):
     serializer = UserSerializer(request.user)
     return Response(serializer.data)
-
-# --- This view is no longer needed as login_view handles it ---
-# @ensure_csrf_cookie
-# def csrf_view(request):
-#     return JsonResponse({'message': 'CSRF cookie set'})

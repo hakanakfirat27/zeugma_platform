@@ -1,9 +1,16 @@
-from django.urls import path
-from .views import CurrentUserAPIView, LoginAPIView, LogoutAPIView, SignupAPIView
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
+from .views import UserViewSet
 
+# Create a router and register our viewsets with it.
+router = DefaultRouter()
+router.register(r'users', UserViewSet, basename='user')
+
+# The API URLs are now determined automatically by the router.
+# This will create URLs like:
+# /api/auth/users/ (for listing and creating users)
+# /api/auth/users/{id}/ (for retrieving, updating, and deleting a specific user)
 urlpatterns = [
-    path('me/', CurrentUserAPIView.as_view(), name='current-user'),
-    path('login/', LoginAPIView.as_view(), name='api-login'),
-    path('logout/', LogoutAPIView.as_view(), name='api-logout'),
-    path('signup/', SignupAPIView.as_view(), name='api-signup'),
+    path('', include(router.urls)),
 ]
+
