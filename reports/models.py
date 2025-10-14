@@ -1,11 +1,9 @@
-
 import uuid
 from django.db import models
 from django.conf import settings
 from django.utils import timezone
 from django.contrib.auth import get_user_model
 from decimal import Decimal
-
 
 User = get_user_model()
 
@@ -27,12 +25,12 @@ class CompanyCategory(models.TextChoices):
 
 # --- Superdatabase Record Class ---
 class SuperdatabaseRecord(models.Model):
-    
     # This is the unique identifier for every factory record.
     factory_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
 
     # --- CORE IDENTIFICATION ---
-    category = models.CharField(max_length=20, choices=CompanyCategory.choices, help_text="The main category of this company.")
+    category = models.CharField(max_length=20, choices=CompanyCategory.choices,
+                                help_text="The main category of this company.")
     company_name = models.CharField("Company Name", max_length=255)
 
     # --- COMMON COMPANY & CONTACT INFO ---
@@ -83,7 +81,7 @@ class SuperdatabaseRecord(models.Model):
     acetal = models.BooleanField("Acetal", default=False)
     apet = models.BooleanField("APET", default=False)
     bioresins = models.BooleanField("Bioresins", default=False)
-    other_bioresins = models.CharField("Other Bioresins", max_length=255, blank=True) # NEW
+    other_bioresins = models.CharField("Other Bioresins", max_length=255, blank=True)  # NEW
     cellular_pe = models.BooleanField("Cellular PE", default=False)
     cpe = models.BooleanField("CPE", default=False)
     cpet = models.BooleanField("CPET", default=False)
@@ -352,8 +350,10 @@ class SuperdatabaseRecord(models.Model):
     multilayer = models.BooleanField("Multilayer", default=False)
     extrusion_blow_moulding_machines = models.IntegerField("Extrusion Blow Moulding Machines", null=True, blank=True)
     injection_blow_moulding_machines = models.IntegerField("Injection Blow Moulding Machines", null=True, blank=True)
-    injection_stretch_blow_moulding_stage_1_machines = models.IntegerField("Injection Stretch Blow Moulding Stage 1 Machines", null=True, blank=True)
-    injection_stretch_blow_moulding_stage_2_machines = models.IntegerField("Injection Stretch Blow Moulding Stage 2 Machines", null=True, blank=True)
+    injection_stretch_blow_moulding_stage_1_machines = models.IntegerField(
+        "Injection Stretch Blow Moulding Stage 1 Machines", null=True, blank=True)
+    injection_stretch_blow_moulding_stage_2_machines = models.IntegerField(
+        "Injection Stretch Blow Moulding Stage 2 Machines", null=True, blank=True)
     buy_in_preform = models.BooleanField("Buy in Preform", default=False)
     buy_in_preform_percentage = models.IntegerField("Buy in Preform Percentage", null=True, blank=True)
     minimum_size = models.CharField("Minimum Size", max_length=100, blank=True)
@@ -528,25 +528,29 @@ class CustomReport(models.Model):
         return self.title
 
     def update_record_count(self):
-        """Update the cached record count based on filter criteria"""
-        from django.db.models import Q
+        """Update the record count based on filter criteria"""
         queryset = SuperdatabaseRecord.objects.all()
 
-        if self.filter_criteria:
-            filter_q = Q()
-            for field, value in self.filter_criteria.items():
-                if isinstance(value, list):
-                    # Handle multiple values (OR condition)
-                    field_q = Q()
-                    for v in value:
-                        field_q |= Q(**{field: v})
-                    filter_q &= field_q
-                else:
-                    filter_q &= Q(**{field: value})
-            queryset = queryset.filter(filter_q)
+        # Apply category filter - ONLY if specified and not empty
+        if 'category' in self.filter_criteria and self.filter_criteria['category']:
+            queryset = queryset.filter(category=self.filter_criteria['category'])
+
+        # Apply country filter
+        if 'country' in self.filter_criteria:
+            countries = self.filter_criteria['country']
+            if isinstance(countries, list) and len(countries) > 0:
+                queryset = queryset.filter(country__in=countries)
+
+        # Apply boolean filters (materials, properties, etc.)
+        for field, value in self.filter_criteria.items():
+            if field not in ['category', 'country']:
+                # Check if it's a boolean field
+                if isinstance(value, bool):
+                    queryset = queryset.filter(**{field: value})
 
         self.record_count = queryset.count()
         self.save(update_fields=['record_count'])
+
         return self.record_count
 
     def get_filtered_records(self):
@@ -660,6 +664,7 @@ class Subscription(models.Model):
         """Cancel the subscription"""
         self.status = SubscriptionStatus.CANCELLED
         self.save()
+
 
 # --- Widget Category Class ---
 class WidgetCategory(models.TextChoices):

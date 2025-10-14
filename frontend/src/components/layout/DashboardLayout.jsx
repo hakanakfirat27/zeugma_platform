@@ -24,7 +24,7 @@ const DashboardLayout = ({ children }) => {
       name: 'Superdatabase',
       path: '/superdatabase',
       icon: Database,
-      roles: ['SUPERADMIN']
+      roles: ['SUPERADMIN', 'STAFF_ADMIN']
     },
     {
       name: 'Custom Reports',

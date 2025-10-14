@@ -142,36 +142,41 @@ useEffect(() => {
     }
   };
   // Add this NEW function after selectAllRecords
-  const handleCreateReport = () => {
-    // This object will store all our filters
-    const filterCriteria = {};
+const handleCreateReport = () => {
+  // Build the filter criteria object
+  const filterCriteria = {};
 
-    // Step 1: Add category if user selected one (not "ALL")
-    if (selectedCategory && selectedCategory !== 'ALL') {
-      filterCriteria.category = selectedCategory;
+  // Step 1: Add category (only if not "ALL")
+  if (selectedCategory && selectedCategory !== 'ALL') {
+    filterCriteria.category = selectedCategory;
+  }
+
+  // Step 2: Add country filters
+  if (countryFilters.length > 0) {
+    filterCriteria.country = countryFilters;
+  }
+
+  // Step 3: Add material/property filters (BOTH true AND false)
+  Object.keys(filters).forEach(key => {
+    // Include both true (include) and false (exclude) filters
+    if (filters[key] === true || filters[key] === false) {
+      filterCriteria[key] = filters[key];
     }
+  });
 
-    // Step 2: Add country filters if any are selected
-    if (countryFilters.length > 0) {
-      filterCriteria.country = countryFilters;
+  console.log('🚀 Navigating to Create Report with filters:', filterCriteria);
+  console.log('📊 Total records:', totalCount);
+  console.log('📁 Selected category:', selectedCategory);
+
+  // Navigate to create report page with all filter data
+  navigate('/custom-reports/create', {
+    state: {
+      filterCriteria: filterCriteria,
+      recordCount: totalCount,
+      selectedCategory: selectedCategory === 'ALL' ? null : selectedCategory
     }
-
-    // Step 3: Add material/property filters (only the ones that are TRUE)
-    Object.keys(filters).forEach(key => {
-      if (filters[key] === true) {
-        filterCriteria[key] = true;
-      }
-    });
-
-    // Step 4: Navigate to create report page with all this data
-    navigate('/custom-reports/create', {
-      state: {
-        filterCriteria: filterCriteria,
-        recordCount: totalCount,
-        selectedCategory: selectedCategory !== 'ALL' ? selectedCategory : null
-      }
-    });
-  };
+  });
+};
 
   return (
     <DashboardLayout>

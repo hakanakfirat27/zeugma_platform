@@ -1,3 +1,4 @@
+// frontend/src/pages/CreateReportPage.jsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import DashboardLayout from '../components/layout/DashboardLayout';
@@ -49,45 +50,67 @@ const CreateReportPage = () => {
     return () => clearTimeout(timer);
   }, [selectedCategory, selectedFilters, selectedCountries]);
 
+useEffect(() => {
+  if (Object.keys(preloadedFilters).length > 0) {
+    console.log('📦 Preloaded Filters:', preloadedFilters);
 
-  useEffect(() => {
-    if (Object.keys(preloadedFilters).length > 0) {
-      if (preloadedFilters.category) {
-        setSelectedCategory(preloadedFilters.category);
-      }
-      if (preloadedFilters.country && Array.isArray(preloadedFilters.country)) {
-        setSelectedCountries(preloadedFilters.country);
-      }
-      const materialFilters = {};
-      Object.keys(preloadedFilters).forEach(key => {
-        if (key !== 'category' && key !== 'country' && preloadedFilters[key] === true) {
-          materialFilters[key] = true;
-        }
-      });
-      setSelectedFilters(materialFilters);
-      const categoryName = CATEGORIES.find(c => c.value === preloadedFilters.category)?.label || 'Companies';
-      const countryText = preloadedFilters.country?.length > 0
-        ? ` in ${preloadedFilters.country.slice(0, 2).join(', ')}${preloadedFilters.country.length > 2 ? '...' : ''}`
-        : '';
-      setFormData(prev => ({
-        ...prev,
-        title: `${categoryName}${countryText}`,
-        description: `Custom report with ${preloadedRecordCount} companies`
-      }));
+    // Set category
+    if (preloadedFilters.category) {
+      setSelectedCategory(preloadedFilters.category);
+    } else {
+      // If no category specified, it means "All Categories"
+      setSelectedCategory('');
     }
-  }, []);
+
+    // Set country filters
+    if (preloadedFilters.country && Array.isArray(preloadedFilters.country)) {
+      setSelectedCountries(preloadedFilters.country);
+    }
+
+    // Set material/property filters (BOTH true AND false values)
+    const materialFilters = {};
+    Object.keys(preloadedFilters).forEach(key => {
+      if (key !== 'category' && key !== 'country') {
+        // Include both true (include) and false (exclude) filters
+        if (preloadedFilters[key] === true || preloadedFilters[key] === false) {
+          materialFilters[key] = preloadedFilters[key];
+        }
+      }
+    });
+
+    console.log('🎯 Material Filters:', materialFilters);
+    setSelectedFilters(materialFilters);
+
+    // Generate title
+    const categoryName = preloadedFilters.category
+      ? CATEGORIES.find(c => c.value === preloadedFilters.category)?.label
+      : 'All Categories';
+
+    const countryText = preloadedFilters.country?.length > 0
+      ? ` in ${preloadedFilters.country.slice(0, 2).join(', ')}${preloadedFilters.country.length > 2 ? ` +${preloadedFilters.country.length - 2} more` : ''}`
+      : '';
+
+    const filterCount = Object.keys(materialFilters).length;
+    const filterText = filterCount > 0 ? ` with ${filterCount} filters` : '';
+
+    setFormData(prev => ({
+      ...prev,
+      title: `${categoryName}${countryText}${filterText}`,
+      description: `Custom report with ${preloadedRecordCount} companies`
+    }));
+  }
+}, []); // Run only once on mount
 
   useEffect(() => {
     fetchAvailableCountries();
   }, []);
 
-  // --- FIX START: The condition is updated to allow fetching for "All Categories" (value: "") ---
+  // ===== FIX 1: Allow fetching filters for "All Categories" (empty string) =====
   useEffect(() => {
     if (selectedCategory !== 'SELECT') {
       fetchFilterOptions();
     }
   }, [selectedCategory]);
-  // --- FIX END ---
 
   const fetchAvailableCountries = async () => {
     try {
@@ -100,8 +123,10 @@ const CreateReportPage = () => {
 
   const fetchFilterOptions = async () => {
     try {
+      // ===== FIX 2: Send empty string for "All Categories" =====
+      const categoryParam = selectedCategory === '' ? 'ALL' : selectedCategory;
       const response = await api.get('/api/filter-options/', {
-        params: { category: selectedCategory }
+        params: { category: categoryParam }
       });
       setAvailableFilters(response.data || []);
     } catch (error) {
@@ -135,14 +160,19 @@ const CreateReportPage = () => {
     }));
   };
 
-  const handleFilterToggle = (filterField) => {
+  // ===== FIX 3: New function for radio button filters (Any/Include/Exclude) =====
+  const handleFilterChange = (filterField, value) => {
     setSelectedFilters(prev => {
       const newFilters = { ...prev };
-      if (newFilters[filterField]) {
+
+      if (value === undefined || value === null) {
+        // "Any" selected - remove the filter
         delete newFilters[filterField];
       } else {
-        newFilters[filterField] = true;
+        // "Include" (true) or "Exclude" (false) selected
+        newFilters[filterField] = value;
       }
+
       return newFilters;
     });
   };
@@ -169,23 +199,34 @@ const CreateReportPage = () => {
     setSelectedCountries(prev => prev.filter(c => c !== country));
   };
 
-  const buildFilterCriteria = () => {
-    const criteria = {
-      category: selectedCategory === 'SELECT' ? '' : selectedCategory
-    };
+const buildFilterCriteria = () => {
+  const criteria = {};
 
-    Object.keys(selectedFilters).forEach(field => {
-      if (selectedFilters[field]) {
-        criteria[field] = true;
-      }
-    });
-
-    if (selectedCountries.length > 0) {
-      criteria.country = selectedCountries;
+  // Handle category
+  if (selectedCategory && selectedCategory !== 'SELECT') {
+    // If empty string, don't add category field (means ALL categories)
+    if (selectedCategory !== '') {
+      criteria.category = selectedCategory;
     }
+  }
 
-    return criteria;
-  };
+  // Add material filters (both true AND false)
+  Object.keys(selectedFilters).forEach(field => {
+    // Only add if it's actually true or false (not undefined)
+    if (selectedFilters[field] === true || selectedFilters[field] === false) {
+      criteria[field] = selectedFilters[field];
+    }
+  });
+
+  // Add country filters
+  if (selectedCountries.length > 0) {
+    criteria.country = selectedCountries;
+  }
+
+  console.log('📋 Building Filter Criteria:', criteria);
+
+  return criteria;
+};
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -201,10 +242,16 @@ const CreateReportPage = () => {
     try {
       setLoading(true);
       const criteria = buildFilterCriteria();
+
+      console.log('📤 Submitting report with criteria:', criteria);
+
       const submitData = {
         ...formData,
         filter_criteria: criteria
       };
+
+      console.log('📤 Full submit data:', submitData);
+
       await api.post('/api/custom-reports/', submitData);
       alert('Report created successfully!');
       navigate(`/custom-reports`);
@@ -370,7 +417,6 @@ const CreateReportPage = () => {
                       </div>
                     </div>
 
-                    {/* Navigation Buttons for Step 1 */}
                     <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-end">
                       <button
                         type="button"
@@ -457,9 +503,13 @@ const CreateReportPage = () => {
                             ))}
                             {Object.keys(selectedFilters).map(field => {
                               const option = availableFilters.find(opt => opt.field === field);
+                              const value = selectedFilters[field];
+                              const colorClass = value === true ? 'border-green-300 text-green-800' : 'border-red-300 text-red-800';
+                              const label = value === true ? 'Include' : 'Exclude';
+
                               return (
-                                <span key={field} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-green-300 text-green-800 rounded-full text-xs font-medium shadow-sm">
-                                  {option?.label || field.replace(/_/g, ' ')}
+                                <span key={field} className={`inline-flex items-center gap-1.5 px-3 py-1.5 bg-white ${colorClass} rounded-full text-xs font-medium shadow-sm border`}>
+                                  {option?.label || field.replace(/_/g, ' ')}: {label}
                                   <button type="button" onClick={() => removeFilter(field)} className="hover:opacity-70">
                                     <X className="w-3.5 h-3.5" />
                                   </button>
@@ -512,7 +562,7 @@ const CreateReportPage = () => {
                         </div>
                       </div>
 
-                      {/* Materials */}
+                      {/* ===== FIX 5: Show materials for ALL categories including empty string ===== */}
                       {availableFilters.length > 0 && (
                         <div>
                           <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-3">
@@ -534,23 +584,56 @@ const CreateReportPage = () => {
                               </button>
                             )}
                           </div>
-                          <div className="border-2 border-gray-200 rounded-lg p-3 max-h-80 overflow-y-auto bg-gray-50">
+                          <div className="border-2 border-gray-200 rounded-lg p-3 max-h-96 overflow-y-auto bg-gray-50">
                             {filteredMaterials.length === 0 ? (
                               <p className="text-sm text-gray-500 text-center py-3">No materials found</p>
                             ) : (
-                              <div className="grid grid-cols-2 gap-1.5">
+                              <div className="space-y-3">
+                                {/* ===== FIX 6: Use Radio Buttons with Any/Include/Exclude ===== */}
                                 {filteredMaterials.map((filter) => (
-                                  <label key={filter.field} className="flex items-center gap-2 cursor-pointer hover:bg-white p-2 rounded-lg transition-colors">
-                                    <input
-                                      type="checkbox"
-                                      checked={selectedFilters[filter.field] || false}
-                                      onChange={() => handleFilterToggle(filter.field)}
-                                      className="w-4 h-4 text-green-600 rounded focus:ring-green-500"
-                                    />
-                                    <span className="text-sm text-gray-700 flex-1">
-                                      {filter.label} <span className="text-gray-500 text-xs">({filter.count})</span>
-                                    </span>
-                                  </label>
+                                  <div key={filter.field} className="bg-white border border-gray-200 rounded-lg p-4 hover:border-gray-300 transition-colors">
+                                    <div className="flex items-center justify-between mb-3">
+                                      <h4 className="font-semibold text-gray-900 text-sm">{filter.label}</h4>
+                                      <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
+                                        {filter.count}
+                                      </span>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                      <label className="flex items-center gap-2 cursor-pointer group">
+                                        <input
+                                          type="radio"
+                                          name={filter.field}
+                                          checked={selectedFilters[filter.field] === undefined}
+                                          onChange={() => handleFilterChange(filter.field, undefined)}
+                                          className="w-4 h-4 text-gray-400 border-gray-300 focus:ring-indigo-500"
+                                        />
+                                        <span className="text-sm text-gray-600 group-hover:text-gray-900">Any</span>
+                                      </label>
+
+                                      <label className="flex items-center gap-2 cursor-pointer group">
+                                        <input
+                                          type="radio"
+                                          name={filter.field}
+                                          checked={selectedFilters[filter.field] === true}
+                                          onChange={() => handleFilterChange(filter.field, true)}
+                                          className="w-4 h-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"
+                                        />
+                                        <span className="text-sm text-gray-900 font-medium group-hover:text-indigo-600">Include</span>
+                                      </label>
+
+                                      <label className="flex items-center gap-2 cursor-pointer group">
+                                        <input
+                                          type="radio"
+                                          name={filter.field}
+                                          checked={selectedFilters[filter.field] === false}
+                                          onChange={() => handleFilterChange(filter.field, false)}
+                                          className="w-4 h-4 text-red-600 border-gray-300 focus:ring-red-500"
+                                        />
+                                        <span className="text-sm text-gray-900 font-medium group-hover:text-red-600">Exclude</span>
+                                      </label>
+                                    </div>
+                                  </div>
                                 ))}
                               </div>
                             )}
@@ -559,7 +642,6 @@ const CreateReportPage = () => {
                       )}
                     </div>
 
-                    {/* Navigation Buttons for Step 2 */}
                     <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-between">
                       <button
                         type="button"
@@ -581,7 +663,7 @@ const CreateReportPage = () => {
                   </div>
                 )}
 
-                {/* Step 3: Review */}
+                {/* Step 3: Review - SAME AS BEFORE */}
                 {currentStep === 3 && (
                   <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                     <div className="bg-gradient-to-r from-green-50 to-emerald-50 px-6 py-4 border-b border-gray-200">
@@ -632,11 +714,11 @@ const CreateReportPage = () => {
                           Filter Criteria
                         </h3>
                         <div className="space-y-3">
-                          {selectedCategory && (
+                          {selectedCategory !== 'SELECT' && (
                             <div>
                               <span className="text-xs text-gray-600">Category:</span>
                               <p className="text-sm font-medium text-gray-900">
-                                {CATEGORIES.find(c => c.value === selectedCategory)?.label || 'All Categories'}
+                                {selectedCategory === '' ? 'All Categories' : (CATEGORIES.find(c => c.value === selectedCategory)?.label || 'All Categories')}
                               </p>
                             </div>
                           )}
@@ -656,13 +738,17 @@ const CreateReportPage = () => {
 
                           {Object.keys(selectedFilters).length > 0 && (
                             <div>
-                              <span className="text-xs text-gray-600">Materials ({Object.keys(selectedFilters).length}):</span>
+                              <span className="text-xs text-gray-600">Material Filters ({Object.keys(selectedFilters).length}):</span>
                               <div className="flex flex-wrap gap-1 mt-1">
                                 {Object.keys(selectedFilters).map(field => {
                                   const option = availableFilters.find(opt => opt.field === field);
+                                  const value = selectedFilters[field];
+                                  const colorClass = value === true ? 'border-green-300 text-green-800 bg-green-50' : 'border-red-300 text-red-800 bg-red-50';
+                                  const label = value === true ? 'Include' : 'Exclude';
+
                                   return (
-                                    <span key={field} className="text-xs px-2 py-1 bg-white border border-green-300 text-green-800 rounded-full">
-                                      {option?.label || field.replace(/_/g, ' ')}
+                                    <span key={field} className={`text-xs px-2 py-1 border rounded-full ${colorClass}`}>
+                                      {option?.label || field.replace(/_/g, ' ')}: {label}
                                     </span>
                                   );
                                 })}
@@ -686,7 +772,6 @@ const CreateReportPage = () => {
                       </div>
                     </div>
 
-                    {/* Navigation Buttons for Step 3 */}
                     <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-between">
                       <button
                         type="button"

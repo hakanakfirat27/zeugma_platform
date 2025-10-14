@@ -165,6 +165,66 @@ def update_widget_order(request):
         )
 
 
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def report_preview(request):
+    """
+    Preview how many records will be in a custom report based on filter criteria
+    """
+    filter_criteria = request.data.get('filter_criteria', {})
+
+    # Start with all records
+    queryset = SuperdatabaseRecord.objects.all()
+
+    # Apply category filter - ONLY if category is specified and not empty
+    if 'category' in filter_criteria and filter_criteria['category']:
+        queryset = queryset.filter(category=filter_criteria['category'])
+
+    # Apply country filter
+    if 'country' in filter_criteria:
+        countries = filter_criteria['country']
+        if isinstance(countries, list) and len(countries) > 0:
+            queryset = queryset.filter(country__in=countries)
+
+    # Apply boolean filters (materials, properties, etc.)
+    for field, value in filter_criteria.items():
+        if field not in ['category', 'country']:
+            # Check if it's a boolean field
+            if isinstance(value, bool):
+                queryset = queryset.filter(**{field: value})
+
+    # Get statistics
+    total_records = queryset.count()
+
+    # Breakdown by category
+    category_breakdown = list(
+        queryset.values('category')
+        .annotate(count=Count('id'))
+        .order_by('-count')
+    )
+
+    # Add readable category names
+    for item in category_breakdown:
+        category_obj = next((c for c in CATEGORIES if c['value'] == item['category']), None)
+        if category_obj:
+            item['category'] = category_obj['label']
+
+    # Breakdown by country
+    country_breakdown = list(
+        queryset.values('country')
+        .annotate(count=Count('id'))
+        .order_by('-count')[:10]
+    )
+
+    return Response({
+        'total_records': total_records,
+        'field_breakdown': {
+            'categories': category_breakdown,
+            'countries': country_breakdown
+        }
+    })
+
+
 # --- Dashboard Stats APIView Class ---
 class DashboardStatsAPIView(APIView):
     """
