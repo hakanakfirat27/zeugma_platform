@@ -1,9 +1,11 @@
+// frontend/src/pages/SubscriptionManagementPage.jsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import DashboardLayout from '../components/layout/DashboardLayout';
 import LoadingSpinner from '../components/LoadingSpinner';
 import api from '../utils/api';
+import { ArrowLeft, X, Plus, Calendar, FileText, User, Clock, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 
 const SubscriptionManagementPage = () => {
   const { user } = useAuth();
@@ -83,7 +85,8 @@ const SubscriptionManagementPage = () => {
   const getStatusBadge = (status, isActive, daysRemaining) => {
     if (status === 'CANCELLED') {
       return (
-        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+          <XCircle className="w-3 h-3 mr-1" />
           Cancelled
         </span>
       );
@@ -91,7 +94,8 @@ const SubscriptionManagementPage = () => {
 
     if (status === 'EXPIRED' || !isActive) {
       return (
-        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+          <AlertCircle className="w-3 h-3 mr-1" />
           Expired
         </span>
       );
@@ -99,14 +103,16 @@ const SubscriptionManagementPage = () => {
 
     if (daysRemaining <= 7) {
       return (
-        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+          <Clock className="w-3 h-3 mr-1" />
           Expiring Soon
         </span>
       );
     }
 
     return (
-      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+      <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+        <CheckCircle className="w-3 h-3 mr-1" />
         Active
       </span>
     );
@@ -115,68 +121,81 @@ const SubscriptionManagementPage = () => {
   if (loading && subscriptions.length === 0) {
     return (
       <DashboardLayout>
-        <LoadingSpinner />
+        <div className="flex items-center justify-center h-screen">
+          <LoadingSpinner />
+        </div>
       </DashboardLayout>
     );
   }
 
   return (
     <DashboardLayout>
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex justify-between items-center mb-6">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">
-                {isStaff ? 'Subscription Management' : 'My Subscriptions'}
-              </h1>
-              <p className="text-gray-600 mt-1">
-                {isStaff
-                  ? 'Manage all client subscriptions'
-                  : 'View and manage your active subscriptions'}
-              </p>
-            </div>
-            {isStaff && (
-              <button
-                onClick={() => setShowCreateModal(true)}
-                className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition flex items-center gap-2"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-                Create Subscription
-              </button>
-            )}
-          </div>
+      {/* Header - Same style as Superdatabase */}
+      <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white px-8 py-8 shadow-lg">
+        <div className="flex items-center gap-3 mb-2">
+          <button
+            onClick={() => navigate('/staff-dashboard')}
+            className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <h1 className="text-2xl font-bold">
+            {isStaff ? 'Subscription Management' : 'My Subscriptions'}
+          </h1>
+        </div>
+        <p className="text-indigo-100 text-sm ml-12">
+          {isStaff
+            ? 'Manage all client subscriptions'
+            : 'View and manage your active subscriptions'}
+        </p>
+      </div>
 
-          {/* Stats for Staff */}
+      {/* Content */}
+      <div className="flex-1 overflow-auto bg-white">
+        <div className="max-w-7xl mx-auto px-8 py-6">
+          {/* Stats for Staff - WITHOUT REVENUE */}
           {isStaff && stats && (
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-                <div className="text-sm text-gray-600 mb-1">Total Subscriptions</div>
-                <div className="text-2xl font-bold text-gray-900">{stats.total_subscriptions}</div>
+              <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-5 border border-blue-200">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-sm font-medium text-blue-600">Total Subscriptions</h3>
+                  <FileText className="w-8 h-8 text-blue-600 opacity-75" />
+                </div>
+                <p className="text-3xl font-bold text-blue-900">{stats.total_subscriptions}</p>
               </div>
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-                <div className="text-sm text-gray-600 mb-1">Active</div>
-                <div className="text-2xl font-bold text-green-600">{stats.active_subscriptions}</div>
+
+              <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-5 border border-green-200">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-sm font-medium text-green-600">Active</h3>
+                  <CheckCircle className="w-8 h-8 text-green-600 opacity-75" />
+                </div>
+                <p className="text-3xl font-bold text-green-900">{stats.active_subscriptions}</p>
               </div>
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-                <div className="text-sm text-gray-600 mb-1">Expiring Soon</div>
-                <div className="text-2xl font-bold text-yellow-600">{stats.expiring_soon}</div>
+
+              <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-lg p-5 border border-yellow-200">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-sm font-medium text-yellow-600">Expiring Soon</h3>
+                  <Clock className="w-8 h-8 text-yellow-600 opacity-75" />
+                </div>
+                <p className="text-3xl font-bold text-yellow-900">{stats.expiring_soon}</p>
               </div>
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-                <div className="text-sm text-gray-600 mb-1">Monthly Revenue</div>
-                <div className="text-2xl font-bold text-blue-600">${stats.monthly_revenue.toFixed(2)}</div>
+
+              <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-5 border border-purple-200">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-sm font-medium text-purple-600">Clients</h3>
+                  <User className="w-8 h-8 text-purple-600 opacity-75" />
+                </div>
+                <p className="text-3xl font-bold text-purple-900">{stats.total_clients || 0}</p>
               </div>
             </div>
           )}
 
-          {/* Filters */}
-          <div className="flex gap-4 items-center">
+          {/* Action Bar */}
+          <div className="flex items-center justify-between mb-6">
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
             >
               <option value="">All Status</option>
               <option value="ACTIVE">Active</option>
@@ -184,159 +203,174 @@ const SubscriptionManagementPage = () => {
               <option value="CANCELLED">Cancelled</option>
               <option value="PENDING">Pending</option>
             </select>
-          </div>
-        </div>
 
-        {/* Subscriptions List */}
-        {subscriptions.length === 0 ? (
-          <div className="text-center py-12 bg-gray-50 rounded-lg">
-            <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            <h3 className="mt-2 text-sm font-medium text-gray-900">No subscriptions found</h3>
-            <p className="mt-1 text-sm text-gray-500">
-              {isStaff ? 'Create a new subscription to get started.' : 'You don\'t have any subscriptions yet.'}
-            </p>
+            {isStaff && (
+              <button
+                onClick={() => setShowCreateModal(true)}
+                className="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition flex items-center gap-2 shadow-md"
+              >
+                <Plus className="w-5 h-5" />
+                Create Subscription
+              </button>
+            )}
           </div>
-        ) : (
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    {isStaff && (
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Client
-                      </th>
-                    )}
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Report
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Plan
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Period
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Amount
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Days Left
-                    </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {subscriptions.map((subscription) => (
-                    <tr key={subscription.subscription_id} className="hover:bg-gray-50">
+
+          {/* Subscriptions List */}
+          {subscriptions.length === 0 ? (
+            <div className="text-center py-16 bg-gray-50 rounded-lg">
+              <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">No subscriptions found</h3>
+              <p className="text-gray-600">
+                {isStaff ? 'Create a new subscription to get started.' : "You don't have any subscriptions yet."}
+              </p>
+            </div>
+          ) : (
+            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
                       {isStaff && (
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div>
-                            <div className="text-sm font-medium text-gray-900">
-                              {subscription.client_name}
+                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                          Client
+                        </th>
+                      )}
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                        Report
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                        Status
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                        Period
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                        Days Left
+                      </th>
+                      <th className="px-6 py-4 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {subscriptions.map((subscription) => (
+                      <tr key={subscription.subscription_id} className="hover:bg-gray-50 transition-colors">
+                        {isStaff && (
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center">
+                                <User className="w-5 h-5 text-indigo-600" />
+                              </div>
+                              <div>
+                                <p className="text-sm font-medium text-gray-900">
+                                  {subscription.client_name}
+                                </p>
+                                <p className="text-xs text-gray-500">
+                                  {subscription.client_email}
+                                </p>
+                              </div>
                             </div>
-                            <div className="text-sm text-gray-500">
-                              {subscription.client_email}
+                          </td>
+                        )}
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-2">
+                            <FileText className="w-4 h-4 text-gray-400" />
+                            <span className="text-sm font-medium text-gray-900">
+                              {subscription.report_title}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {getStatusBadge(subscription.status, subscription.is_active, subscription.days_remaining)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                          <div className="flex items-center gap-2">
+                            <Calendar className="w-4 h-4 text-gray-400" />
+                            <div>
+                              <p>{new Date(subscription.start_date).toLocaleDateString()}</p>
+                              <p className="text-xs text-gray-400">
+                                to {new Date(subscription.end_date).toLocaleDateString()}
+                              </p>
                             </div>
                           </div>
                         </td>
-                      )}
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">
-                          {subscription.report_title}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                          {subscription.plan}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {getStatusBadge(subscription.status, subscription.is_active, subscription.days_remaining)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        <div>{new Date(subscription.start_date).toLocaleDateString()}</div>
-                        <div className="text-xs text-gray-400">
-                          to {new Date(subscription.end_date).toLocaleDateString()}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        ${parseFloat(subscription.amount_paid).toFixed(2)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {subscription.is_active ? (
-                          <span className={subscription.days_remaining <= 7 ? 'text-yellow-600 font-medium' : ''}>
-                            {subscription.days_remaining} days
-                          </span>
-                        ) : (
-                          <span className="text-gray-400">-</span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <div className="flex justify-end gap-2">
-                          {isStaff && subscription.status === 'ACTIVE' && (
-                            <>
-                              <button
-                                onClick={() => handleRenew(subscription.subscription_id)}
-                                className="text-green-600 hover:text-green-900"
-                                title="Renew"
-                              >
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                                </svg>
-                              </button>
-                              <button
-                                onClick={() => handleCancel(subscription.subscription_id)}
-                                className="text-red-600 hover:text-red-900"
-                                title="Cancel"
-                              >
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                              </button>
-                            </>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {subscription.is_active ? (
+                            <span className={`text-sm font-medium ${subscription.days_remaining <= 7 ? 'text-yellow-600' : 'text-gray-600'}`}>
+                              {subscription.days_remaining} days
+                            </span>
+                          ) : (
+                            <span className="text-sm text-gray-400">-</span>
                           )}
-                          {!isStaff && subscription.is_active && (
-                            <button
-                              onClick={() => navigate(`/custom-reports/${subscription.report}`)}
-                              className="text-blue-600 hover:text-blue-900"
-                            >
-                              View Report
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right">
+                          <div className="flex justify-end gap-2">
+                            {!isStaff && subscription.is_active && (
+                              <button
+                                onClick={() => navigate(`/custom-reports/${subscription.report}`)}
+                                className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition text-sm font-medium"
+                              >
+                                View Report
+                              </button>
+                            )}
+                            {isStaff && (
+                              <>
+                                {subscription.status === 'ACTIVE' && (
+                                  <>
+                                    <button
+                                      onClick={() => handleRenew(subscription.subscription_id)}
+                                      className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition text-sm font-medium"
+                                      title="Renew"
+                                    >
+                                      Renew
+                                    </button>
+                                    <button
+                                      onClick={() => handleCancel(subscription.subscription_id)}
+                                      className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition text-sm font-medium"
+                                      title="Cancel"
+                                    >
+                                      Cancel
+                                    </button>
+                                  </>
+                                )}
+                                {subscription.status === 'EXPIRED' && (
+                                  <button
+                                    onClick={() => handleRenew(subscription.subscription_id)}
+                                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium"
+                                  >
+                                    Reactivate
+                                  </button>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
-        )}
-
-        {/* Create Subscription Modal */}
-        {showCreateModal && (
-          <CreateSubscriptionModal
-            onClose={() => setShowCreateModal(false)}
-            onSuccess={() => {
-              setShowCreateModal(false);
-              fetchSubscriptions();
-              if (isStaff) fetchStats();
-            }}
-          />
-        )}
+          )}
+        </div>
       </div>
+
+      {/* Create Subscription Modal */}
+      {showCreateModal && (
+        <CreateSubscriptionModal
+          onClose={() => setShowCreateModal(false)}
+          onSuccess={() => {
+            setShowCreateModal(false);
+            fetchSubscriptions();
+            if (isStaff) fetchStats();
+          }}
+        />
+      )}
     </DashboardLayout>
   );
 };
 
-// Create Subscription Modal Component
+// Create Subscription Modal - Simplified without pricing
 const CreateSubscriptionModal = ({ onClose, onSuccess }) => {
   const [loading, setLoading] = useState(false);
   const [clients, setClients] = useState([]);
@@ -348,7 +382,6 @@ const CreateSubscriptionModal = ({ onClose, onSuccess }) => {
     status: 'ACTIVE',
     start_date: new Date().toISOString().split('T')[0],
     end_date: '',
-    amount_paid: '0.00',
     notes: ''
   });
 
@@ -358,39 +391,18 @@ const CreateSubscriptionModal = ({ onClose, onSuccess }) => {
   }, []);
 
   useEffect(() => {
-    // Auto-calculate end date based on plan
-    if (formData.start_date && formData.plan) {
+    // Auto-calculate end date (1 year from start)
+    if (formData.start_date) {
       const startDate = new Date(formData.start_date);
-      let endDate = new Date(startDate);
-
-      if (formData.plan === 'MONTHLY') {
-        endDate.setMonth(endDate.getMonth() + 1);
-      } else {
-        endDate.setFullYear(endDate.getFullYear() + 1);
-      }
-
+      const endDate = new Date(startDate);
+      endDate.setFullYear(endDate.getFullYear() + 1);
+      
       setFormData(prev => ({
         ...prev,
         end_date: endDate.toISOString().split('T')[0]
       }));
     }
-  }, [formData.start_date, formData.plan]);
-
-  useEffect(() => {
-    // Auto-fill price based on selected report and plan
-    if (formData.report && formData.plan) {
-      const selectedReport = reports.find(r => r.report_id === formData.report);
-      if (selectedReport) {
-        const price = formData.plan === 'MONTHLY'
-          ? selectedReport.monthly_price
-          : selectedReport.annual_price;
-        setFormData(prev => ({
-          ...prev,
-          amount_paid: price
-        }));
-      }
-    }
-  }, [formData.report, formData.plan, reports]);
+  }, [formData.start_date]);
 
   const fetchClients = async () => {
     try {
@@ -415,7 +427,14 @@ const CreateSubscriptionModal = ({ onClose, onSuccess }) => {
 
     try {
       setLoading(true);
-      await api.post('/api/subscriptions/', formData);
+
+      // Send with default pricing to backend
+      const submitData = {
+        ...formData,
+        amount_paid: 0.00
+      };
+
+      await api.post('/api/subscriptions/', submitData);
       alert('Subscription created successfully!');
       onSuccess();
     } catch (error) {
@@ -428,165 +447,131 @@ const CreateSubscriptionModal = ({ onClose, onSuccess }) => {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="p-6">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-bold text-gray-900">Create Subscription</h2>
+      <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="sticky top-0 bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-6 py-4 rounded-t-xl">
+          <div className="flex justify-between items-center">
+            <h2 className="text-xl font-bold">Create New Subscription</h2>
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-600"
+              className="text-white hover:bg-white/20 p-2 rounded-lg transition-colors"
             >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
+              <X className="w-5 h-5" />
             </button>
           </div>
+        </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="p-6 space-y-5">
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Client *
+            </label>
+            <select
+              value={formData.client}
+              onChange={(e) => setFormData(prev => ({ ...prev, client: e.target.value }))}
+              required
+              className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+            >
+              <option value="">Select a client</option>
+              {clients.map((client) => (
+                <option key={client.id} value={client.id}>
+                  {client.full_name} ({client.email})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Report *
+            </label>
+            <select
+              value={formData.report}
+              onChange={(e) => setFormData(prev => ({ ...prev, report: e.target.value }))}
+              required
+              className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+            >
+              <option value="">Select a report</option>
+              {reports.map((report) => (
+                <option key={report.report_id} value={report.report_id}>
+                  {report.title} ({report.record_count} records)
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Status *
+            </label>
+            <select
+              value={formData.status}
+              onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value }))}
+              required
+              className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+            >
+              <option value="ACTIVE">Active</option>
+              <option value="PENDING">Pending</option>
+            </select>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Client *
-              </label>
-              <select
-                value={formData.client}
-                onChange={(e) => setFormData(prev => ({ ...prev, client: e.target.value }))}
-                required
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="">Select a client</option>
-                {clients.map((client) => (
-                  <option key={client.id} value={client.id}>
-                    {client.full_name} ({client.email})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Report *
-              </label>
-              <select
-                value={formData.report}
-                onChange={(e) => setFormData(prev => ({ ...prev, report: e.target.value }))}
-                required
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="">Select a report</option>
-                {reports.map((report) => (
-                  <option key={report.report_id} value={report.report_id}>
-                    {report.title}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Plan *
-                </label>
-                <select
-                  value={formData.plan}
-                  onChange={(e) => setFormData(prev => ({ ...prev, plan: e.target.value }))}
-                  required
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="MONTHLY">Monthly</option>
-                  <option value="ANNUAL">Annual</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Status *
-                </label>
-                <select
-                  value={formData.status}
-                  onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value }))}
-                  required
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="ACTIVE">Active</option>
-                  <option value="PENDING">Pending</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Start Date *
-                </label>
-                <input
-                  type="date"
-                  value={formData.start_date}
-                  onChange={(e) => setFormData(prev => ({ ...prev, start_date: e.target.value }))}
-                  required
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  End Date *
-                </label>
-                <input
-                  type="date"
-                  value={formData.end_date}
-                  onChange={(e) => setFormData(prev => ({ ...prev, end_date: e.target.value }))}
-                  required
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Amount Paid ($) *
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Start Date *
               </label>
               <input
-                type="number"
-                value={formData.amount_paid}
-                onChange={(e) => setFormData(prev => ({ ...prev, amount_paid: e.target.value }))}
-                step="0.01"
-                min="0"
+                type="date"
+                value={formData.start_date}
+                onChange={(e) => setFormData(prev => ({ ...prev, start_date: e.target.value }))}
                 required
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Notes
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                End Date *
               </label>
-              <textarea
-                value={formData.notes}
-                onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
-                rows={3}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Add any additional notes..."
+              <input
+                type="date"
+                value={formData.end_date}
+                onChange={(e) => setFormData(prev => ({ ...prev, end_date: e.target.value }))}
+                required
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
               />
             </div>
+          </div>
 
-            <div className="flex gap-3 pt-4">
-              <button
-                type="submit"
-                disabled={loading}
-                className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {loading ? 'Creating...' : 'Create Subscription'}
-              </button>
-              <button
-                type="button"
-                onClick={onClose}
-                className="flex-1 bg-white text-gray-700 px-4 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition"
-              >
-                Cancel
-              </button>
-            </div>
-          </form>
-        </div>
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Notes
+            </label>
+            <textarea
+              value={formData.notes}
+              onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+              rows={3}
+              className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+              placeholder="Add any additional notes..."
+            />
+          </div>
+
+          <div className="flex gap-3 pt-4 border-t">
+            <button
+              type="submit"
+              disabled={loading}
+              className="flex-1 bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-6 py-3 rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all font-semibold shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? 'Creating...' : 'Create Subscription'}
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 bg-white text-gray-700 px-6 py-3 rounded-lg border-2 border-gray-300 hover:bg-gray-50 transition-all font-semibold"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );

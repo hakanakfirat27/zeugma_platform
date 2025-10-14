@@ -22,7 +22,6 @@ const CreateReportPage = () => {
     title: '',
     description: '',
     is_active: true,
-    is_featured: false,
     filter_criteria: {}
   });
 
@@ -245,10 +244,16 @@ const buildFilterCriteria = () => {
 
       console.log('📤 Submitting report with criteria:', criteria);
 
-      const submitData = {
-        ...formData,
-        filter_criteria: criteria
-      };
+    const submitData = {
+      title: formData.title,
+      description: formData.description,
+      is_active: formData.is_active,
+      // We still send these to backend but with default values
+      is_featured: false,
+      monthly_price: 0.00,
+      annual_price: 0.00,
+      filter_criteria: criteria
+    };
 
       console.log('📤 Full submit data:', submitData);
 
@@ -400,19 +405,6 @@ const buildFilterCriteria = () => {
                             />
                           </div>
                           <span className="text-sm font-medium text-gray-700 group-hover:text-gray-900">Active Report</span>
-                        </label>
-
-                        <label className="flex items-center gap-3 cursor-pointer group">
-                          <div className="relative">
-                            <input
-                              type="checkbox"
-                              name="is_featured"
-                              checked={formData.is_featured}
-                              onChange={handleInputChange}
-                              className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500 cursor-pointer"
-                            />
-                          </div>
-                          <span className="text-sm font-medium text-gray-700 group-hover:text-gray-900">Featured</span>
                         </label>
                       </div>
                     </div>
@@ -698,11 +690,6 @@ const buildFilterCriteria = () => {
                             <span className={`text-xs px-2 py-1 rounded-full ${formData.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>
                               {formData.is_active ? '✓ Active' : 'Inactive'}
                             </span>
-                            {formData.is_featured && (
-                              <span className="text-xs px-2 py-1 rounded-full bg-yellow-100 text-yellow-800">
-                                ⭐ Featured
-                              </span>
-                            )}
                           </div>
                         </div>
                       </div>
