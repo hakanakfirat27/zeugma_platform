@@ -211,7 +211,7 @@ EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = 'zeugma.research@gmail.com'
 EMAIL_HOST_PASSWORD = 'qahi fkym vawm tmxd' # Your Gmail App Password
-# DEFAULT_FROM_EMAIL = 'Zeugma Platform <your-email@gmail.com>'
+DEFAULT_FROM_EMAIL = 'Zeugma Platform <zeugma.research@gmail.com>'
 
 # For development
-DEFAULT_FROM_EMAIL = 'zeugma.research@gmail.com'
+#DEFAULT_FROM_EMAIL = 'zeugma.research@gmail.com'

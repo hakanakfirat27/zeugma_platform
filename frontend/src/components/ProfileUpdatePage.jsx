@@ -26,6 +26,18 @@ const ProfileUpdatePage = () => {
     console.log('Form data:', formData);
   }, [userData, formData]);
 
+  // Helper function to determine dashboard path based on role
+  const getDashboardPath = (role) => {
+    if (role === 'SUPERADMIN' || role === 'STAFF_ADMIN') {
+      return '/staff-dashboard';
+    } else if (role === 'CLIENT') {
+      return '/client-dashboard';
+    } else if (role === 'GUEST') {
+      return '/guest-dashboard';
+    }
+    return '/dashboard'; // fallback
+  };
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
@@ -42,17 +54,10 @@ const ProfileUpdatePage = () => {
 
       // Get updated user data
       const updatedUser = response.data;
+      console.log('Profile updated successfully:', updatedUser);
 
       // Determine dashboard based on role
-      let dashboardPath = '/dashboard';
-
-      if (updatedUser.role === 'SUPERADMIN' || updatedUser.role === 'STAFF_ADMIN') {
-        dashboardPath = '/staff-dashboard';
-      } else if (updatedUser.role === 'CLIENT') {
-        dashboardPath = '/client-dashboard';
-      } else if (updatedUser.role === 'GUEST') {
-        dashboardPath = '/guest-dashboard';
-      }
+      const dashboardPath = getDashboardPath(updatedUser.role);
 
       // Redirect to appropriate dashboard
       navigate(dashboardPath, {
@@ -67,18 +72,15 @@ const ProfileUpdatePage = () => {
   };
 
   const handleSkip = () => {
-    // Determine dashboard based on role
-    let dashboardPath = '/dashboard';
+    console.log('Skip button clicked. User role:', userData.role);
 
-    if (updatedUser.role === 'SUPERADMIN' || updatedUser.role === 'STAFF_ADMIN') {
-      dashboardPath = '/staff-dashboard';
-    } else if (updatedUser.role === 'CLIENT') {
-      dashboardPath = '/client-dashboard';
-    } else if (updatedUser.role === 'GUEST') {
-      dashboardPath = '/guest-dashboard';
-    }
+    // Use userData (from location state) instead of undefined updatedUser
+    const dashboardPath = getDashboardPath(userData.role);
 
-    navigate(dashboardPath);
+    console.log('Redirecting to:', dashboardPath);
+    navigate(dashboardPath, {
+      state: { message: 'Welcome to Zeugma Platform!' }
+    });
   };
 
   return (
@@ -120,7 +122,7 @@ const ProfileUpdatePage = () => {
                   name="first_name"
                   value={formData.first_name}
                   onChange={handleChange}
-                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
                   placeholder="Enter first name"
                 />
               </div>
@@ -137,7 +139,7 @@ const ProfileUpdatePage = () => {
                   name="last_name"
                   value={formData.last_name}
                   onChange={handleChange}
-                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
                   placeholder="Enter last name"
                 />
               </div>
@@ -155,7 +157,7 @@ const ProfileUpdatePage = () => {
                 name="phone_number"
                 value={formData.phone_number}
                 onChange={handleChange}
-                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
                 placeholder="+1234567890"
               />
             </div>
@@ -172,7 +174,7 @@ const ProfileUpdatePage = () => {
                 name="company_name"
                 value={formData.company_name}
                 onChange={handleChange}
-                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
                 placeholder="Company Inc."
               />
             </div>
@@ -182,7 +184,8 @@ const ProfileUpdatePage = () => {
             <button
               type="button"
               onClick={handleSkip}
-              className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+              disabled={submitting}
+              className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Skip for now
             </button>

@@ -1,54 +1,104 @@
 import { useState, useEffect } from 'react';
-import { Check, X, Loader2, Mail } from 'lucide-react';
+import { CheckCircle, XCircle, Loader2, Mail } from 'lucide-react';
 import api from '../utils/api';
 
-const EmailInput = ({ value, onChange, disabled = false, required = true, existingUserId = null }) => {
-  const [checking, setChecking] = useState(false);
-  const [available, setAvailable] = useState(null);
-  const [message, setMessage] = useState('');
+const EmailInput = ({
+  value,
+  onChange,
+  required = true,
+  existingUserId = null
+}) => {
+  const [validation, setValidation] = useState({
+    isValid: false,
+    message: '',
+    isChecking: false
+  });
   const [touched, setTouched] = useState(false);
+  const [checkTimer, setCheckTimer] = useState(null);
 
-  // Debounced email check
-  useEffect(() => {
-    if (!value || !touched || !value.includes('@')) {
-      setAvailable(null);
-      setMessage('');
+  // Email format validation
+  const isValidEmailFormat = (email) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  // Check email availability
+  const checkEmail = async (email) => {
+    if (!email) {
+      setValidation({
+        isValid: false,
+        message: '',
+        isChecking: false
+      });
       return;
     }
 
-    const timer = setTimeout(() => {
-      checkEmail();
-    }, 500);
+    // Check format first
+    if (!isValidEmailFormat(email)) {
+      setValidation({
+        isValid: false,
+        message: 'Please enter a valid email address',
+        isChecking: false
+      });
+      return;
+    }
 
-    return () => clearTimeout(timer);
-  }, [value, touched]);
+    setValidation(prev => ({
+      ...prev,
+      isChecking: true
+    }));
 
-  const checkEmail = async () => {
-    if (!value || !value.includes('@')) return;
-
-    setChecking(true);
     try {
-      const { data } = await api.post('/api/auth/check-email/', {
-        email: value,
-        user_id: existingUserId, // For edit mode, exclude current user
+      const response = await api.post('/api/auth/check-email/', {
+        email: email,
+        user_id: existingUserId
       });
 
-      setAvailable(data.available);
-      setMessage(data.message);
-    } catch (error) {
-      console.error('Error checking email:', error);
-    } finally {
-      setChecking(false);
+      setValidation({
+        isValid: response.data.available,
+        message: response.data.message,
+        isChecking: false
+      });
+    } catch (err) {
+      console.error('Email check error:', err);
+      setValidation({
+        isValid: false,
+        message: err.response?.data?.message || 'Could not verify email availability',
+        isChecking: false
+      });
     }
   };
 
-  const handleBlur = () => {
-    setTouched(true);
+  // Handle input change with debouncing
+  useEffect(() => {
+    if (!value) return;
+
+    if (checkTimer) clearTimeout(checkTimer);
+
+    const timer = setTimeout(() => {
+      checkEmail(value);
+    }, 500);
+
+    setCheckTimer(timer);
+
+    return () => {
+      if (checkTimer) clearTimeout(checkTimer);
+    };
+  }, [value, existingUserId]);
+
+  const handleChange = (e) => {
+    const newValue = e.target.value.trim().toLowerCase();
+    onChange({
+      target: {
+        name: 'email',
+        value: newValue
+      }
+    });
   };
 
   return (
-    <div className="space-y-2">
-      <label className="block text-sm font-medium text-gray-700">
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-1">
         Email {required && <span className="text-red-500">*</span>}
       </label>
 
@@ -58,43 +108,49 @@ const EmailInput = ({ value, onChange, disabled = false, required = true, existi
           type="email"
           name="email"
           value={value}
-          onChange={(e) => {
-            onChange(e);
-            setTouched(true);
-          }}
-          onBlur={handleBlur}
-          disabled={disabled}
-          className={`w-full pl-10 pr-10 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 ${
-            disabled ? 'bg-gray-100 cursor-not-allowed' : ''
-          } ${
-            touched && available === true ? 'border-green-500' :
-            touched && available === false ? 'border-red-500' :
-            'border-gray-300'
+          onChange={handleChange}
+          onBlur={() => setTouched(true)}
+          className={`w-full pl-10 pr-10 py-2 border rounded-lg focus:ring-2 transition ${
+            touched
+              ? validation.isValid
+                ? 'border-green-300 focus:ring-green-500'
+                : validation.message && !validation.isChecking
+                ? 'border-red-300 focus:ring-red-500'
+                : 'border-gray-300 focus:ring-indigo-500'
+              : 'border-gray-300 focus:ring-indigo-500'
           }`}
           placeholder="user@example.com"
           required={required}
         />
 
-        {/* Status Icon */}
+        {/* Status Icons */}
         <div className="absolute right-3 top-1/2 -translate-y-1/2">
-          {checking && (
-            <Loader2 className="w-5 h-5 text-gray-400 animate-spin" />
+          {validation.isChecking && (
+            <Loader2 className="w-5 h-5 text-indigo-500 animate-spin" />
           )}
-          {!checking && touched && available === true && (
-            <Check className="w-5 h-5 text-green-600" />
+          {!validation.isChecking && touched && value && validation.isValid && (
+            <CheckCircle className="w-5 h-5 text-green-500" />
           )}
-          {!checking && touched && available === false && (
-            <X className="w-5 h-5 text-red-600" />
+          {!validation.isChecking && touched && value && validation.message && !validation.isValid && (
+            <XCircle className="w-5 h-5 text-red-500" />
           )}
         </div>
       </div>
 
-      {/* Message */}
-      {touched && message && (
-        <div className={`text-sm flex items-start gap-2 ${available ? 'text-green-600' : 'text-red-600'}`}>
-          {!available && <X className="w-4 h-4 flex-shrink-0 mt-0.5" />}
-          <p>{message}</p>
-        </div>
+      {/* Validation Message */}
+      {touched && validation.message && (
+        <p className={`text-xs mt-1 flex items-start gap-1 ${
+          validation.isValid ? 'text-green-600' : 'text-red-600'
+        }`}>
+          {validation.message}
+        </p>
+      )}
+
+      {/* Helper Text */}
+      {!touched && (
+        <p className="text-xs text-gray-500 mt-1">
+          A password creation link will be sent to this email address
+        </p>
       )}
     </div>
   );

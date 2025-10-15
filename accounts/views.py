@@ -73,7 +73,7 @@ def check_email_availability(request):
     """
     Check if email is available
     """
-    email = request.data.get('email', '').strip()
+    email = request.data.get('email', '').strip().lower()
     user_id = request.data.get('user_id', None)  # For edit mode
 
     if not email:
@@ -109,7 +109,7 @@ def check_username_availability(request):
     """
     Check if username is available and suggest alternatives
     """
-    username = request.data.get('username', '').strip()
+    username = request.data.get('username', '').strip().lower()
     first_name = request.data.get('first_name', '')
     last_name = request.data.get('last_name', '')
     email = request.data.get('email', '')
@@ -169,15 +169,14 @@ def create_user_send_email(request):
     if serializer.is_valid():
         # Create user without password
         user = serializer.save()
-        user.set_unusable_password()  # Mark as no password set
-        user.save()
+        # Password is already set as unusable in serializer.create()
 
         # Generate password reset token
         token = default_token_generator.make_token(user)
         uid = urlsafe_base64_encode(force_bytes(user.pk))
 
         # Create password creation link
-        frontend_url = settings.FRONTEND_URL
+        frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:5173')
         password_link = f"{frontend_url}/create-password/{uid}/{token}/"
 
         # Send email
@@ -249,6 +248,7 @@ def validate_password_token(request, uidb64, token):
                 'last_name': user.last_name,
                 'phone_number': user.phone_number,
                 'company_name': user.company_name,
+                'role': user.role,
             }
         })
 
@@ -318,7 +318,15 @@ def create_password(request, uidb64, token):
 
     return Response({
         'success': True,
-        'message': 'Password created successfully'
+        'message': 'Password created successfully',
+        'user': {
+            'id': user.id,
+            'username': user.username,
+            'email': user.email,
+            'first_name': user.first_name,
+            'last_name': user.last_name,
+            'role': user.role,
+        }
     })
 
 
@@ -354,10 +362,36 @@ class UserViewSet(viewsets.ModelViewSet):
 @api_view(['POST'])
 @ensure_csrf_cookie
 def login_view(request):
+    """
+    Login view that accepts either username OR email address
+    """
     data = request.data
-    username = data.get('username')
-    password = data.get('password')
-    user = authenticate(request, username=username, password=password)
+    username_or_email = data.get('username', '').strip()  # Can be either username or email
+    password = data.get('password', '')
+
+    # Try to determine if input is email or username
+    user = None
+
+    if '@' in username_or_email:
+        # Input looks like an email, try to find user by email
+        try:
+            user_obj = User.objects.get(email__iexact=username_or_email)
+            # Now authenticate with the username
+            user = authenticate(request, username=user_obj.username, password=password)
+        except User.DoesNotExist:
+            user = None
+    else:
+        # Input is a username
+        user = authenticate(request, username=username_or_email, password=password)
+
+    # If authentication failed with username, try as email anyway
+    if user is None and '@' not in username_or_email:
+        try:
+            user_obj = User.objects.get(email__iexact=username_or_email)
+            user = authenticate(request, username=user_obj.username, password=password)
+        except User.DoesNotExist:
+            user = None
+
     if user is not None:
         # Logout any existing user in this session/browser
         auth_logout(request)
@@ -372,7 +406,9 @@ def login_view(request):
             'message': 'Login successful'
         })
     else:
-        return Response({'error': 'Invalid credentials'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({
+            'error': 'Invalid credentials. Please check your username/email and password.'
+        }, status=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(['POST'])

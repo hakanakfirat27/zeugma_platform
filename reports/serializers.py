@@ -164,6 +164,12 @@ class SubscriptionSerializer(serializers.ModelSerializer):
 class SubscriptionCreateSerializer(serializers.ModelSerializer):
     """Serializer for creating subscriptions"""
 
+    # Accept UUID for report instead of integer ID
+    report = serializers.SlugRelatedField(
+        slug_field='report_id',
+        queryset=CustomReport.objects.all()
+    )
+
     class Meta:
         model = Subscription
         fields = [
@@ -175,11 +181,11 @@ class SubscriptionCreateSerializer(serializers.ModelSerializer):
         """Validate subscription data"""
         # Check if report is active
         if not data['report'].is_active:
-            raise serializers.ValidationError("Cannot subscribe to an inactive report.")
+            raise serializers.ValidationError({"report": "Cannot subscribe to an inactive report."})
 
         # Check date range
         if data['end_date'] <= data['start_date']:
-            raise serializers.ValidationError("End date must be after start date.")
+            raise serializers.ValidationError({"end_date": "End date must be after start date."})
 
         # Check for overlapping subscriptions
         overlapping = Subscription.objects.filter(
@@ -192,9 +198,9 @@ class SubscriptionCreateSerializer(serializers.ModelSerializer):
         ).exists()
 
         if overlapping:
-            raise serializers.ValidationError(
-                "Client already has an active subscription for this report in the given period."
-            )
+            raise serializers.ValidationError({
+                "report": "Client already has an active subscription for this report in the given period."
+            })
 
         return data
 

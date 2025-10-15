@@ -16,32 +16,42 @@ class UserRole(models.TextChoices):
 # This is our custom User model. It inherits all the fields from Django's
 # default user (username, email, password, etc.) and adds our custom 'role' field.
 class User(AbstractUser):
-    """
-    Custom User model with role-based permissions and additional fields
-    """
-    ROLE_CHOICES = [
-        ('SUPERADMIN', 'Superadmin'),
-        ('STAFF_ADMIN', 'Staff Admin'),
-        ('CLIENT', 'Client'),
-        ('GUEST', 'Guest'),
-    ]
+    role = models.CharField(
+        max_length=20,
+        choices=UserRole.choices,
+        default=UserRole.GUEST  # New users will be 'Guest' by default.
+    )
 
-    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='GUEST')
     phone_number = models.CharField(max_length=20, blank=True, null=True)
-    company_name = models.CharField(max_length=200, blank=True, null=True)
-
-    # For tracking online status
+    company_name = models.CharField(max_length=255, blank=True, null=True)
     last_activity = models.DateTimeField(null=True, blank=True)
 
-    class Meta:
-        ordering = ['-date_joined']
+    def save(self, *args, **kwargs):
+        """
+        Override save to automatically sync role with is_staff and is_superuser
+        """
+        # Sync role to Django's built-in fields
+        if self.role == UserRole.SUPERADMIN:
+            self.is_superuser = True
+            self.is_staff = True  # Superadmins should also have staff access
+        elif self.role == UserRole.STAFF_ADMIN:
+            self.is_staff = True
+            self.is_superuser = False
+        else:
+            # Clients and Guests should not have admin access
+            self.is_staff = False
+            self.is_superuser = False
 
-    def __str__(self):
-        return self.username
+        # If is_superuser is manually set to True, ensure role is SUPERADMIN
+        if self.is_superuser and self.role != UserRole.SUPERADMIN:
+            self.role = UserRole.SUPERADMIN
+
+        # Call the original save() method to save the object
+        super().save(*args, **kwargs)
 
     @property
     def full_name(self):
-        """Return full name or username if name not set"""
+        """Return the user's full name."""
         if self.first_name and self.last_name:
             return f"{self.first_name} {self.last_name}"
         elif self.first_name:
@@ -52,28 +62,29 @@ class User(AbstractUser):
 
     @property
     def initials(self):
-        """Return user initials"""
+        """Return the user's initials."""
         if self.first_name and self.last_name:
             return f"{self.first_name[0]}{self.last_name[0]}".upper()
         elif self.first_name:
             return self.first_name[0].upper()
-        elif self.last_name:
-            return self.last_name[0].upper()
-        return self.username[0].upper() if self.username else "?"
+        elif self.username:
+            return self.username[0].upper()
+        return "?"
 
     @property
     def is_online(self):
-        """
-        Check if user is online (active within last 5 minutes)
-        """
+        """Check if user was active in the last 5 minutes."""
         if not self.last_activity:
             return False
-
-        # User is considered online if active within last 5 minutes
-        threshold = timezone.now() - timedelta(minutes=5)
-        return self.last_activity >= threshold
+        from django.utils import timezone
+        from datetime import timedelta
+        return timezone.now() - self.last_activity < timedelta(minutes=5)
 
     def update_last_activity(self):
-        """Update the last activity timestamp"""
+        """Update the last activity timestamp."""
+        from django.utils import timezone
         self.last_activity = timezone.now()
         self.save(update_fields=['last_activity'])
+
+    def __str__(self):
+        return f"{self.username} ({self.get_role_display()})"
