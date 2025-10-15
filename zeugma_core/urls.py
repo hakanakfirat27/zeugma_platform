@@ -14,4 +14,5 @@ urlpatterns = [
     # These handle the server-side login/logout and dashboard routing
     path('accounts/', include('accounts.urls')),
     path('dashboard/', include('dashboard.urls')),
+    path('api/client/', include('reports.client_api_urls')),
 ]
