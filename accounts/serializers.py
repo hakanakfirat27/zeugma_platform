@@ -5,54 +5,88 @@ from django.contrib.auth.hashers import make_password
 User = get_user_model()
 
 class UserSerializer(serializers.ModelSerializer):
-    full_name = serializers.SerializerMethodField()
-    initials = serializers.SerializerMethodField()
-    role_display = serializers.CharField(source='get_role_display')
-    last_login_display = serializers.SerializerMethodField()
+    """
+    Read-only serializer for User data with computed fields
+    """
+    full_name = serializers.CharField(read_only=True)
+    initials = serializers.CharField(read_only=True)
+    is_online = serializers.BooleanField(read_only=True)
 
     class Meta:
         model = User
         fields = [
-            'id', 'username', 'email', 'first_name', 'last_name',
-            'full_name', 'initials', 'role', 'role_display',
-            'is_active', 'last_login', 'last_login_display', 'date_joined'
+            'id',
+            'username',
+            'email',
+            'first_name',
+            'last_name',
+            'full_name',
+            'initials',
+            'role',
+            'is_active',
+            'is_online',
+            'phone_number',
+            'company_name',
+            'date_joined',
+            'last_login',
+            'last_activity'
         ]
-
-    def get_full_name(self, obj):
-        return obj.get_full_name() or obj.username
-
-    def get_initials(self, obj):
-        first = obj.first_name[0] if obj.first_name else ''
-        last = obj.last_name[0] if obj.last_name else ''
-        return (first + last).upper() or obj.username[0].upper()
-
-    def get_last_login_display(self, obj):
-        if obj.last_login:
-            return obj.last_login.strftime('%Y-%m-%d %H:%M:%S')
-        return None
+        read_only_fields = fields
 
 # --- NEW SERIALIZER FOR USER MANAGEMENT ---
 # This serializer is used by staff to create and update users.
 class UserManagementSerializer(serializers.ModelSerializer):
+    """
+    Serializer for creating and updating users (write operations)
+    """
+    password = serializers.CharField(write_only=True, required=False, allow_blank=True)
+
     class Meta:
         model = User
         fields = [
-            'id', 'username', 'email', 'first_name', 'last_name',
-            'role', 'is_active', 'password'
+            'id',
+            'username',
+            'email',
+            'password',
+            'first_name',
+            'last_name',
+            'role',
+            'is_active',
+            'phone_number',
+            'company_name',
         ]
-        # Password is write-only for security, it won't be sent back in responses.
         extra_kwargs = {
-            'password': {'write_only': True, 'required': False},
+            'password': {'write_only': True},
+            'email': {'required': True},
+            'username': {'required': True},
         }
 
     def create(self, validated_data):
-        # Hash the password when creating a new user.
-        if 'password' in validated_data:
-            validated_data['password'] = make_password(validated_data['password'])
-        return super().create(validated_data)
+        """
+        Create a new user with encrypted password
+        """
+        password = validated_data.pop('password', None)
+        user = User(**validated_data)
+
+        if password:
+            user.set_password(password)
+
+        user.save()
+        return user
 
     def update(self, instance, validated_data):
-        # Hash the password if it's being updated.
-        if 'password' in validated_data:
-            validated_data['password'] = make_password(validated_data['password'])
-        return super().update(instance, validated_data)
+        """
+        Update user, handle password separately
+        """
+        password = validated_data.pop('password', None)
+
+        # Update all other fields
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+
+        # Only update password if provided
+        if password:
+            instance.set_password(password)
+
+        instance.save()
+        return instance
