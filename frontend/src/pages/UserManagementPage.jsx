@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import UsernameInput from '../components/UsernameInput';
+import EmailInput from '../components/EmailInput';
+
 import {
   ArrowLeft, Users, Plus, Search, X, Edit, Trash2, Eye,
   ChevronDown, CheckCircle, XCircle, Download,
@@ -141,29 +144,35 @@ const UserManagementPage = () => {
   const totalCount = data?.count || 0;
   const totalPages = pageSize > 0 ? Math.ceil(totalCount / pageSize) : 0;
 
-  const mutation = useMutation({
-    mutationFn: (userData) => {
-      const { id, ...payload } = userData;
-      const url = id ? `/api/auth/users/${id}/` : '/api/auth/users/';
-      const method = id ? 'patch' : 'post';
-      return api[method](url, payload);
-    },
-    onSuccess: (data, variables) => {
-      queryClient.invalidateQueries(['users']);
-      setIsModalOpen(false);
-      setEditingUser(null);
+    const mutation = useMutation({
+      mutationFn: (userData) => {
+        const { id, ...payload } = userData;
 
-      // Show success toast
-      if (variables.id) {
-        success('User updated successfully!');
-      } else {
-        success('User created successfully!');
-      }
-    },
-    onError: (err) => {
-      showError('Failed to save user. Please try again.');
-    },
-  });
+        if (id) {
+          // Update existing user
+          const url = `/api/auth/users/${id}/`;
+          return api.patch(url, payload);
+        } else {
+          // Create new user with email
+          return api.post('/api/auth/create-user-send-email/', payload);
+        }
+      },
+      onSuccess: (data, variables) => {
+        queryClient.invalidateQueries(['users']);
+        setIsModalOpen(false);
+        setEditingUser(null);
+
+        // Show success toast
+        if (variables.id) {
+          success('User updated successfully!');
+        } else {
+          success('User created successfully! Password link sent to their email.');
+        }
+      },
+      onError: (err) => {
+        showError('Failed to save user. Please try again.');
+      },
+    });
 
   const deleteMutation = useMutation({
     mutationFn: (userId) => api.delete(`/api/auth/users/${userId}/`),
@@ -642,7 +651,6 @@ const UserFormModal = ({ user, onClose, onSubmit, isLoading, error }) => {
     company_name: user?.company_name || '',
     role: user?.role || 'GUEST',
     is_active: user ? user.is_active : true,
-    password: '',
   });
 
   const handleChange = (e) => {
@@ -655,9 +663,6 @@ const UserFormModal = ({ user, onClose, onSubmit, isLoading, error }) => {
     const payload = { ...formData };
     if (user) {
       payload.id = user.id;
-      if (!payload.password) {
-        delete payload.password;
-      }
     }
     onSubmit(payload);
   };
@@ -669,7 +674,16 @@ const UserFormModal = ({ user, onClose, onSubmit, isLoading, error }) => {
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
         <div className="p-6 border-b">
           <div className="flex justify-between items-center">
-            <h2 className="text-xl font-bold text-gray-900">{user ? 'Edit User' : 'Add New User'}</h2>
+            <div>
+              <h2 className="text-xl font-bold text-gray-900">
+                {user ? 'Edit User' : 'Add New User'}
+              </h2>
+              {!user && (
+                <p className="text-sm text-gray-600 mt-1">
+                  Password creation link will be sent to the user's email
+                </p>
+              )}
+            </div>
             <button onClick={onClose} className="p-2 text-gray-500 hover:text-gray-800 transition-colors">
               <X className="w-5 h-5" />
             </button>
@@ -685,36 +699,26 @@ const UserFormModal = ({ user, onClose, onSubmit, isLoading, error }) => {
             </div>
           )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Username * {user && <span className="text-xs text-gray-500">(cannot be changed)</span>}
-              </label>
-              <input
-                type="text"
-                name="username"
-                value={formData.username}
-                onChange={handleChange}
-                disabled={!!user}
-                className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 ${
-                  user ? 'bg-gray-100 cursor-not-allowed' : ''
-                }`}
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
-              <input
-                type="email"
-                name="email"
-                value={formData.email}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                required
-              />
-            </div>
-          </div>
+          {/* Username - with availability checker */}
+          <UsernameInput
+            value={formData.username}
+            onChange={handleChange}
+            firstName={formData.first_name}
+            lastName={formData.last_name}
+            email={formData.email}
+            disabled={!!user} // Disable if editing
+            required={true}
+          />
 
+          {/* Email - with availability checker */}
+          <EmailInput
+            value={formData.email}
+            onChange={handleChange}
+
+            existingUserId={user?.id}
+          />
+
+          {/* First Name & Last Name */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
@@ -724,6 +728,7 @@ const UserFormModal = ({ user, onClose, onSubmit, isLoading, error }) => {
                 value={formData.first_name}
                 onChange={handleChange}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                placeholder="John"
               />
             </div>
             <div>
@@ -734,10 +739,12 @@ const UserFormModal = ({ user, onClose, onSubmit, isLoading, error }) => {
                 value={formData.last_name}
                 onChange={handleChange}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                placeholder="Doe"
               />
             </div>
           </div>
 
+          {/* Phone & Company */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
@@ -763,6 +770,7 @@ const UserFormModal = ({ user, onClose, onSubmit, isLoading, error }) => {
             </div>
           </div>
 
+          {/* Role */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
             <select
@@ -771,25 +779,14 @@ const UserFormModal = ({ user, onClose, onSubmit, isLoading, error }) => {
               onChange={handleChange}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white cursor-pointer"
             >
-              {ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+              <option value="SUPERADMIN">Superadmin</option>
+              <option value="STAFF_ADMIN">Staff Admin</option>
+              <option value="CLIENT">Client</option>
+              <option value="GUEST">Guest</option>
             </select>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Password {user && <span className="text-gray-500 font-normal">(leave blank to keep current)</span>}
-            </label>
-            <input
-              type="password"
-              name="password"
-              value={formData.password}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-              placeholder={user ? 'Leave blank to keep current' : 'Required for new user'}
-              required={!user}
-            />
-          </div>
-
+          {/* Active Status */}
           <div className="flex items-center gap-3">
             <input
               type="checkbox"
@@ -801,6 +798,21 @@ const UserFormModal = ({ user, onClose, onSubmit, isLoading, error }) => {
             />
             <label htmlFor="is_active" className="text-sm font-medium text-gray-700 cursor-pointer">User is active</label>
           </div>
+
+          {/* Password Info for New Users */}
+          {!user && (
+            <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex gap-3">
+                <Mail className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-semibold text-blue-900">Password Setup</p>
+                  <p className="text-sm text-blue-700 mt-1">
+                    A password creation link will be automatically sent to the user's email address.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
         </form>
 
         <div className="p-6 border-t bg-gray-50 flex justify-end gap-3">
@@ -824,7 +836,7 @@ const UserFormModal = ({ user, onClose, onSubmit, isLoading, error }) => {
             ) : (
               <>
                 <Save className="w-4 h-4" />
-                Save User
+                {user ? 'Update User' : 'Create User & Send Email'}
               </>
             )}
           </button>

@@ -196,3 +196,22 @@ SESSION_COOKIE_PATH = '/'
 CSRF_COOKIE_SAMESITE = 'Lax'
 CSRF_COOKIE_SECURE = False
 CSRF_COOKIE_HTTPONLY = False
+
+# Frontend URL
+FRONTEND_URL = 'http://localhost:5173'  # Update for production
+
+# Email Configuration
+# For development: Using console backend (emails print to console)
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+
+# For production: Use SMTP (Gmail example)
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = 'zeugma.research@gmail.com'
+EMAIL_HOST_PASSWORD = 'qahi fkym vawm tmxd' # Your Gmail App Password
+# DEFAULT_FROM_EMAIL = 'Zeugma Platform <your-email@gmail.com>'
+
+# For development
+DEFAULT_FROM_EMAIL = 'zeugma.research@gmail.com'

@@ -15,7 +15,10 @@ import WidgetManagement from './pages/dashboards/WidgetManagement';
 import CustomReportsPage from './pages/CustomReportsPage';
 import CreateReportPage from './pages/CreateReportPage';
 import SubscriptionManagementPage from './pages/SubscriptionManagementPage';
-import UserManagementPage from './pages/UserManagementPage'; // NEW IMPORT
+import UserManagementPage from './pages/UserManagementPage';
+import CreatePasswordPage from './components/CreatePasswordPage';
+import ProfileUpdatePage from './components/ProfileUpdatePage';
+
 
 function App() {
   return (
@@ -35,6 +38,8 @@ function App() {
 
         {/* User Management Route */}
         <Route path="/user-management" element={<ProtectedRoute><UserManagementPage /></ProtectedRoute>} />
+        <Route path="/create-password/:uidb64/:token" element={<CreatePasswordPage />} />
+        <Route path="/update-profile" element={<ProfileUpdatePage />} />
 
         {/* Custom Reports Routes */}
         <Route path="/custom-reports" element={<ProtectedRoute><CustomReportsPage /></ProtectedRoute>} />
