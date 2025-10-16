@@ -2,6 +2,9 @@ from django.db.models import Count, Q
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
 from django.contrib.auth import get_user_model
+from django.http import HttpResponse
+import csv
+from io import StringIO
 
 from .models import CustomReport, SuperdatabaseRecord, Subscription, DashboardWidget
 from accounts.models import User, UserRole
@@ -223,6 +226,201 @@ def report_preview(request):
             'countries': country_breakdown
         }
     })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def client_report_export(request):
+    """Export client report data to CSV"""
+    try:
+        report_id = request.GET.get('report_id')
+
+        if not report_id:
+            return Response({'error': 'Report ID is required'}, status=400)
+
+        # Verify user has active subscription
+        subscription = ClientSubscription.objects.filter(
+            user=request.user,
+            report_id=report_id,
+            is_active=True
+        ).first()
+
+        if not subscription:
+            return Response({'error': 'No active subscription found'}, status=403)
+
+        # Get report
+        report = Report.objects.get(id=report_id)
+
+        # Build query
+        queryset = SuperdatabaseRecord.objects.filter(id__in=report.companies.values_list('id', flat=True))
+
+        # Apply filters
+        search = request.GET.get('search')
+        if search:
+            queryset = queryset.filter(
+                Q(company_name__icontains=search) |
+                Q(country__icontains=search) |
+                Q(address_1__icontains=search) |
+                Q(address_2__icontains=search) |
+                Q(address_3__icontains=search) |
+                Q(address_4__icontains=search)
+            )
+
+        # Country filter
+        countries = request.GET.get('countries')
+        if countries:
+            country_list = [c.strip() for c in countries.split(',')]
+            queryset = queryset.filter(country__in=country_list)
+
+        # Boolean filters
+        for field in SuperdatabaseRecord._meta.get_fields():
+            if isinstance(field, models.BooleanField) and field.name in request.GET:
+                value = request.GET.get(field.name)
+                if value == 'true':
+                    queryset = queryset.filter(**{field.name: True})
+                elif value == 'false':
+                    queryset = queryset.filter(**{field.name: False})
+
+        # Create CSV response
+        response = HttpResponse(content_type='text/csv; charset=utf-8')
+        response['Content-Disposition'] = f'attachment; filename="{report.title.replace(" ", "_")}_export.csv"'
+
+        writer = csv.writer(response)
+
+        # Get fields to export
+        fields_to_export = [
+            'company_name', 'category', 'country', 'address_1', 'address_2',
+            'address_3', 'address_4', 'contact_person', 'telephone',
+            'fax', 'email', 'website'
+        ]
+
+        # Write header
+        headers = [field.replace('_', ' ').title() for field in fields_to_export]
+        writer.writerow(headers)
+
+        # Write data
+        for record in queryset:
+            row = []
+            for field in fields_to_export:
+                value = getattr(record, field, '')
+                if field == 'category':
+                    value = record.get_category_display() if hasattr(record, 'get_category_display') else value
+                row.append(value if value is not None else '')
+            writer.writerow(row)
+
+        return response
+
+    except Report.DoesNotExist:
+        return Response({'error': 'Report not found'}, status=404)
+    except Exception as e:
+        print(f"Export error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return Response({'error': str(e)}, status=500)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def client_report_stats(request):
+    """Get statistics for a client's report"""
+    try:
+        report_id = request.GET.get('report_id')
+
+        if not report_id:
+            return Response({'error': 'Report ID is required'}, status=400)
+
+        # Verify subscription
+        subscription = ClientSubscription.objects.filter(
+            user=request.user,
+            report_id=report_id,
+            is_active=True
+        ).first()
+
+        if not subscription:
+            return Response({'error': 'No active subscription'}, status=403)
+
+        # Get report
+        report = Report.objects.get(id=report_id)
+
+        # Build base queryset
+        queryset = SuperdatabaseRecord.objects.filter(id__in=report.companies.values_list('id', flat=True))
+
+        # Apply filters (same as report-data)
+        search = request.GET.get('search')
+        if search:
+            queryset = queryset.filter(
+                Q(company_name__icontains=search) |
+                Q(country__icontains=search) |
+                Q(address_1__icontains=search) |
+                Q(address_2__icontains=search) |
+                Q(address_3__icontains=search) |
+                Q(address_4__icontains=search)
+            )
+
+        countries = request.GET.get('countries')
+        if countries:
+            country_list = [c.strip() for c in countries.split(',')]
+            queryset = queryset.filter(country__in=country_list)
+
+        # Boolean filters
+        for field in SuperdatabaseRecord._meta.get_fields():
+            if isinstance(field, models.BooleanField) and field.name in request.GET:
+                value = request.GET.get(field.name)
+                if value == 'true':
+                    queryset = queryset.filter(**{field.name: True})
+                elif value == 'false':
+                    queryset = queryset.filter(**{field.name: False})
+
+        # Calculate stats
+        total_count = queryset.count()
+
+        # Country stats
+        country_stats = queryset.values('country').annotate(
+            count=Count('id')
+        ).order_by('-count')
+
+        top_countries = [
+            {'name': item['country'], 'count': item['count']}
+            for item in country_stats[:10]
+            if item['country']
+        ]
+
+        all_countries = sorted([
+            item['country']
+            for item in country_stats
+            if item['country']
+        ])
+
+        countries_count = len(all_countries)
+
+        # Category stats
+        category_stats = queryset.values('category').annotate(
+            count=Count('id')
+        ).order_by('-count')
+
+        categories = [
+            {
+                'category': SuperdatabaseRecord(category=item['category']).get_category_display()
+                if item['category'] else 'Unknown',
+                'count': item['count']
+            }
+            for item in category_stats
+            if item['category']
+        ]
+
+        return Response({
+            'total_count': total_count,
+            'countries_count': countries_count,
+            'top_countries': top_countries,
+            'all_countries': all_countries,
+            'categories': categories,
+        })
+
+    except Report.DoesNotExist:
+        return Response({'error': 'Report not found'}, status=404)
+    except Exception as e:
+        print(f"Stats error: {str(e)}")
+        return Response({'error': str(e)}, status=500)
 
 
 # --- Dashboard Stats APIView Class ---

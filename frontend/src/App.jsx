@@ -8,7 +8,7 @@ import HomePage from './pages/HomePage';
 import LoginPage from './pages/auth/LoginPage';
 import SignupPage from './pages/auth/SignupPage';
 import StaffDashboard from './pages/dashboards/StaffDashboard';
-import ClientDashboard from './pages/dashboards/ClientDashboard';
+{/*import ClientDashboard from './pages/dashboards/ClientDashboard';*/}
 import GuestDashboard from './pages/dashboards/GuestDashboard';
 import SuperdatabasePage from './pages/SuperdatabasePage';
 import WidgetManagement from './pages/dashboards/WidgetManagement';
@@ -18,6 +18,12 @@ import SubscriptionManagementPage from './pages/SubscriptionManagementPage';
 import UserManagementPage from './pages/UserManagementPage';
 import CreatePasswordPage from './components/CreatePasswordPage';
 import ProfileUpdatePage from './components/ProfileUpdatePage';
+import ClientDashboard from './pages/client/ClientDashboard';
+import ClientReportsPage from './pages/client/ClientReportsPage';
+import ClientReportViewPage from './pages/client/ClientReportViewPage';
+import ClientSubscriptionsPage from './pages/client/ClientSubscriptionsPage';
+import ClientChatPage from './pages/client/ClientChatPage';
+import ClientFAQPage from './pages/client/ClientFAQPage';
 
 
 function App() {
@@ -48,6 +54,14 @@ function App() {
 
         {/* Subscription Management Routes */}
         <Route path="/subscriptions" element={<ProtectedRoute><SubscriptionManagementPage /></ProtectedRoute>} />
+
+        {/* Client Routes */}
+        <Route path="/client/dashboard" element={<ProtectedRoute allowedRoles={['CLIENT']}><ClientDashboard /></ProtectedRoute>}/>
+        <Route path="/client/reports" element={<ProtectedRoute allowedRoles={['CLIENT']}><ClientReportsPage /></ProtectedRoute>}/>
+        <Route path="/client/reports/:reportId" element={<ProtectedRoute allowedRoles={['CLIENT']}><ClientReportViewPage /></ProtectedRoute>}/>
+        <Route path="/client/subscriptions" element={<ProtectedRoute allowedRoles={['CLIENT']}><ClientSubscriptionsPage /></ProtectedRoute>}/>
+        <Route path="/client/chat" element={<ProtectedRoute allowedRoles={['CLIENT']}><ClientChatPage /></ProtectedRoute>}/>
+        <Route path="/client/faq" element={<ProtectedRoute allowedRoles={['CLIENT']}><ClientFAQPage /></ProtectedRoute>}/>
 
         {/* Catch all */}
         <Route path="*" element={<Navigate to="/" replace />} />

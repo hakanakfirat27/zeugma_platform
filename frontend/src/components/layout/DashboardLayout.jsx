@@ -14,8 +14,8 @@ const DashboardLayout = ({ children }) => {
   const navLinks = [
     { name: 'Dashboard', path: '/staff-dashboard', icon: LayoutDashboard, roles: ['SUPERADMIN', 'STAFF_ADMIN'] },
     { name: 'Superdatabase', path: '/superdatabase', icon: Database, roles: ['SUPERADMIN', 'STAFF_ADMIN'] },
-    { name: 'Custom Reports', path: '/custom-reports', icon: FileText, roles: ['SUPERADMIN', 'STAFF_ADMIN', 'CLIENT'] },
-    { name: 'Subscriptions', path: '/subscriptions', icon: CreditCard, roles: ['SUPERADMIN', 'STAFF_ADMIN', 'CLIENT'] },
+    { name: 'Custom Reports', path: '/custom-reports', icon: FileText, roles: ['SUPERADMIN', 'STAFF_ADMIN'] },
+    { name: 'Subscriptions', path: '/subscriptions', icon: CreditCard, roles: ['SUPERADMIN', 'STAFF_ADMIN'] },
     // --- NEW LINK FOR USER MANAGEMENT ---
     { name: 'User Management', path: '/user-management', icon: Users, roles: ['SUPERADMIN'] }
   ];

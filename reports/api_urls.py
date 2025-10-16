@@ -53,6 +53,8 @@ urlpatterns = [
     path('custom-reports/<uuid:report_id>/', CustomReportDetailAPIView.as_view(), name='api-custom-report-detail'),
     path('custom-reports/<uuid:report_id>/records/', ReportRecordsAPIView.as_view(), name='api-report-records'),
     path('report-preview/', ReportPreviewAPIView.as_view(), name='api-report-preview'),
+    path('client/report-export/', views.client_report_export, name='client-report-export'),
+    path('client/report_stats/', views.client_report_stats, name='client_report_stats'),
 
     # Subscription URLs
     path('subscriptions/', SubscriptionListCreateAPIView.as_view(), name='api-subscription-list'),

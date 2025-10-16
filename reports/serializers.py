@@ -20,6 +20,7 @@ class SuperdatabaseRecordSerializer(serializers.ModelSerializer):
     # --- NEW: This field will provide a map of field names to their correct labels ---
     field_labels = serializers.SerializerMethodField()
 
+
     class Meta:
         model = SuperdatabaseRecord
         fields = '__all__'
