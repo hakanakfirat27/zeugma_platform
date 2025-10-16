@@ -9,6 +9,7 @@ import ClientDashboardLayout from '../../components/layout/ClientDashboardLayout
 import LoadingSpinner from '../../components/LoadingSpinner';
 import api from '../../utils/api';
 
+
 const COLORS = ['#8B5CF6', '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#EC4899'];
 
 const ClientDashboard = () => {

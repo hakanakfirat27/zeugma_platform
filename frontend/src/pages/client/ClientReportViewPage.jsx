@@ -21,7 +21,8 @@ const ClientReportViewPage = () => {
   const { reportId } = useParams();
   const navigate = useNavigate();
 
-  // STATE
+  // STATE DECLARATIONS - ALL OF THEM
+  const [selectedRecords, setSelectedRecords] = useState(new Set());
   const [loading, setLoading] = useState(true);
   const [reportInfo, setReportInfo] = useState(null);
   const [records, setRecords] = useState([]);
@@ -36,6 +37,7 @@ const ClientReportViewPage = () => {
   const [selectedRecord, setSelectedRecord] = useState(null);
   const [showFilters, setShowFilters] = useState(false);
   const [exportLoading, setExportLoading] = useState(false);
+  const [filterOptions, setFilterOptions] = useState([]); // ← ADD THIS LINE
   const [stats, setStats] = useState({
     total_count: 0,
     countries_count: 0,
@@ -43,7 +45,7 @@ const ClientReportViewPage = () => {
     all_countries: [],
     categories: []
   });
-  const [filterOptions, setFilterOptions] = useState([]);
+  const [statsLoading, setStatsLoading] = useState(false);
 
   // SECURITY: Copy & Screenshot Protection
   useEffect(() => {
@@ -86,10 +88,76 @@ const ClientReportViewPage = () => {
     verifyAccess();
   }, [reportId]);
 
+  // FETCH ALL COUNTRIES ONCE (no filters applied) - JUST LIKE SUPERDATABASE
+  useEffect(() => {
+    const fetchAllCountries = async () => {
+      if (!reportId) return;
+
+      try {
+        // Fetch without any filters to get ALL countries
+        const response = await api.get(`/api/client/report-stats/?report_id=${reportId}`);
+
+        setStats(prev => ({
+          ...prev,
+          all_countries: response.data.all_countries || []
+        }));
+      } catch (error) {
+        console.error('Failed to fetch all countries:', error);
+      }
+    };
+
+    fetchAllCountries();
+  }, [reportId]); // Only refetch when reportId changes
+
+  // FETCH FILTERED STATS (keeps allCountries intact) - JUST LIKE SUPERDATABASE
+  useEffect(() => {
+    if (!reportInfo) return;
+
+    const fetchStats = async () => {
+      setStatsLoading(true);
+      try {
+        const params = new URLSearchParams({
+          report_id: reportId,
+        });
+
+        if (searchQuery.trim()) {
+          params.append('search', searchQuery.trim());
+        }
+        if (countryFilters.length > 0) {
+          params.append('countries', countryFilters.join(','));
+        }
+
+        Object.keys(filters).forEach(key => {
+          if (filters[key] !== undefined) {
+            params.append(key, filters[key]);
+          }
+        });
+
+        const response = await api.get(`/api/client/report-stats/?${params.toString()}`);
+
+        // Update stats but KEEP all_countries from previous state
+        setStats(prev => ({
+          ...prev, // This preserves all_countries
+          total_count: response.data.total_count,
+          countries_count: response.data.countries_count,
+          top_countries: response.data.top_countries || [],
+          categories: response.data.categories || []
+        }));
+
+      } catch (error) {
+        console.error('Failed to fetch stats:', error);
+      } finally {
+        setStatsLoading(false);
+      }
+    };
+
+    fetchStats();
+  }, [reportInfo, searchQuery, filters, countryFilters]); // Run when filters change
+
+  // Load other data
   useEffect(() => {
     if (reportInfo) {
       loadReportData();
-      loadReportStats();
       loadFilterOptions();
     }
   }, [reportInfo, currentPage, pageSize, searchQuery, filters, countryFilters, ordering]);
@@ -174,6 +242,7 @@ const ClientReportViewPage = () => {
       });
 
       const response = await api.get(`/api/client/report-stats/?${params.toString()}`);
+      console.log('Stats response:', response.data); // Debug log
       setStats(response.data);
     } catch (error) {
       console.error('Error loading stats:', error);
@@ -218,26 +287,23 @@ const ClientReportViewPage = () => {
         }
       });
 
+      console.log('Export URL:', `/api/client/report-export/?${params.toString()}`); // Debug
+
       const response = await fetch(
         `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/client/report-export/?${params.toString()}`,
         {
           method: 'GET',
           credentials: 'include',
-          headers: {
-            'Accept': 'text/csv',
-            'Content-Type': 'application/json',
-          }
         }
       );
 
+      console.log('Export response status:', response.status); // Debug
+      console.log('Export response headers:', response.headers); // Debug
+
       if (!response.ok) {
-        const contentType = response.headers.get('content-type');
-        if (contentType && contentType.includes('application/json')) {
-          const error = await response.json();
-          alert(error.error || 'Export failed');
-        } else {
-          alert('Export failed. Please try again.');
-        }
+        const text = await response.text();
+        console.error('Export error response:', text);
+        alert('Export failed: ' + text);
         return;
       }
 
@@ -268,7 +334,6 @@ const ClientReportViewPage = () => {
   const handleSearchKeyDown = (e) => {
     if (e.key === 'Enter') {
       setCurrentPage(1);
-      loadReportData();
     }
   };
 
@@ -289,20 +354,42 @@ const ClientReportViewPage = () => {
     setCountryFilters([]);
     setCurrentPage(1);
   };
+    // Selection handlers
+    const toggleRecordSelection = (factoryId) => {
+      const newSelected = new Set(selectedRecords);
+      if (newSelected.has(factoryId)) {
+        newSelected.delete(factoryId);
+      } else {
+        newSelected.add(factoryId);
+      }
+      setSelectedRecords(newSelected);
+    };
+
+    const selectAllRecords = () => {
+      if (selectedRecords.size === records.length) {
+        setSelectedRecords(new Set());
+      } else {
+        setSelectedRecords(new Set(records.map(r => r.factory_id)));
+      }
+    };
 
   const activeFiltersCount = Object.keys(filters).filter(key => filters[key] !== undefined).length + countryFilters.length;
   const totalPages = Math.ceil(totalCount / pageSize);
 
   // CHART DATA
-  const countryChartData = (stats?.top_countries || []).slice(0, 8).map(item => ({
-    name: item.name,
-    value: item.count
-  }));
+  const countryChartData = useMemo(() => {
+    return (stats?.top_countries || []).slice(0, 8).map(item => ({
+      name: item.name,
+      value: item.count
+    }));
+  }, [stats?.top_countries]);
 
-  const categoryChartData = (stats?.categories || []).map(item => ({
-    name: item.category,
-    value: item.count
-  }));
+  const categoryChartData = useMemo(() => {
+    return (stats?.categories || []).map(item => ({
+      name: item.category,
+      value: item.count
+    }));
+  }, [stats?.categories]);
 
   if (loading) {
     return (
@@ -406,48 +493,50 @@ const ClientReportViewPage = () => {
         {/* CHARTS */}
         <div className="grid lg:grid-cols-2 gap-6 mb-8">
           {/* Country Chart */}
-          <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h3 className="text-lg font-bold text-gray-900">Geographic Distribution</h3>
-                <p className="text-sm text-gray-500 mt-1">Top markets by company count</p>
+          {countryChartData.length > 0 && (
+            <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900">Geographic Distribution</h3>
+                  <p className="text-sm text-gray-500 mt-1">Top markets by company count</p>
+                </div>
+                <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center">
+                  <Globe className="w-5 h-5 text-purple-600" />
+                </div>
               </div>
-              <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center">
-                <Globe className="w-5 h-5 text-purple-600" />
-              </div>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={countryChartData}>
+                  <defs>
+                    <linearGradient id="colorCountry" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#8B5CF6" stopOpacity={0.8}/>
+                      <stop offset="95%" stopColor="#8B5CF6" stopOpacity={0.3}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
+                  <XAxis
+                    dataKey="name"
+                    tick={{ fontSize: 12, fill: '#6B7280' }}
+                    tickLine={false}
+                    axisLine={{ stroke: '#E5E7EB' }}
+                  />
+                  <YAxis
+                    tick={{ fontSize: 12, fill: '#6B7280' }}
+                    tickLine={false}
+                    axisLine={{ stroke: '#E5E7EB' }}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: 'white',
+                      border: 'none',
+                      borderRadius: '12px',
+                      boxShadow: '0 10px 40px rgba(0,0,0,0.1)'
+                    }}
+                  />
+                  <Bar dataKey="value" fill="url(#colorCountry)" radius={[8, 8, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
             </div>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={countryChartData}>
-                <defs>
-                  <linearGradient id="colorCountry" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#8B5CF6" stopOpacity={0.8}/>
-                    <stop offset="95%" stopColor="#8B5CF6" stopOpacity={0.3}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
-                <XAxis
-                  dataKey="name"
-                  tick={{ fontSize: 12, fill: '#6B7280' }}
-                  tickLine={false}
-                  axisLine={{ stroke: '#E5E7EB' }}
-                />
-                <YAxis
-                  tick={{ fontSize: 12, fill: '#6B7280' }}
-                  tickLine={false}
-                  axisLine={{ stroke: '#E5E7EB' }}
-                />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: 'white',
-                    border: 'none',
-                    borderRadius: '12px',
-                    boxShadow: '0 10px 40px rgba(0,0,0,0.1)'
-                  }}
-                />
-                <Bar dataKey="value" fill="url(#colorCountry)" radius={[8, 8, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+          )}
 
           {/* Category Chart */}
           {categoryChartData.length > 0 && (
@@ -620,6 +709,9 @@ const ClientReportViewPage = () => {
                 isGuest={false}
                 onSort={setOrdering}
                 currentSort={ordering}
+                selectedRecords={selectedRecords}
+                onSelectRecord={toggleRecordSelection}
+                onSelectAll={selectAllRecords}
               />
             </div>
 
@@ -718,7 +810,7 @@ const ClientReportViewPage = () => {
 };
 
 /* ============================================
-   FILTER DRAWER COMPONENT - FIXED
+   FILTER DRAWER COMPONENT - COMPLETE FIX
    ============================================ */
 const FilterDrawer = ({
   isOpen,
@@ -734,17 +826,20 @@ const FilterDrawer = ({
   const [countrySearch, setCountrySearch] = useState('');
   const [searchFilter, setSearchFilter] = useState('');
 
-  // IMPORTANT: Don't filter out selected countries from the list
-  // Show ALL countries that match search, regardless of selection status
+  // Filter countries based on search - independent of selection
   const filteredCountries = useMemo(() => {
-    if (!countrySearch) return allCountries;
+    if (!countrySearch.trim()) return allCountries;
+
+    const searchLower = countrySearch.toLowerCase();
     return allCountries.filter(country =>
-      country.toLowerCase().includes(countrySearch.toLowerCase())
+      country.toLowerCase().includes(searchLower)
     );
   }, [allCountries, countrySearch]);
 
+  // Filter boolean filters based on search
   const filteredOptions = useMemo(() => {
-    if (!searchFilter) return filterOptions;
+    if (!searchFilter.trim()) return filterOptions;
+
     const query = searchFilter.toLowerCase();
     return filterOptions.filter(option =>
       option.label.toLowerCase().includes(query) ||
@@ -752,6 +847,7 @@ const FilterDrawer = ({
     );
   }, [filterOptions, searchFilter]);
 
+  // Toggle country selection
   const toggleCountry = (country) => {
     if (countryFilters.includes(country)) {
       setCountryFilters(countryFilters.filter(c => c !== country));
@@ -759,8 +855,10 @@ const FilterDrawer = ({
       setCountryFilters([...countryFilters, country]);
     }
     setCurrentPage(1);
+    // DON'T clear the search - let user keep searching and selecting
   };
 
+  // Handle filter changes
   const handleFilterChange = (field, value) => {
     const newFilters = { ...filters };
     if (value === undefined) {
@@ -772,6 +870,7 @@ const FilterDrawer = ({
     setCurrentPage(1);
   };
 
+  // Clear all filters
   const clearAllFilters = () => {
     setFilters({});
     setCountryFilters([]);
@@ -781,10 +880,11 @@ const FilterDrawer = ({
   };
 
   const activeBooleanFilterCount = Object.keys(filters).filter(key => filters[key] !== undefined).length;
+  const totalActiveFilters = activeBooleanFilterCount + countryFilters.length;
 
   return (
     <>
-      {/* Backdrop with blur */}
+      {/* Backdrop */}
       <div
         className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40"
         onClick={onClose}
@@ -797,9 +897,9 @@ const FilterDrawer = ({
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-xl font-bold">Refine your search result</h3>
-              {(activeBooleanFilterCount + countryFilters.length) > 0 && (
+              {totalActiveFilters > 0 && (
                 <p className="text-xs text-purple-100 mt-0.5">
-                  {activeBooleanFilterCount + countryFilters.length} filter{(activeBooleanFilterCount + countryFilters.length) !== 1 ? 's' : ''} active
+                  {totalActiveFilters} filter{totalActiveFilters !== 1 ? 's' : ''} active
                 </p>
               )}
             </div>
@@ -812,21 +912,23 @@ const FilterDrawer = ({
           </div>
         </div>
 
-        {/* Content */}
+        {/* Scrollable Content */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
-          {/* Countries Section FIRST */}
+          {/* ============================================
+              COUNTRIES SECTION
+              ============================================ */}
           {allCountries.length > 0 && (
             <div>
               <div className="flex items-center justify-between mb-3">
                 <h4 className="font-semibold text-gray-900 text-sm">Countries</h4>
                 {countryFilters.length > 0 && (
                   <span className="bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full text-xs font-medium">
-                    {countryFilters.length}
+                    {countryFilters.length} selected
                   </span>
                 )}
               </div>
 
-              {/* Country Search */}
+              {/* Country Search Input */}
               <div className="relative mb-3">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                 <input
@@ -841,24 +943,43 @@ const FilterDrawer = ({
                     onClick={() => setCountrySearch('')}
                     className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
                   >
-                    <X className="w-3 h-3" />
+                    <X className="w-4 h-4" />
                   </button>
                 )}
               </div>
 
-              {/* Country List - Always show all matching countries */}
+              {/* Show selected countries info if searching */}
+              {countrySearch && countryFilters.length > 0 && (
+                <div className="mb-2 text-xs text-gray-600 bg-purple-50 px-3 py-2 rounded">
+                  {countryFilters.length} countries selected: {countryFilters.join(', ')}
+                </div>
+              )}
+
+              {/* Country Checkbox List */}
               <div
                 className="border border-gray-200 rounded-lg bg-gray-50 p-2 overflow-y-auto"
                 style={{ height: '280px' }}
               >
-                <div className="space-y-1">
-                  {filteredCountries.length === 0 ? (
-                    <p className="text-sm text-gray-500 text-center py-8">No countries found</p>
-                  ) : (
-                    filteredCountries.map(country => (
+                {filteredCountries.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-full text-gray-500">
+                    <p className="text-sm">No countries match "{countrySearch}"</p>
+                    <button
+                      onClick={() => setCountrySearch('')}
+                      className="text-xs text-purple-600 hover:text-purple-700 mt-2"
+                    >
+                      Clear search
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    {filteredCountries.map(country => (
                       <label
                         key={country}
-                        className="flex items-center gap-2 cursor-pointer p-2 hover:bg-purple-50 rounded transition-colors"
+                        className={`flex items-center gap-2 cursor-pointer p-2 rounded transition-colors ${
+                          countryFilters.includes(country)
+                            ? 'bg-purple-100 hover:bg-purple-200'
+                            : 'hover:bg-purple-50'
+                        }`}
                       >
                         <input
                           type="checkbox"
@@ -866,24 +987,32 @@ const FilterDrawer = ({
                           onChange={() => toggleCountry(country)}
                           className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500 flex-shrink-0"
                         />
-                        <span className="text-sm text-gray-700">{country}</span>
+                        <span className={`text-sm ${
+                          countryFilters.includes(country)
+                            ? 'text-purple-900 font-medium'
+                            : 'text-gray-700'
+                        }`}>
+                          {country}
+                        </span>
                       </label>
-                    ))
-                  )}
-                </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
-              <div className="border-b my-4"></div>
+              <div className="border-b my-6"></div>
             </div>
           )}
 
-          {/* Search Filters Section SECOND */}
+          {/* ============================================
+              SEARCH FILTERS SECTION
+              ============================================ */}
           <div>
             <div className="flex items-center justify-between mb-3">
               <h4 className="font-semibold text-gray-900 text-sm">Search Filters</h4>
               {activeBooleanFilterCount > 0 && (
                 <span className="bg-green-100 text-green-800 px-2 py-0.5 rounded-full text-xs font-medium">
-                  {activeBooleanFilterCount}
+                  {activeBooleanFilterCount} active
                 </span>
               )}
             </div>
@@ -908,11 +1037,11 @@ const FilterDrawer = ({
               )}
             </div>
 
-            {/* Filter Options */}
+            {/* Filter Options List */}
             <div className="space-y-3">
               {filteredOptions.length === 0 ? (
                 <div className="text-center py-8 text-gray-500">
-                  <p className="text-sm">No filters found</p>
+                  <p className="text-sm">No filters match "{searchFilter}"</p>
                   {searchFilter && (
                     <button
                       onClick={() => setSearchFilter('')}
@@ -924,7 +1053,10 @@ const FilterDrawer = ({
                 </div>
               ) : (
                 filteredOptions.map(option => (
-                  <div key={option.field} className="bg-white border border-gray-200 rounded-lg p-4 hover:border-gray-300 transition-colors">
+                  <div
+                    key={option.field}
+                    className="bg-white border border-gray-200 rounded-lg p-4 hover:border-gray-300 transition-colors"
+                  >
                     <div className="flex items-center justify-between mb-3">
                       <h4 className="font-semibold text-gray-900 text-sm">{option.label}</h4>
                       <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
@@ -973,7 +1105,7 @@ const FilterDrawer = ({
           </div>
         </div>
 
-        {/* Footer */}
+        {/* Footer Actions */}
         <div className="border-t p-4 bg-white flex-shrink-0 flex items-center gap-3">
           <button
             onClick={clearAllFilters}
@@ -983,7 +1115,7 @@ const FilterDrawer = ({
           </button>
           <button
             onClick={onClose}
-            className="flex-1 px-5 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-semibold transition-all"
+            className="flex-1 px-5 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-semibold transition-all shadow-sm"
           >
             Apply Filters
           </button>

@@ -1,9 +1,10 @@
-from django.db.models import Count, Q
+from django.db.models import Q, Count
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
 from django.contrib.auth import get_user_model
 from django.http import HttpResponse
 import csv
+import traceback
 from io import StringIO
 
 from .models import CustomReport, SuperdatabaseRecord, Subscription, DashboardWidget
@@ -239,22 +240,25 @@ def client_report_export(request):
             return Response({'error': 'Report ID is required'}, status=400)
 
         # Verify user has active subscription
-        subscription = ClientSubscription.objects.filter(
-            user=request.user,
-            report_id=report_id,
-            is_active=True
+        today = timezone.now().date()
+        subscription = Subscription.objects.filter(
+            client=request.user,
+            report__report_id=report_id,  # Use report__report_id to access CustomReport
+            status='ACTIVE',
+            start_date__lte=today,
+            end_date__gte=today
         ).first()
 
         if not subscription:
             return Response({'error': 'No active subscription found'}, status=403)
 
-        # Get report
-        report = Report.objects.get(id=report_id)
+        # Get the CustomReport
+        report = subscription.report
 
-        # Build query
-        queryset = SuperdatabaseRecord.objects.filter(id__in=report.companies.values_list('id', flat=True))
+        # Get filtered records based on report's filter_criteria
+        queryset = report.get_filtered_records()
 
-        # Apply filters
+        # Apply additional user filters
         search = request.GET.get('search')
         if search:
             queryset = queryset.filter(
@@ -273,6 +277,7 @@ def client_report_export(request):
             queryset = queryset.filter(country__in=country_list)
 
         # Boolean filters
+        from django.db import models
         for field in SuperdatabaseRecord._meta.get_fields():
             if isinstance(field, models.BooleanField) and field.name in request.GET:
                 value = request.GET.get(field.name)
@@ -283,15 +288,15 @@ def client_report_export(request):
 
         # Create CSV response
         response = HttpResponse(content_type='text/csv; charset=utf-8')
-        response['Content-Disposition'] = f'attachment; filename="{report.title.replace(" ", "_")}_export.csv"'
+        filename = f"{report.title.replace(' ', '_')}_export.csv"
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
 
         writer = csv.writer(response)
 
         # Get fields to export
         fields_to_export = [
             'company_name', 'category', 'country', 'address_1', 'address_2',
-            'address_3', 'address_4', 'contact_person', 'telephone',
-            'fax', 'email', 'website'
+            'address_3', 'address_4', 'phone_number', 'company_email', 'website'
         ]
 
         # Write header
@@ -310,11 +315,10 @@ def client_report_export(request):
 
         return response
 
-    except Report.DoesNotExist:
+    except CustomReport.DoesNotExist:
         return Response({'error': 'Report not found'}, status=404)
     except Exception as e:
         print(f"Export error: {str(e)}")
-        import traceback
         traceback.print_exc()
         return Response({'error': str(e)}, status=500)
 
@@ -330,22 +334,25 @@ def client_report_stats(request):
             return Response({'error': 'Report ID is required'}, status=400)
 
         # Verify subscription
-        subscription = ClientSubscription.objects.filter(
-            user=request.user,
-            report_id=report_id,
-            is_active=True
+        today = timezone.now().date()
+        subscription = Subscription.objects.filter(
+            client=request.user,
+            report__report_id=report_id,  # Use report__report_id
+            status='ACTIVE',
+            start_date__lte=today,
+            end_date__gte=today
         ).first()
 
         if not subscription:
             return Response({'error': 'No active subscription'}, status=403)
 
-        # Get report
-        report = Report.objects.get(id=report_id)
+        # Get the CustomReport
+        report = subscription.report
 
-        # Build base queryset
-        queryset = SuperdatabaseRecord.objects.filter(id__in=report.companies.values_list('id', flat=True))
+        # Get filtered records based on report's filter_criteria
+        queryset = report.get_filtered_records()
 
-        # Apply filters (same as report-data)
+        # Apply additional user filters
         search = request.GET.get('search')
         if search:
             queryset = queryset.filter(
@@ -363,6 +370,7 @@ def client_report_stats(request):
             queryset = queryset.filter(country__in=country_list)
 
         # Boolean filters
+        from django.db import models
         for field in SuperdatabaseRecord._meta.get_fields():
             if isinstance(field, models.BooleanField) and field.name in request.GET:
                 value = request.GET.get(field.name)
@@ -393,15 +401,16 @@ def client_report_stats(request):
 
         countries_count = len(all_countries)
 
-        # Category stats
+        # Category stats - Show category display names
         category_stats = queryset.values('category').annotate(
             count=Count('id')
         ).order_by('-count')
 
+        # Map category codes to display names
+        from .models import CompanyCategory
         categories = [
             {
-                'category': SuperdatabaseRecord(category=item['category']).get_category_display()
-                if item['category'] else 'Unknown',
+                'category': dict(CompanyCategory.choices).get(item['category'], item['category']),
                 'count': item['count']
             }
             for item in category_stats
@@ -416,10 +425,11 @@ def client_report_stats(request):
             'categories': categories,
         })
 
-    except Report.DoesNotExist:
+    except CustomReport.DoesNotExist:
         return Response({'error': 'Report not found'}, status=404)
     except Exception as e:
         print(f"Stats error: {str(e)}")
+        traceback.print_exc()
         return Response({'error': str(e)}, status=500)
 
 
