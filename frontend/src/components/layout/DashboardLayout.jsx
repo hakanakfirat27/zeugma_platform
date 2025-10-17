@@ -75,7 +75,11 @@ const DashboardLayout = ({ children }) => {
                   <button
                     key={link.name}
                     onClick={() => navigate(link.path)}
-                    className={`w-full flex items-center gap-3 px-3 py-3 rounded-lg transition-all ${isActive(link.path) ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/30' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`}
+                    className={`w-full flex items-center gap-3 px-3 py-3 rounded-lg transition-all ${
+                        isActive(link.path)
+                        ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/30'
+                        : 'text-gray-300 hover:bg-gray-800 hover:text-white'
+                    }`}
                   >
                     <Icon className="w-5 h-5" />
                     <span className="font-medium">{link.name}</span>

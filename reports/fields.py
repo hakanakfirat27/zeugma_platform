@@ -21,11 +21,10 @@ COMPOUNDER_FIELDS = ['lldpe', 'ldpe', 'hdpe', 'ps', 'pp', 'rigid_pvc', 'flexible
 ALL_COMMONS = list(dict.fromkeys(INJECTION_FIELDS + BLOW_FIELDS + ROTO_FIELDS + PE_FILM_FIELDS + SHEET_FIELDS + PIPE_FIELDS + TUBE_HOSE_FIELDS + PROFILE_FIELDS + CABLE_FIELDS + COMPOUNDER_FIELDS))
 
 
-
 MODAL_CONTACT_FIELDS = [
     'company_name', 'address_1', 'address_2', 'address_3', 'address_4',
     'region', 'country', 'geographical_coverage', 'phone_number',
-    'company_email', 'website', 'accreditation', 'parent_company'
+    'company_email', 'website', 'accreditation', 'parent_company',
     'title_1', 'initials_1', 'surname_1', 'position_1',
     'title_2', 'initials_2', 'surname_2', 'position_2',
     'title_3', 'initials_3', 'surname_3', 'position_3',
@@ -80,4 +79,14 @@ MODAL_MACHINERY_FIELDS = [
     'minimum_width_mm', 'maximum_width_mm', 'minimum_gauge_mm', 'maximum_gauge_mm',
     'minimum_diameter_mm', 'maximum_diameter_mm', 'twin_screw_extruders',
     'single_screw_extruders', 'batch_mixers',
+]
+
+MODAL_SERVICES_FIELDS = [
+    'tool_design', 'tool_manufacture', 'pad_printing', 'hot_foil_stamping',
+    'insert_moulding', 'painting', 'inmould_labelling', 'electroplating_metalizing',
+    'twin_multi_shot_moulding', 'gas_water_assisted_moulding', 'three_d_printing',
+    'clean_room', 'product_development', 'just_in_time', 'assembly', 'filling',
+    'labelling', 'welding', 'embossing', 'silk_screen_printing', 'offset_printing',
+    'printing', 'design', 'high_frequency_welding', 'ultrasonic_welding',
+    'other_welding', 'machining', 'recycling', 'other_services'
 ]

@@ -67,7 +67,7 @@ class ClientReportDataAPIView(generics.ListAPIView):
     pagination_class = CustomPagination
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_class = SuperdatabaseRecordFilter
-    search_fields = ['company_name', 'country', 'region']
+    search_fields = ['company_name']
     ordering_fields = ['company_name', 'country', 'last_updated']
     permission_classes = [IsAuthenticated]
 

@@ -21,7 +21,7 @@ from rest_framework.decorators import action
 
 from datetime import timedelta
 from .pagination import CustomPagination
-from .serializers import SuperdatabaseRecordSerializer, DashboardWidgetSerializer
+from .serializers import SuperdatabaseRecordSerializer, DashboardWidgetSerializer, SuperdatabaseRecordDetailSerializer
 from .filters import SuperdatabaseRecordFilter
 from .fields import (
     INJECTION_FIELDS, BLOW_FIELDS, ROTO_FIELDS, PE_FILM_FIELDS, SHEET_FIELDS,
@@ -575,7 +575,7 @@ class SuperdatabaseRecordListAPIView(generics.ListAPIView):
     pagination_class = CustomPagination
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_class = SuperdatabaseRecordFilter
-    search_fields = ['company_name', 'country', 'region']
+    search_fields = ['company_name', 'region']
     ordering_fields = ['company_name', 'country', 'last_updated']
     permission_classes = [IsAuthenticated] # Also securing this view
 
@@ -626,7 +626,7 @@ class SuperdatabaseRecordDetailAPIView(generics.RetrieveAPIView):
     An API view to retrieve the full details of a single record by its factory_id.
     """
     queryset = SuperdatabaseRecord.objects.all()
-    serializer_class = SuperdatabaseRecordSerializer
+    serializer_class = SuperdatabaseRecordDetailSerializer
     lookup_field = 'factory_id' # Tell the view to find records by our UUID field
     permission_classes = [IsAuthenticated]
 

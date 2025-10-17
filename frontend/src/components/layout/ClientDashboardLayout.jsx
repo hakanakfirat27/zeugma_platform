@@ -112,7 +112,7 @@ const ClientDashboardLayout = ({ children }) => {
             {(isSidebarOpen || isSidebarHovered) && (
               <div className="flex-1 transition-opacity duration-200">
                 <p className="text-sm font-semibold text-white truncate">{user?.full_name || user?.username}</p>
-                <p className="text-xs text-slate-400">Client Account</p>
+                <p className="text-xs text-slate-400">Premium Account</p>
               </div>
             )}
           </div>

@@ -46,6 +46,42 @@ class SuperdatabaseRecordSerializer(serializers.ModelSerializer):
         }
 
 
+# --- Superdatabase Record Detail Serilalizer Class ---
+class SuperdatabaseRecordDetailSerializer(serializers.ModelSerializer):
+    """
+    Custom serializer for the record detail view (modal).
+    It includes the field's verbose_name, key, and value for easier frontend rendering.
+    """
+    get_category_display = serializers.CharField(read_only=True)
+    detailed_fields = serializers.SerializerMethodField()
+
+    class Meta:
+        model = SuperdatabaseRecord
+        fields = [
+            'factory_id', 'company_name', 'category', 'get_category_display',
+            'country', 'last_updated', 'surname_1', 'surname_2', 'surname_3',
+            'surname_4', 'initials_1', 'initials_2', 'initials_3', 'initials_4',
+            'title_1', 'title_2', 'title_3', 'title_4', 'position_1', 'position_2',
+            'position_3', 'position_4',
+            'detailed_fields'  # <-- FIX: This line is essential and must be present
+        ]
+
+    def get_detailed_fields(self, instance):
+        """
+        This method iterates over the model's fields and builds a list of objects,
+        each containing the field's key, verbose_name (label), and its value.
+        """
+        field_data = []
+        for field in SuperdatabaseRecord._meta.get_fields():
+            if field.concrete and not field.is_relation:
+                field_data.append({
+                    'key': field.name,
+                    'label': field.verbose_name,
+                    'value': getattr(instance, field.name)
+                })
+        return field_data
+
+
 # --- Custom Report Serializer Class ---
 class CustomReportSerializer(serializers.ModelSerializer):
     """Serializer for custom reports"""

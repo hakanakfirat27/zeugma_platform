@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
 import {
   FileText, CreditCard, TrendingUp, Calendar, AlertCircle, CheckCircle,
   BarChart3, PieChart as PieIcon, Activity, Clock
@@ -14,6 +15,7 @@ const COLORS = ['#8B5CF6', '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#EC4899'
 
 const ClientDashboard = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     totalReports: 0,
@@ -68,6 +70,17 @@ const ClientDashboard = () => {
     }
   };
 
+  const getDisplayName = () => {
+    if (user?.first_name && user?.last_name) {
+      return `${user.first_name} ${user.last_name}`;
+    } else if (user?.first_name) {
+      return user.first_name;
+    } else if (user?.username) {
+      return user.username;
+    }
+    return 'User';
+  };
+
   if (loading) {
     return (
       <ClientDashboardLayout>
@@ -84,7 +97,7 @@ const ClientDashboard = () => {
         {/* Welcome Section */}
         <div className="mb-8">
           <h2 className="text-3xl font-bold text-gray-900 mb-2">Dashboard Overview</h2>
-          <p className="text-gray-600">Welcome back! Here's your subscription summary.</p>
+          <p className="text-gray-600">Welcome back, {getDisplayName()}! Here's your subscription summary.</p>
         </div>
 
         {/* Stats Cards */}

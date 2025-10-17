@@ -94,7 +94,7 @@ const DataTable = ({
             type="checkbox"
             checked={data.length > 0 && selectedRecords.size === data.length}
             onChange={onSelectAll}
-            className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+            className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
           />
         ),
         cell: ({ row }) => (
@@ -103,7 +103,7 @@ const DataTable = ({
             checked={selectedRecords.has(row.original.factory_id)}
             onChange={() => onSelectRecord(row.original.factory_id)}
             onClick={(e) => e.stopPropagation()}
-            className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+            className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
           />
         ),
         enableSorting: false,

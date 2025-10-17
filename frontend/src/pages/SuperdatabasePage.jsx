@@ -378,7 +378,7 @@ const handleCreateReport = () => {
                   setSearchQuery(e.target.value);
                   setCurrentPage(1);
                 }}
-                placeholder="Search by company name, country, region..."
+                placeholder="Search by company name, region..."
                 className="w-full pl-10 pr-10 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
               />
               {searchQuery && (
