@@ -63,6 +63,24 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const signup = async (formData) => {
+    try {
+      const response = await api.post('/accounts/signup/', {
+        username: formData.username.toLowerCase().trim(),
+        email: formData.email.toLowerCase().trim(),
+        first_name: formData.first_name,
+        last_name: formData.last_name,
+        password: formData.password1,
+        role: 'GUEST', // Set default role for signup
+      });
+
+      return { success: true, user: response.data };
+    } catch (error) {
+      // Re-throw the error so the component can handle it
+      throw error;
+    }
+  };
+
   const logout = async () => {
     try {
       await api.post('/accounts/logout/');
@@ -83,6 +101,7 @@ export const AuthProvider = ({ children }) => {
     user,
     loading,
     login,
+    signup,
     logout,
     checkAuth,
     isAuthenticated: !!user,

@@ -30,7 +30,10 @@ class UserSerializer(serializers.ModelSerializer):
             'company_name',
             'date_joined',
             'last_login',
-            'last_activity'
+            'last_activity',
+            # 2FA fields
+            'two_factor_enabled',
+            'is_2fa_setup_required',
         ]
         read_only_fields = fields
 

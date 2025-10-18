@@ -24,6 +24,10 @@ import ClientReportViewPage from './pages/client/ClientReportViewPage';
 import ClientSubscriptionsPage from './pages/client/ClientSubscriptionsPage';
 import ClientChatPage from './pages/client/ClientChatPage';
 import ClientFAQPage from './pages/client/ClientFAQPage';
+import VerifyEmailPage from './components/VerifyEmailPage';
+//import TwoFactorSetupModal from './components/TwoFactorSetupModal';
+//import TwoFactorVerificationModal from './components/TwoFactorVerificationModal';
+import ProfileSettingsPage from './pages/ProfileSettingsPage';
 
 
 function App() {
@@ -34,6 +38,7 @@ function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
+        <Route path="/verify-email/:uidb64/:token" element={<VerifyEmailPage />} />
 
         {/* Protected routes */}
         <Route path="/staff-dashboard" element={<ProtectedRoute><StaffDashboard /></ProtectedRoute>} />
@@ -46,6 +51,7 @@ function App() {
         <Route path="/user-management" element={<ProtectedRoute><UserManagementPage /></ProtectedRoute>} />
         <Route path="/create-password/:uidb64/:token" element={<CreatePasswordPage />} />
         <Route path="/update-profile" element={<ProfileUpdatePage />} />
+        <Route path="/profile-settings" element={<ProtectedRoute><ProfileSettingsPage /></ProtectedRoute>} />
 
         {/* Custom Reports Routes */}
         <Route path="/custom-reports" element={<ProtectedRoute><CustomReportsPage /></ProtectedRoute>} />

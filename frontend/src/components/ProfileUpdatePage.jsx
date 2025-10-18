@@ -1,14 +1,17 @@
 import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { User, Building, Phone, CheckCircle, Loader2 } from 'lucide-react';
+import EmailTwoFactorSetupModal from '../components/EmailTwoFactorSetupModal';
 import api from '../utils/api';
+import { useAuth } from '../contexts/AuthContext';
 
 const ProfileUpdatePage = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { checkAuth, user: authUser } = useAuth();
 
   const message = location.state?.message || '';
-  const userData = location.state?.user || {};
+  const userData = location.state?.user || authUser || {};
 
   const [formData, setFormData] = useState({
     first_name: userData.first_name || '',
@@ -19,14 +22,15 @@ const ProfileUpdatePage = () => {
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [requires2FASetup, setRequires2FASetup] = useState(false);
 
-  // Log user data for debugging
+  // Check if 2FA setup is required
   useEffect(() => {
-    console.log('User data received:', userData);
-    console.log('Form data:', formData);
-  }, [userData, formData]);
+    if (userData.is_2fa_setup_required || authUser?.is_2fa_setup_required) {
+      setRequires2FASetup(true);
+    }
+  }, [userData, authUser]);
 
-  // Helper function to determine dashboard path based on role
   const getDashboardPath = (role) => {
     if (role === 'SUPERADMIN' || role === 'STAFF_ADMIN') {
       return '/staff-dashboard';
@@ -35,7 +39,7 @@ const ProfileUpdatePage = () => {
     } else if (role === 'GUEST') {
       return '/guest-dashboard';
     }
-    return '/dashboard'; // fallback
+    return '/';
   };
 
   const handleChange = (e) => {
@@ -49,68 +53,88 @@ const ProfileUpdatePage = () => {
     setError('');
 
     try {
-      // Update current user's profile
       const response = await api.patch('/accounts/user/', formData);
+      await checkAuth();
 
-      // Get updated user data
       const updatedUser = response.data;
-      console.log('Profile updated successfully:', updatedUser);
 
-      // Determine dashboard based on role
+      // Check if 2FA setup is required
+      if (updatedUser.is_2fa_setup_required) {
+        setRequires2FASetup(true);
+        setSubmitting(false);
+        return;
+      }
+
+      // Redirect to dashboard
       const dashboardPath = getDashboardPath(updatedUser.role);
-
-      // Redirect to appropriate dashboard
       navigate(dashboardPath, {
-        state: { message: 'Profile updated successfully! Welcome to Zeugma Platform.' }
+        state: { message: 'Profile updated successfully! Welcome to Zeugma Platform.' },
+        replace: true
       });
     } catch (err) {
       console.error('Profile update error:', err);
-      setError(err.response?.data?.message || err.message || 'Failed to update profile. Please try again.');
-    } finally {
+      setError(err.response?.data?.message || 'Failed to update profile. Please try again.');
       setSubmitting(false);
     }
   };
 
-  const handleSkip = () => {
-    console.log('Skip button clicked. User role:', userData.role);
+  const handleSkip = async () => {
+    // If 2FA is required, show modal instead of redirecting
+    const currentUser = authUser || userData;
 
-    // Use userData (from location state) instead of undefined updatedUser
-    const dashboardPath = getDashboardPath(userData.role);
+    if (currentUser.is_2fa_setup_required) {
+      setRequires2FASetup(true);
+      return;
+    }
 
-    console.log('Redirecting to:', dashboardPath);
+    // Otherwise redirect to dashboard
+    const dashboardPath = getDashboardPath(currentUser.role);
     navigate(dashboardPath, {
-      state: { message: 'Welcome to Zeugma Platform!' }
+      state: { message: 'Welcome to Zeugma Platform!' },
+      replace: true
+    });
+  };
+
+  const handle2FASetupComplete = async () => {
+    setRequires2FASetup(false);
+    await checkAuth();
+
+    // Get fresh user data
+    const response = await api.get('/accounts/user/');
+    const updatedUser = response.data;
+
+    // Redirect to dashboard
+    const dashboardPath = getDashboardPath(updatedUser.role);
+    navigate(dashboardPath, {
+      state: { message: 'Setup complete! Welcome to Zeugma Platform.' },
+      replace: true
     });
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl shadow-lg p-8 max-w-2xl w-full">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <User className="w-8 h-8 text-indigo-600" />
-          </div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Complete Your Profile</h1>
-          {message && (
-            <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
-              <p className="text-sm text-green-800">{message}</p>
+    <>
+      <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-xl shadow-lg p-8 max-w-md w-full">
+          <div className="text-center mb-8">
+            <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <User className="w-8 h-8 text-indigo-600" />
             </div>
-          )}
-          <p className="text-gray-600 mt-4">
-            Help us know you better by completing your profile
-          </p>
-        </div>
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">Complete Your Profile</h1>
+            {message && (
+              <p className="text-sm text-green-600 bg-green-50 border border-green-200 rounded-lg px-4 py-2 mt-3">
+                {message}
+              </p>
+            )}
+            <p className="text-sm text-gray-500 mt-3">Add your contact information (optional)</p>
+          </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-6">
           {error && (
-            <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
               <p className="text-sm text-red-800">{error}</p>
             </div>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <form onSubmit={handleSubmit} className="space-y-5">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 First Name
@@ -144,72 +168,80 @@ const ProfileUpdatePage = () => {
                 />
               </div>
             </div>
-          </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Phone Number
-            </label>
-            <div className="relative">
-              <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <input
-                type="tel"
-                name="phone_number"
-                value={formData.phone_number}
-                onChange={handleChange}
-                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
-                placeholder="+1234567890"
-              />
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Phone Number
+              </label>
+              <div className="relative">
+                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  type="tel"
+                  name="phone_number"
+                  value={formData.phone_number}
+                  onChange={handleChange}
+                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+                  placeholder="+1234567890"
+                />
+              </div>
             </div>
-          </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Company Name
-            </label>
-            <div className="relative">
-              <Building className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <input
-                type="text"
-                name="company_name"
-                value={formData.company_name}
-                onChange={handleChange}
-                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
-                placeholder="Company Inc."
-              />
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Company Name
+              </label>
+              <div className="relative">
+                <Building className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  type="text"
+                  name="company_name"
+                  value={formData.company_name}
+                  onChange={handleChange}
+                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+                  placeholder="Company Inc."
+                />
+              </div>
             </div>
-          </div>
 
-          <div className="flex gap-4 pt-4">
-            <button
-              type="button"
-              onClick={handleSkip}
-              disabled={submitting}
-              className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Skip for now
-            </button>
-            <button
-              type="submit"
-              disabled={submitting}
-              className="flex-1 px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium flex items-center justify-center gap-2"
-            >
-              {submitting ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  Updating...
-                </>
-              ) : (
-                <>
-                  <CheckCircle className="w-5 h-5" />
-                  Complete Profile
-                </>
-              )}
-            </button>
-          </div>
-        </form>
+            <div className="flex gap-4 pt-4">
+              <button
+                type="button"
+                onClick={handleSkip}
+                disabled={submitting}
+                className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Skip for now
+              </button>
+              <button
+                type="submit"
+                disabled={submitting}
+                className="flex-1 px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium flex items-center justify-center gap-2"
+              >
+                {submitting ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Updating...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="w-5 h-5" />
+                    Complete Profile
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
-    </div>
+
+      {/* 2FA Setup Modal (Required) */}
+    <EmailTwoFactorSetupModal
+      isOpen={requires2FASetup}
+      onClose={() => {}}
+      onComplete={handle2FASetupComplete}
+      isRequired={true}
+    />
+    </>
   );
 };
 

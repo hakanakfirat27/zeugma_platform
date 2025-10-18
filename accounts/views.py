@@ -18,6 +18,12 @@ from .serializers import UserSerializer, UserManagementSerializer
 from .pagination import CustomPagination
 import json
 import re
+from datetime import timedelta
+import pyotp
+import qrcode
+import io
+import base64
+
 
 User = get_user_model()
 
@@ -363,28 +369,24 @@ class UserViewSet(viewsets.ModelViewSet):
 @ensure_csrf_cookie
 def login_view(request):
     """
-    Login view that accepts either username OR email address
+    Login view with Email 2FA support
     """
     data = request.data
-    username_or_email = data.get('username', '').strip()  # Can be either username or email
+    username_or_email = data.get('username', '').strip()
     password = data.get('password', '')
 
     # Try to determine if input is email or username
     user = None
 
     if '@' in username_or_email:
-        # Input looks like an email, try to find user by email
         try:
             user_obj = User.objects.get(email__iexact=username_or_email)
-            # Now authenticate with the username
             user = authenticate(request, username=user_obj.username, password=password)
         except User.DoesNotExist:
             user = None
     else:
-        # Input is a username
         user = authenticate(request, username=username_or_email, password=password)
 
-    # If authentication failed with username, try as email anyway
     if user is None and '@' not in username_or_email:
         try:
             user_obj = User.objects.get(email__iexact=username_or_email)
@@ -393,10 +395,61 @@ def login_view(request):
             user = None
 
     if user is not None:
-        # Logout any existing user in this session/browser
-        auth_logout(request)
+        # Check if 2FA is enabled
+        if user.two_factor_enabled:
+            # Generate and send code
+            code = user.generate_2fa_code()
 
-        # Login the new user
+            subject = 'Your Login Verification Code'
+            message = f"""
+Hello {user.first_name or user.username},
+
+Your verification code is: {code}
+
+This code will expire in 10 minutes.
+
+If you didn't try to log in, please secure your account immediately.
+
+Best regards,
+Zeugma Platform Team
+            """
+
+            try:
+                send_mail(
+                    subject,
+                    message,
+                    settings.DEFAULT_FROM_EMAIL,
+                    [user.email],
+                    fail_silently=False,
+                )
+            except Exception as e:
+                return Response({
+                    'error': 'Failed to send verification code. Please try again.'
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+            # Don't login yet, require 2FA code
+            return Response({
+                'requires_2fa': True,
+                'username': user.username,
+                'email': user.email,
+                'message': f'Verification code sent to {user.email}'
+            })
+
+        # Check if 2FA setup is required (first login)
+        if user.is_2fa_setup_required:
+            # Login but flag that 2FA setup is required
+            auth_logout(request)
+            auth_login(request, user)
+            user.update_last_activity()
+
+            return Response({
+                'requires_2fa_setup': True,
+                'user': UserSerializer(user).data,
+                'message': '2FA setup required'
+            })
+
+        # Regular login without 2FA
+        auth_logout(request)
         auth_login(request, user)
         user.update_last_activity()
         serializer = UserSerializer(user)
@@ -449,3 +502,462 @@ def user_profile_view(request):
             serializer.save()
             return Response(UserSerializer(request.user).data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['POST'])
+@ensure_csrf_cookie
+@permission_classes([AllowAny])
+def signup_with_verification(request):
+    """
+    Create user account and send email verification link
+    User account will be inactive until email is verified
+    """
+    serializer = UserManagementSerializer(data=request.data)
+
+    if serializer.is_valid():
+        # Create user with inactive status
+        user = serializer.save()
+        user.is_active = False  # Set inactive until email verified
+        user.save()
+
+        # Generate email verification token
+        token = default_token_generator.make_token(user)
+        uid = urlsafe_base64_encode(force_bytes(user.pk))
+
+        # Create verification link
+        frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:5173')
+        verification_link = f"{frontend_url}/verify-email/{uid}/{token}/"
+
+        # Send verification email
+        subject = 'Verify Your Email - Zeugma Platform'
+        message = f"""
+Hello {user.first_name or user.username},
+
+Thank you for signing up for Zeugma Platform!
+
+Please verify your email address by clicking the link below:
+
+{verification_link}
+
+This link will expire in 24 hours.
+
+If you didn't create an account, please ignore this email.
+
+Best regards,
+Zeugma Platform Team
+        """
+
+        try:
+            send_mail(
+                subject,
+                message,
+                settings.DEFAULT_FROM_EMAIL,
+                [user.email],
+                fail_silently=False,
+            )
+
+            return Response({
+                'success': True,
+                'message': 'Account created successfully. Please check your email to verify your account.',
+                'email': user.email
+            }, status=status.HTTP_201_CREATED)
+
+        except Exception as e:
+            # If email fails, delete the user
+            user.delete()
+            return Response({
+                'success': False,
+                'message': f'Failed to send verification email: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def verify_email(request, uidb64, token):
+    """
+    Verify user's email and activate their account
+    """
+    try:
+        uid = force_str(urlsafe_base64_decode(uidb64))
+        user = User.objects.get(pk=uid)
+    except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+        return Response({
+            'success': False,
+            'message': 'Invalid verification link'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    if user.is_active:
+        return Response({
+            'success': False,
+            'message': 'This account is already verified'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    if default_token_generator.check_token(user, token):
+        user.is_active = True
+        user.save()
+
+        return Response({
+            'success': True,
+            'message': 'Email verified successfully! You can now log in.',
+            'user': {
+                'username': user.username,
+                'email': user.email,
+                'first_name': user.first_name,
+                'last_name': user.last_name,
+            }
+        })
+
+    return Response({
+        'success': False,
+        'message': 'Verification link has expired or is invalid'
+    }, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def resend_verification_email(request):
+    """
+    Resend verification email to user
+    """
+    email = request.data.get('email', '').strip().lower()
+
+    if not email:
+        return Response({
+            'success': False,
+            'message': 'Email is required'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        user = User.objects.get(email__iexact=email)
+
+        if user.is_active:
+            return Response({
+                'success': False,
+                'message': 'This account is already verified'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Generate new token
+        token = default_token_generator.make_token(user)
+        uid = urlsafe_base64_encode(force_bytes(user.pk))
+
+        # Create verification link
+        frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:5173')
+        verification_link = f"{frontend_url}/verify-email/{uid}/{token}/"
+
+        # Send email
+        subject = 'Verify Your Email - Zeugma Platform'
+        message = f"""
+Hello {user.first_name or user.username},
+
+Here is your new email verification link:
+
+{verification_link}
+
+This link will expire in 24 hours.
+
+Best regards,
+Zeugma Platform Team
+        """
+
+        send_mail(
+            subject,
+            message,
+            settings.DEFAULT_FROM_EMAIL,
+            [user.email],
+            fail_silently=False,
+        )
+
+        return Response({
+            'success': True,
+            'message': 'Verification email sent successfully'
+        })
+
+    except User.DoesNotExist:
+        return Response({
+            'success': False,
+            'message': 'No account found with this email address'
+        }, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        return Response({
+            'success': False,
+            'message': f'Failed to send email: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def disable_2fa(request):
+    """
+    Disable 2FA for user (requires password confirmation)
+    """
+    user = request.user
+    password = request.data.get('password', '')
+
+    # Verify password
+    if not user.check_password(password):
+        return Response(
+            {'success': False, 'message': 'Invalid password'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    user.two_factor_enabled = False
+    user.clear_2fa_code()
+    user.save()
+
+    return Response({
+        'success': True,
+        'message': '2FA disabled successfully'
+    })
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def verify_2fa_login(request):
+    """
+    Verify 2FA code during login
+    """
+    username = request.data.get('username', '')
+    code = request.data.get('code', '')
+
+    if not username or not code:
+        return Response(
+            {'success': False, 'message': 'Username and code are required'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    try:
+        # Find user
+        if '@' in username:
+            user = User.objects.get(email__iexact=username)
+        else:
+            user = User.objects.get(username__iexact=username)
+    except User.DoesNotExist:
+        return Response(
+            {'success': False, 'message': 'Invalid credentials'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    # Verify code
+    if user.verify_2fa_code(code):
+        # Clear the code
+        user.clear_2fa_code()
+
+        # Login user
+        auth_login(request, user)
+        user.update_last_activity()
+
+        return Response({
+            'success': True,
+            'user': UserSerializer(user).data,
+            'message': 'Login successful'
+        })
+    else:
+        return Response(
+            {'success': False, 'message': 'Invalid or expired code'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def change_password(request):
+    """
+    Change user password
+    """
+    user = request.user
+    current_password = request.data.get('current_password', '')
+    new_password = request.data.get('new_password', '')
+
+    # Verify current password
+    if not user.check_password(current_password):
+        return Response(
+            {'success': False, 'message': 'Current password is incorrect'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    # Validate new password
+    if len(new_password) < 8:
+        return Response(
+            {'success': False, 'message': 'Password must be at least 8 characters'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    if not re.search(r'[A-Z]', new_password):
+        return Response(
+            {'success': False, 'message': 'Password must contain at least one uppercase letter'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    if not re.search(r'[a-z]', new_password):
+        return Response(
+            {'success': False, 'message': 'Password must contain at least one lowercase letter'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    if not re.search(r'[0-9]', new_password):
+        return Response(
+            {'success': False, 'message': 'Password must contain at least one number'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    # Set new password
+    user.set_password(new_password)
+    user.save()
+
+    return Response({
+        'success': True,
+        'message': 'Password changed successfully'
+    })
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def enable_email_2fa(request):
+    """
+    Enable email-based 2FA for user
+    Sends a verification code to confirm
+    """
+    user = request.user
+
+    # Generate and send verification code
+    code = user.generate_2fa_code()
+
+    # Send email
+    subject = 'Enable Two-Factor Authentication'
+    message = f"""
+Hello {user.first_name or user.username},
+
+You have requested to enable Two-Factor Authentication for your account.
+
+Your verification code is: {code}
+
+This code will expire in 10 minutes.
+
+If you didn't request this, please ignore this email.
+
+Best regards,
+Zeugma Platform Team
+    """
+
+    try:
+        send_mail(
+            subject,
+            message,
+            settings.DEFAULT_FROM_EMAIL,
+            [user.email],
+            fail_silently=False,
+        )
+
+        return Response({
+            'success': True,
+            'message': f'Verification code sent to {user.email}'
+        })
+    except Exception as e:
+        return Response({
+            'success': False,
+            'message': f'Failed to send email: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def verify_enable_2fa(request):
+    """
+    Verify code and enable 2FA
+    """
+    user = request.user
+    code = request.data.get('code', '')
+
+    if not code:
+        return Response(
+            {'success': False, 'message': 'Verification code is required'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    # Verify code
+    if user.verify_2fa_code(code):
+        user.two_factor_enabled = True
+        user.is_2fa_setup_required = False
+        user.clear_2fa_code()
+
+        return Response({
+            'success': True,
+            'message': '2FA enabled successfully'
+        })
+    else:
+        return Response(
+            {'success': False, 'message': 'Invalid or expired code'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def send_2fa_code(request):
+    """
+    Send 2FA code to user's email during login
+    """
+    username = request.data.get('username', '')
+
+    if not username:
+        return Response(
+            {'success': False, 'message': 'Username is required'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    try:
+        # Find user by username or email
+        if '@' in username:
+            user = User.objects.get(email__iexact=username)
+        else:
+            user = User.objects.get(username__iexact=username)
+    except User.DoesNotExist:
+        return Response(
+            {'success': False, 'message': 'User not found'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    if not user.two_factor_enabled:
+        return Response(
+            {'success': False, 'message': '2FA is not enabled for this user'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    # Generate and send code
+    code = user.generate_2fa_code()
+
+    subject = 'Your Login Verification Code'
+    message = f"""
+Hello {user.first_name or user.username},
+
+Your verification code is: {code}
+
+This code will expire in 10 minutes.
+
+If you didn't try to log in, please secure your account immediately.
+
+Best regards,
+Zeugma Platform Team
+    """
+
+    try:
+        send_mail(
+            subject,
+            message,
+            settings.DEFAULT_FROM_EMAIL,
+            [user.email],
+            fail_silently=False,
+        )
+
+        return Response({
+            'success': True,
+            'message': f'Verification code sent to {user.email}',
+            'email': user.email
+        })
+    except Exception as e:
+        return Response({
+            'success': False,
+            'message': f'Failed to send email: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

@@ -2,6 +2,8 @@ from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.utils import timezone
 from datetime import timedelta
+import random
+import string
 
 
 # This class defines the choices for the 'role' field.
@@ -25,6 +27,12 @@ class User(AbstractUser):
     phone_number = models.CharField(max_length=20, blank=True, null=True)
     company_name = models.CharField(max_length=255, blank=True, null=True)
     last_activity = models.DateTimeField(null=True, blank=True)
+
+    # 2FA Fields
+    two_factor_enabled = models.BooleanField(default=False)
+    is_2fa_setup_required = models.BooleanField(default=True)  # Force 2FA on first login
+    two_factor_code = models.CharField(max_length=6, blank=True, null=True)
+    two_factor_code_created_at = models.DateTimeField(null=True, blank=True)
 
     def save(self, *args, **kwargs):
         """
@@ -85,6 +93,36 @@ class User(AbstractUser):
         from django.utils import timezone
         self.last_activity = timezone.now()
         self.save(update_fields=['last_activity'])
+
+    def generate_2fa_code(self):
+        """Generate a random 6-digit code"""
+        code = ''.join(random.choices(string.digits, k=6))
+        self.two_factor_code = code
+        self.two_factor_code_created_at = timezone.now()
+        self.save()
+        return code
+
+    def verify_2fa_code(self, code):
+        """Verify the 2FA code (valid for 10 minutes)"""
+        if not self.two_factor_code or not self.two_factor_code_created_at:
+            return False
+
+        # Check if code matches
+        if self.two_factor_code != code:
+            return False
+
+        # Check if code is expired (10 minutes)
+        expiry_time = self.two_factor_code_created_at + timedelta(minutes=10)
+        if timezone.now() > expiry_time:
+            return False
+
+        return True
+
+    def clear_2fa_code(self):
+        """Clear the 2FA code after successful verification"""
+        self.two_factor_code = None
+        self.two_factor_code_created_at = None
+        self.save()
 
     def __str__(self):
         return f"{self.username} ({self.get_role_display()})"

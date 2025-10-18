@@ -21,6 +21,7 @@ const ClientDashboardLayout = ({ children }) => {
     { name: 'Subscriptions', path: '/client/subscriptions', icon: CreditCard, color: 'text-green-500' },
     { name: 'Chat', path: '/client/chat', icon: MessageSquare, color: 'text-orange-500' },
     { name: 'FAQ', path: '/client/faq', icon: HelpCircle, color: 'text-pink-500' },
+    { name: 'Profile Settings', path: '/profile-settings', icon: Settings, color: 'text-gray-500' },
   ];
 
   useEffect(() => {
@@ -118,6 +119,13 @@ const ClientDashboardLayout = ({ children }) => {
           </div>
 
           <div className="mt-3 space-y-2">
+            <button
+              onClick={() => navigate('/profile-settings')}
+              className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-slate-300 hover:bg-slate-800 hover:text-white transition-all"
+            >
+              <Settings className="w-5 h-5" />
+              {(isSidebarOpen || isSidebarHovered) && <span className="font-medium">Profile Settings</span>}
+            </button>
             <button
               onClick={logout}
               className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-slate-300 hover:bg-red-600/10 hover:text-red-400 transition-all"

@@ -2,11 +2,14 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Lock, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import PasswordStrengthInput from '../components/PasswordStrengthInput';
+import EmailTwoFactorSetupModal from '../components/EmailTwoFactorSetupModal';
 import api from '../utils/api';
+import { useAuth } from '../contexts/AuthContext';
 
 const CreatePasswordPage = () => {
   const { uidb64, token } = useParams();
   const navigate = useNavigate();
+  const { checkAuth } = useAuth();
 
   const [password, setPassword] = useState('');
   const [validating, setValidating] = useState(true);
@@ -15,17 +18,18 @@ const CreatePasswordPage = () => {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
-  // Validate token on mount
+  // 2FA setup state
+  const [requires2FASetup, setRequires2FASetup] = useState(false);
+
   useEffect(() => {
     validateToken();
   }, []);
 
   const validateToken = async () => {
     try {
-      const { data } = await api.post(`/api/auth/validate-password-token/${uidb64}/${token}/`);
+      const { data } = await api.post(`/accounts/validate-password-token/${uidb64}/${token}/`);
       setValid(data.valid);
       setUser(data.user);
-      console.log('User data from token:', data.user); // Debug
     } catch (err) {
       setValid(false);
       setError(err.response?.data?.message || 'Invalid or expired link');
@@ -37,7 +41,6 @@ const CreatePasswordPage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Validate password
     if (password.length < 8 ||
         !/[A-Z]/.test(password) ||
         !/[a-z]/.test(password) ||
@@ -51,40 +54,67 @@ const CreatePasswordPage = () => {
 
     try {
       // Create password
-      await api.post(`/api/auth/create-password/${uidb64}/${token}/`, {
+      await api.post(`/accounts/create-password/${uidb64}/${token}/`, {
         password: password,
       });
 
       // Auto-login the user
-      try {
-        const loginResponse = await api.post('/accounts/login/', {
-          username: user.username,
-          password: password,
-        });
+      const loginResponse = await api.post('/accounts/login/', {
+        username: user.username,
+        password: password,
+      });
 
-        // Redirect to profile update page with full user data
-        navigate('/update-profile', {
-          state: {
-            message: 'Password created successfully! Please complete your profile.',
-            user: {
-              ...user,
-              ...loginResponse.data.user
-            }
-          }
-        });
-      } catch (loginErr) {
-        // If auto-login fails, still redirect but user needs to login manually
-        navigate('/login', {
-          state: {
-            message: 'Password created successfully! Please login to continue.',
-            username: user.username
-          }
-        });
+      // Update auth context
+      await checkAuth();
+
+      // Check if 2FA setup is required
+      if (loginResponse.data.requires_2fa_setup || loginResponse.data.user?.is_2fa_setup_required) {
+        setRequires2FASetup(true);
+        setSubmitting(false);
+        return;
       }
+
+      // Redirect to profile update page
+      navigate('/update-profile', {
+        state: {
+          message: 'Password created successfully! Please complete your profile.',
+          user: loginResponse.data.user
+        }
+      });
+
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to create password. Please try again.');
-    } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handle2FASetupComplete = async () => {
+    setRequires2FASetup(false);
+    await checkAuth();
+
+    // Get fresh user data
+    const response = await api.get('/accounts/user/');
+
+    // Redirect to profile update page
+    navigate('/update-profile', {
+      state: {
+        message: 'Password and 2FA setup complete! Please complete your profile.',
+        user: response.data
+      }
+    });
+  };
+
+  const redirectToDashboard = (userData) => {
+    const userRole = userData.role;
+
+    if (userRole === 'SUPERADMIN' || userRole === 'STAFF_ADMIN') {
+      navigate('/staff-dashboard', { replace: true });
+    } else if (userRole === 'CLIENT') {
+      navigate('/client-dashboard', { replace: true });
+    } else if (userRole === 'GUEST') {
+      navigate('/guest-dashboard', { replace: true });
+    } else {
+      navigate('/', { replace: true });
     }
   };
 
@@ -120,56 +150,62 @@ const CreatePasswordPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl shadow-lg p-8 max-w-md w-full">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Lock className="w-8 h-8 text-indigo-600" />
+    <>
+      <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-xl shadow-lg p-8 max-w-md w-full">
+          <div className="text-center mb-8">
+            <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Lock className="w-8 h-8 text-indigo-600" />
+            </div>
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">Create Your Password</h1>
+            <p className="text-gray-600">
+              Welcome, <span className="font-semibold">{user?.first_name || user?.username}</span>!
+            </p>
+            <p className="text-sm text-gray-500 mt-2">Create a strong password to secure your account</p>
           </div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Create Your Password</h1>
-          <p className="text-gray-600">
-            Welcome, <span className="font-semibold">{user?.first_name || user?.username}</span>!
-          </p>
-          <p className="text-sm text-gray-500 mt-1">
-            Create a strong password to secure your account
-          </p>
-        </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-6">
           {error && (
-            <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
               <p className="text-sm text-red-800">{error}</p>
             </div>
           )}
 
-          <PasswordStrengthInput
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required={true}
-          />
+          <form onSubmit={handleSubmit}>
+            <PasswordStrengthInput
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              touched={true}
+            />
 
-          <button
-            type="submit"
-            disabled={submitting || password.length < 8}
-            className="w-full px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium flex items-center justify-center gap-2"
-          >
-            {submitting ? (
-              <>
-                <Loader2 className="w-5 h-5 animate-spin" />
-                Creating...
-              </>
-            ) : (
-              <>
-                <CheckCircle className="w-5 h-5" />
-                Create Password & Continue
-              </>
-            )}
-          </button>
-        </form>
+            <button
+              type="submit"
+              disabled={submitting}
+              className="w-full mt-6 bg-indigo-600 text-white py-3 rounded-lg font-medium hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              {submitting ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="w-5 h-5" />
+                  Create Password & Continue
+                </>
+              )}
+            </button>
+          </form>
+        </div>
       </div>
-    </div>
+
+      {/* 2FA Setup Modal (Required) */}
+    <EmailTwoFactorSetupModal
+      isOpen={requires2FASetup}
+      onClose={() => {}}
+      onComplete={handle2FASetupComplete}
+      isRequired={true}
+    />
+    </>
   );
 };
 
