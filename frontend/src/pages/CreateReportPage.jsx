@@ -1,6 +1,6 @@
 // frontend/src/pages/CreateReportPage.jsx
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, useParams } from 'react-router-dom';
 import DashboardLayout from '../components/layout/DashboardLayout';
 import LoadingSpinner from '../components/LoadingSpinner';
 import api from '../utils/api';
@@ -10,13 +10,15 @@ import { ArrowLeft, X, Search, ChevronRight, CheckCircle2, Filter, BarChart3, Gl
 const CreateReportPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const [loading, setLoading] = useState(false);
+  const { reportId } = useParams(); // Get reportId from URL for edit mode
+  const isEditMode = !!reportId; // Check if we're in edit mode
+
+  const [loading, setLoading] = useState(isEditMode); // Start loading if edit mode
   const [currentStep, setCurrentStep] = useState(1);
 
   const navigationState = location.state || {};
   const preloadedFilters = navigationState.filterCriteria || {};
   const preloadedRecordCount = navigationState.recordCount || 0;
-  const preloadedCategory = navigationState.selectedCategory || 'SELECT';
 
   const [formData, setFormData] = useState({
     title: '',
@@ -26,7 +28,10 @@ const CreateReportPage = () => {
   });
 
   const [availableFilters, setAvailableFilters] = useState([]);
-  const [selectedCategory, setSelectedCategory] = useState(preloadedCategory);
+
+  // UPDATED: Now supports multiple categories with Set
+  const [selectedCategories, setSelectedCategories] = useState(new Set(['SELECT']));
+
   const [selectedFilters, setSelectedFilters] = useState({});
   const [selectedCountries, setSelectedCountries] = useState([]);
   const [availableCountries, setAvailableCountries] = useState([]);
@@ -38,8 +43,79 @@ const CreateReportPage = () => {
   });
   const [statsLoading, setStatsLoading] = useState(false);
 
+  // NEW: Load existing report data if in edit mode
   useEffect(() => {
-    if (selectedCategory === 'SELECT') {
+    if (isEditMode && reportId) {
+      fetchReportData();
+    }
+  }, [reportId, isEditMode]);
+
+  const fetchReportData = async () => {
+    try {
+      setLoading(true);
+      const response = await api.get(`/api/custom-reports/${reportId}/`);
+      const report = response.data;
+
+      console.log('📝 Loading report for edit:', report);
+
+      // Set basic form data
+      setFormData({
+        title: report.title || '',
+        description: report.description || '',
+        is_active: report.is_active !== undefined ? report.is_active : true,
+        filter_criteria: report.filter_criteria || {}
+      });
+
+      // Load filter criteria
+      const criteria = report.filter_criteria || {};
+
+      // Handle categories
+      if (criteria.categories) {
+        if (Array.isArray(criteria.categories)) {
+          setSelectedCategories(new Set(criteria.categories));
+        } else {
+          setSelectedCategories(new Set([criteria.categories]));
+        }
+      } else if (criteria.category) {
+        setSelectedCategories(new Set([criteria.category]));
+      } else {
+        setSelectedCategories(new Set(['ALL']));
+      }
+
+      // Handle countries
+      if (criteria.country && Array.isArray(criteria.country)) {
+        setSelectedCountries(criteria.country);
+      }
+
+      // Handle material filters
+      const materialFilters = {};
+      Object.keys(criteria).forEach(key => {
+        if (key !== 'categories' && key !== 'category' && key !== 'country') {
+          if (criteria[key] === true || criteria[key] === false) {
+            materialFilters[key] = criteria[key];
+          }
+        }
+      });
+      setSelectedFilters(materialFilters);
+
+      // Set live stats
+      setLiveStats({
+        total_records: report.record_count || 0,
+        field_breakdown: null
+      });
+
+    } catch (error) {
+      console.error('Error loading report:', error);
+      alert('Failed to load report');
+      navigate('/custom-reports');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Update stats when filters change
+  useEffect(() => {
+    if (selectedCategories.has('SELECT')) {
       setLiveStats({ total_records: 0, field_breakdown: null });
       return;
     }
@@ -47,69 +123,93 @@ const CreateReportPage = () => {
       fetchLiveStats();
     }, 500);
     return () => clearTimeout(timer);
-  }, [selectedCategory, selectedFilters, selectedCountries]);
+  }, [selectedCategories, selectedFilters, selectedCountries]);
 
-useEffect(() => {
-  if (Object.keys(preloadedFilters).length > 0) {
-    console.log('📦 Preloaded Filters:', preloadedFilters);
+  // UPDATED: Handle preloaded filters with multi-category support
+  useEffect(() => {
+    if (Object.keys(preloadedFilters).length > 0) {
+      console.log('📦 Preloaded Filters:', preloadedFilters);
 
-    // Set category
-    if (preloadedFilters.category) {
-      setSelectedCategory(preloadedFilters.category);
-    } else {
-      // If no category specified, it means "All Categories"
-      setSelectedCategory('');
-    }
+      // Handle categories (can be string or array)
+      if (preloadedFilters.categories) {
+        const categoriesValue = preloadedFilters.categories;
 
-    // Set country filters
-    if (preloadedFilters.country && Array.isArray(preloadedFilters.country)) {
-      setSelectedCountries(preloadedFilters.country);
-    }
-
-    // Set material/property filters (BOTH true AND false values)
-    const materialFilters = {};
-    Object.keys(preloadedFilters).forEach(key => {
-      if (key !== 'category' && key !== 'country') {
-        // Include both true (include) and false (exclude) filters
-        if (preloadedFilters[key] === true || preloadedFilters[key] === false) {
-          materialFilters[key] = preloadedFilters[key];
+        if (Array.isArray(categoriesValue)) {
+          // Multiple categories
+          setSelectedCategories(new Set(categoriesValue));
+        } else {
+          // Single category
+          setSelectedCategories(new Set([categoriesValue]));
         }
+      } else if (preloadedFilters.category) {
+        // Backward compatibility with old 'category' field
+        setSelectedCategories(new Set([preloadedFilters.category]));
+      } else {
+        // No category specified = All Categories
+        setSelectedCategories(new Set(['ALL']));
       }
-    });
 
-    console.log('🎯 Material Filters:', materialFilters);
-    setSelectedFilters(materialFilters);
+      // Set country filters
+      if (preloadedFilters.country && Array.isArray(preloadedFilters.country)) {
+        setSelectedCountries(preloadedFilters.country);
+      }
 
-    // Generate title
-    const categoryName = preloadedFilters.category
-      ? CATEGORIES.find(c => c.value === preloadedFilters.category)?.label
-      : 'All Categories';
+      // Set material/property filters (BOTH true AND false values)
+      const materialFilters = {};
+      Object.keys(preloadedFilters).forEach(key => {
+        if (key !== 'categories' && key !== 'category' && key !== 'country') {
+          if (preloadedFilters[key] === true || preloadedFilters[key] === false) {
+            materialFilters[key] = preloadedFilters[key];
+          }
+        }
+      });
 
-    const countryText = preloadedFilters.country?.length > 0
-      ? ` in ${preloadedFilters.country.slice(0, 2).join(', ')}${preloadedFilters.country.length > 2 ? ` +${preloadedFilters.country.length - 2} more` : ''}`
-      : '';
+      console.log('🎯 Material Filters:', materialFilters);
+      setSelectedFilters(materialFilters);
 
-    const filterCount = Object.keys(materialFilters).length;
-    const filterText = filterCount > 0 ? ` with ${filterCount} filters` : '';
+      // Generate title based on selected categories
+      let categoryName;
+      const categoriesValue = preloadedFilters.categories || preloadedFilters.category;
 
-    setFormData(prev => ({
-      ...prev,
-      title: `${categoryName}${countryText}${filterText}`,
-      description: `Custom report with ${preloadedRecordCount} companies`
-    }));
-  }
-}, []); // Run only once on mount
+      if (!categoriesValue) {
+        categoryName = 'All Categories';
+      } else if (Array.isArray(categoriesValue)) {
+        if (categoriesValue.length === 1) {
+          categoryName = CATEGORIES.find(c => c.value === categoriesValue[0])?.label || categoriesValue[0];
+        } else {
+          categoryName = categoriesValue.map(cat =>
+            CATEGORIES.find(c => c.value === cat)?.label || cat
+          ).join(' + ');
+        }
+      } else {
+        categoryName = CATEGORIES.find(c => c.value === categoriesValue)?.label || categoriesValue;
+      }
+
+      const countryText = preloadedFilters.country?.length > 0
+        ? ` in ${preloadedFilters.country.slice(0, 2).join(', ')}${preloadedFilters.country.length > 2 ? ` +${preloadedFilters.country.length - 2} more` : ''}`
+        : '';
+
+      const filterCount = Object.keys(materialFilters).length;
+      const filterText = filterCount > 0 ? ` with ${filterCount} filters` : '';
+
+      setFormData(prev => ({
+        ...prev,
+        title: `${categoryName}${countryText}${filterText}`,
+        description: `Custom report with ${preloadedRecordCount} companies`
+      }));
+    }
+  }, []); // Run only once on mount
 
   useEffect(() => {
     fetchAvailableCountries();
   }, []);
 
-  // ===== FIX 1: Allow fetching filters for "All Categories" (empty string) =====
+  // Fetch filter options when categories change
   useEffect(() => {
-    if (selectedCategory !== 'SELECT') {
+    if (!selectedCategories.has('SELECT')) {
       fetchFilterOptions();
     }
-  }, [selectedCategory]);
+  }, [selectedCategories]);
 
   const fetchAvailableCountries = async () => {
     try {
@@ -122,8 +222,13 @@ useEffect(() => {
 
   const fetchFilterOptions = async () => {
     try {
-      // ===== FIX 2: Send empty string for "All Categories" =====
-      const categoryParam = selectedCategory === '' ? 'ALL' : selectedCategory;
+      // Use first selected category for filter options, or 'ALL' if multiple/all selected
+      let categoryParam = 'ALL';
+
+      if (!selectedCategories.has('ALL') && selectedCategories.size === 1) {
+        categoryParam = Array.from(selectedCategories)[0];
+      }
+
       const response = await api.get('/api/filter-options/', {
         params: { category: categoryParam }
       });
@@ -159,16 +264,13 @@ useEffect(() => {
     }));
   };
 
-  // ===== FIX 3: New function for radio button filters (Any/Include/Exclude) =====
   const handleFilterChange = (filterField, value) => {
     setSelectedFilters(prev => {
       const newFilters = { ...prev };
 
       if (value === undefined || value === null) {
-        // "Any" selected - remove the filter
         delete newFilters[filterField];
       } else {
-        // "Include" (true) or "Exclude" (false) selected
         newFilters[filterField] = value;
       }
 
@@ -198,34 +300,40 @@ useEffect(() => {
     setSelectedCountries(prev => prev.filter(c => c !== country));
   };
 
-const buildFilterCriteria = () => {
-  const criteria = {};
+  // UPDATED: Build filter criteria with multi-category support
+  const buildFilterCriteria = () => {
+    const criteria = {};
 
-  // Handle category
-  if (selectedCategory && selectedCategory !== 'SELECT') {
-    // If empty string, don't add category field (means ALL categories)
-    if (selectedCategory !== '') {
-      criteria.category = selectedCategory;
+    // Handle categories
+    if (!selectedCategories.has('SELECT') && !selectedCategories.has('ALL')) {
+      const categoriesArray = Array.from(selectedCategories);
+
+      if (categoriesArray.length === 1) {
+        // Single category - send as string
+        criteria.category = categoriesArray[0];
+      } else if (categoriesArray.length > 1) {
+        // Multiple categories - send as array
+        criteria.categories = categoriesArray;
+      }
     }
-  }
+    // If 'ALL' or 'SELECT', don't add any category field
 
-  // Add material filters (both true AND false)
-  Object.keys(selectedFilters).forEach(field => {
-    // Only add if it's actually true or false (not undefined)
-    if (selectedFilters[field] === true || selectedFilters[field] === false) {
-      criteria[field] = selectedFilters[field];
+    // Add material filters (both true AND false)
+    Object.keys(selectedFilters).forEach(field => {
+      if (selectedFilters[field] === true || selectedFilters[field] === false) {
+        criteria[field] = selectedFilters[field];
+      }
+    });
+
+    // Add country filters
+    if (selectedCountries.length > 0) {
+      criteria.country = selectedCountries;
     }
-  });
 
-  // Add country filters
-  if (selectedCountries.length > 0) {
-    criteria.country = selectedCountries;
-  }
+    console.log('📋 Building Filter Criteria:', criteria);
 
-  console.log('📋 Building Filter Criteria:', criteria);
-
-  return criteria;
-};
+    return criteria;
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -244,25 +352,32 @@ const buildFilterCriteria = () => {
 
       console.log('📤 Submitting report with criteria:', criteria);
 
-    const submitData = {
-      title: formData.title,
-      description: formData.description,
-      is_active: formData.is_active,
-      // We still send these to backend but with default values
-      is_featured: false,
-      monthly_price: 0.00,
-      annual_price: 0.00,
-      filter_criteria: criteria
-    };
+      const submitData = {
+        title: formData.title,
+        description: formData.description,
+        is_active: formData.is_active,
+        is_featured: false,
+        monthly_price: 0.00,
+        annual_price: 0.00,
+        filter_criteria: criteria
+      };
 
       console.log('📤 Full submit data:', submitData);
 
-      await api.post('/api/custom-reports/', submitData);
-      alert('Report created successfully!');
+      if (isEditMode) {
+        // UPDATE existing report
+        await api.put(`/api/custom-reports/${reportId}/`, submitData);
+        alert('Report updated successfully!');
+      } else {
+        // CREATE new report
+        await api.post('/api/custom-reports/', submitData);
+        alert('Report created successfully!');
+      }
+
       navigate(`/custom-reports`);
     } catch (error) {
-      console.error('Error creating report:', error);
-      alert('Failed to create report');
+      console.error('Error saving report:', error);
+      alert(`Failed to ${isEditMode ? 'update' : 'create'} report`);
     } finally {
       setLoading(false);
     }
@@ -276,7 +391,8 @@ const buildFilterCriteria = () => {
     filter.label.toLowerCase().includes(materialSearch.toLowerCase())
   );
 
-  const activeFiltersCount = Object.keys(selectedFilters).length + selectedCountries.length;
+  const categoryFilterCount = selectedCategories.has('ALL') || selectedCategories.has('SELECT') ? 0 : selectedCategories.size;
+  const activeFiltersCount = Object.keys(selectedFilters).length + selectedCountries.length + categoryFilterCount;
 
   const steps = [
     { number: 1, title: 'Basic Info', icon: <BarChart3 className="w-5 h-5" /> },
@@ -292,11 +408,13 @@ const buildFilterCriteria = () => {
           <button onClick={() => navigate('/custom-reports')} className="p-2 hover:bg-white/10 rounded-lg transition-colors">
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <h1 className="text-2xl font-bold">Create Custom Report</h1>
+          <h1 className="text-2xl font-bold">{isEditMode ? 'Edit Custom Report' : 'Create Custom Report'}</h1>
         </div>
-        <p className="text-indigo-100 text-sm ml-12">Define filters to create a custom database report</p>
+        <p className="text-indigo-100 text-sm ml-12">
+          {isEditMode ? 'Update report details and filters' : 'Define filters to create a custom database report'}
+        </p>
 
-        {Object.keys(preloadedFilters).length > 0 && (
+        {Object.keys(preloadedFilters).length > 0 && !isEditMode && (
           <div className="mt-4 ml-12 bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg p-4">
             <div className="flex items-start gap-3">
               <CheckCircle2 className="w-5 h-5 text-white mt-0.5" />
@@ -347,7 +465,7 @@ const buildFilterCriteria = () => {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Main Content */}
               <div className="lg:col-span-2 space-y-6">
-                {/* Step 1: Basic Information */}
+                {/* Step 1: Basic Information - SAME AS BEFORE */}
                 {currentStep === 1 && (
                   <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                     <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4 border-b border-gray-200">
@@ -432,7 +550,7 @@ const buildFilterCriteria = () => {
                   </div>
                 )}
 
-                {/* Step 2: Filters */}
+                {/* Step 2: Filters - UPDATED WITH MULTI-CATEGORY */}
                 {currentStep === 2 && (
                   <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                     <div className="bg-gradient-to-r from-purple-50 to-pink-50 px-6 py-4 border-b border-gray-200">
@@ -448,27 +566,80 @@ const buildFilterCriteria = () => {
                     </div>
 
                     <div className="p-6 space-y-6">
+                      {/* UPDATED: Multi-Select Categories */}
                       <div>
                         <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-3">
                           <Layers className="w-4 h-4 text-indigo-600" />
-                          Category
+                          Categories
+                          <span className="text-xs font-normal text-gray-500">
+                            ({selectedCategories.has('ALL') ? 'All' : selectedCategories.has('SELECT') ? 'None' : selectedCategories.size} selected)
+                          </span>
                         </label>
-                        <select
-                          value={selectedCategory}
-                          onChange={(e) => setSelectedCategory(e.target.value)}
-                          className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all bg-white"
-                        >
-                          <option value="SELECT" disabled>Select Category</option>
-                          <option value="">All Categories</option>
-                          {CATEGORIES
-                            .filter(cat => cat.label !== 'All Categories')
-                            .map((category) => (
-                              <option key={category.value} value={category.value}>{category.label}</option>
-                          ))}
-                        </select>
+
+                        <div className="bg-gray-50 rounded-lg border-2 border-gray-200 p-4">
+                          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                            {/* "All Categories" Checkbox */}
+                            <label className="flex items-center gap-2 p-3 hover:bg-white rounded-lg cursor-pointer border border-gray-200 transition-colors">
+                              <input
+                                type="checkbox"
+                                checked={selectedCategories.has('ALL')}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setSelectedCategories(new Set(['ALL']));
+                                  } else {
+                                    setSelectedCategories(new Set());
+                                  }
+                                }}
+                                className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
+                              />
+                              <span className="text-sm font-medium text-gray-900">All Categories</span>
+                            </label>
+
+                            {/* Individual Category Checkboxes */}
+                            {CATEGORIES.filter(cat => cat.value !== 'ALL').map(category => (
+                              <label
+                                key={category.value}
+                                className={`flex items-center gap-2 p-3 hover:bg-white rounded-lg cursor-pointer border transition-colors ${
+                                  selectedCategories.has(category.value) && !selectedCategories.has('ALL')
+                                    ? 'border-indigo-500 bg-indigo-50'
+                                    : 'border-gray-200'
+                                }`}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={selectedCategories.has(category.value)}
+                                  onChange={(e) => {
+                                    const newSelected = new Set(selectedCategories);
+                                    newSelected.delete('ALL');
+                                    newSelected.delete('SELECT');
+
+                                    if (e.target.checked) {
+                                      newSelected.add(category.value);
+                                    } else {
+                                      newSelected.delete(category.value);
+                                    }
+
+                                    if (newSelected.size === 0) {
+                                      newSelected.add('ALL');
+                                    }
+
+                                    setSelectedCategories(newSelected);
+                                  }}
+                                  disabled={selectedCategories.has('ALL')}
+                                  className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 disabled:opacity-50"
+                                />
+                                <span className={`text-sm ${
+                                  selectedCategories.has('ALL') ? 'text-gray-400' : 'text-gray-900'
+                                }`}>
+                                  {category.label}
+                                </span>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
                       </div>
 
-                      {/* Active Filters */}
+                      {/* Active Filters - UPDATED to show category chips */}
                       {activeFiltersCount > 0 && (
                         <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg p-4 border border-green-200">
                           <div className="flex items-center justify-between mb-3">
@@ -477,13 +648,44 @@ const buildFilterCriteria = () => {
                             </span>
                             <button
                               type="button"
-                              onClick={() => { setSelectedFilters({}); setSelectedCountries([]); }}
+                              onClick={() => {
+                                setSelectedFilters({});
+                                setSelectedCountries([]);
+                                setSelectedCategories(new Set(['ALL']));
+                              }}
                               className="text-xs font-medium text-indigo-600 hover:text-indigo-800 underline"
                             >
                               Clear all
                             </button>
                           </div>
                           <div className="flex flex-wrap gap-2">
+                            {/* Category Filter Chips */}
+                            {!selectedCategories.has('ALL') && !selectedCategories.has('SELECT') && (
+                              <>
+                                {Array.from(selectedCategories).map(categoryValue => {
+                                  const cat = CATEGORIES.find(c => c.value === categoryValue);
+                                  return (
+                                    <span key={categoryValue} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-blue-300 text-blue-800 rounded-full text-xs font-medium shadow-sm">
+                                      <Layers className="w-3 h-3" />
+                                      {cat?.label || categoryValue}
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const newSelected = new Set(selectedCategories);
+                                          newSelected.delete(categoryValue);
+                                          setSelectedCategories(newSelected.size === 0 ? new Set(['ALL']) : newSelected);
+                                        }}
+                                        className="hover:opacity-70"
+                                      >
+                                        <X className="w-3.5 h-3.5" />
+                                      </button>
+                                    </span>
+                                  );
+                                })}
+                              </>
+                            )}
+
+                            {/* Country Chips */}
                             {selectedCountries.map(country => (
                               <span key={country} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-purple-300 text-purple-800 rounded-full text-xs font-medium shadow-sm">
                                 <Globe className="w-3 h-3" />
@@ -493,6 +695,8 @@ const buildFilterCriteria = () => {
                                 </button>
                               </span>
                             ))}
+
+                            {/* Material Filter Chips */}
                             {Object.keys(selectedFilters).map(field => {
                               const option = availableFilters.find(opt => opt.field === field);
                               const value = selectedFilters[field];
@@ -554,7 +758,7 @@ const buildFilterCriteria = () => {
                         </div>
                       </div>
 
-                      {/* ===== FIX 5: Show materials for ALL categories including empty string ===== */}
+                      {/* Materials/Properties */}
                       {availableFilters.length > 0 && (
                         <div>
                           <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-3">
@@ -581,7 +785,6 @@ const buildFilterCriteria = () => {
                               <p className="text-sm text-gray-500 text-center py-3">No materials found</p>
                             ) : (
                               <div className="space-y-3">
-                                {/* ===== FIX 6: Use Radio Buttons with Any/Include/Exclude ===== */}
                                 {filteredMaterials.map((filter) => (
                                   <div key={filter.field} className="bg-white border border-gray-200 rounded-lg p-4 hover:border-gray-300 transition-colors">
                                     <div className="flex items-center justify-between mb-3">
@@ -655,7 +858,7 @@ const buildFilterCriteria = () => {
                   </div>
                 )}
 
-                {/* Step 3: Review - SAME AS BEFORE */}
+                {/* Step 3: Review - UPDATED to show categories */}
                 {currentStep === 3 && (
                   <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                     <div className="bg-gradient-to-r from-green-50 to-emerald-50 px-6 py-4 border-b border-gray-200">
@@ -694,18 +897,23 @@ const buildFilterCriteria = () => {
                         </div>
                       </div>
 
-                      {/* Filters Summary */}
+                      {/* Filters Summary - UPDATED */}
                       <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
                         <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
                           <Filter className="w-4 h-4 text-purple-600" />
                           Filter Criteria
                         </h3>
                         <div className="space-y-3">
-                          {selectedCategory !== 'SELECT' && (
+                          {/* Categories */}
+                          {!selectedCategories.has('SELECT') && (
                             <div>
-                              <span className="text-xs text-gray-600">Category:</span>
+                              <span className="text-xs text-gray-600">Categories:</span>
                               <p className="text-sm font-medium text-gray-900">
-                                {selectedCategory === '' ? 'All Categories' : (CATEGORIES.find(c => c.value === selectedCategory)?.label || 'All Categories')}
+                                {selectedCategories.has('ALL')
+                                  ? 'All Categories'
+                                  : Array.from(selectedCategories).map(cat =>
+                                      CATEGORIES.find(c => c.value === cat)?.label || cat
+                                    ).join(', ')}
                               </p>
                             </div>
                           )}
@@ -781,7 +989,7 @@ const buildFilterCriteria = () => {
                         ) : (
                           <>
                             <CheckCircle2 className="w-5 h-5" />
-                            Create Report
+                            {isEditMode ? 'Update Report' : 'Create Report'}
                           </>
                         )}
                       </button>
@@ -790,9 +998,8 @@ const buildFilterCriteria = () => {
                 )}
               </div>
 
-              {/* Sidebar */}
+              {/* Sidebar - Live Preview */}
               <div className="space-y-6">
-                {/* Live Preview */}
                 <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden sticky top-4">
                   <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-5 py-4 text-white">
                     <h3 className="font-semibold flex items-center gap-2">
@@ -854,12 +1061,12 @@ const buildFilterCriteria = () => {
                       {loading ? (
                         <>
                           <LoadingSpinner />
-                          Creating...
+                          {isEditMode ? 'Updating...' : 'Creating...'}
                         </>
                       ) : (
                         <>
                           <CheckCircle2 className="w-5 h-5" />
-                          Create Report
+                          {isEditMode ? 'Update Report' : 'Create Report'}
                         </>
                       )}
                     </button>

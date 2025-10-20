@@ -1,3 +1,4 @@
+// frontend/src/components/database/Pagination.jsx
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 
 const Pagination = ({
@@ -7,7 +8,7 @@ const Pagination = ({
   pageSize,
   onPageChange,
   onPageSizeChange,
-  showFirstLast = true // NEW: Option to show/hide first/last buttons
+  showFirstLast = true
 }) => {
   const pages = [];
   const maxVisiblePages = 5;
@@ -26,6 +27,23 @@ const Pagination = ({
   const startItem = (currentPage - 1) * pageSize + 1;
   const endItem = Math.min(currentPage * pageSize, totalCount);
 
+  // Handle page change with event prevention
+  const handlePageChange = (e, page) => {
+    e.preventDefault();
+    e.stopPropagation();
+    console.log('Pagination: Changing to page', page);
+    onPageChange(page);
+  };
+
+  // Handle page size change
+  const handlePageSizeChange = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const newSize = Number(e.target.value);
+    console.log('Pagination: Changing page size to', newSize);
+    onPageSizeChange(newSize);
+  };
+
   return (
     <div className="bg-white border-t px-6 py-4 flex items-center justify-between">
       <div className="flex items-center gap-4">
@@ -36,7 +54,7 @@ const Pagination = ({
 
         <select
           value={pageSize}
-          onChange={(e) => onPageSizeChange(Number(e.target.value))}
+          onChange={handlePageSizeChange}
           className="border border-gray-300 rounded-lg px-3 py-1 text-sm focus:ring-2 focus:ring-blue-500"
         >
           <option value={10}>10 per page</option>
@@ -47,10 +65,10 @@ const Pagination = ({
       </div>
 
       <div className="flex items-center gap-2">
-        {/* First Page Button */}
         {showFirstLast && (
           <button
-            onClick={() => onPageChange(1)}
+            type="button"
+            onClick={(e) => handlePageChange(e, 1)}
             disabled={currentPage === 1}
             className="p-2 border rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
             title="First page"
@@ -59,9 +77,9 @@ const Pagination = ({
           </button>
         )}
 
-        {/* Previous Button */}
         <button
-          onClick={() => onPageChange(currentPage - 1)}
+          type="button"
+          onClick={(e) => handlePageChange(e, currentPage - 1)}
           disabled={currentPage === 1}
           className="p-2 border rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
           title="Previous page"
@@ -69,11 +87,11 @@ const Pagination = ({
           <ChevronLeft className="w-5 h-5" />
         </button>
 
-        {/* First page if not in visible range */}
         {startPage > 1 && (
           <>
             <button
-              onClick={() => onPageChange(1)}
+              type="button"
+              onClick={(e) => handlePageChange(e, 1)}
               className="px-3 py-1 border rounded-lg hover:bg-gray-50"
             >
               1
@@ -82,11 +100,11 @@ const Pagination = ({
           </>
         )}
 
-        {/* Page Numbers */}
         {pages.map(page => (
           <button
             key={page}
-            onClick={() => onPageChange(page)}
+            type="button"
+            onClick={(e) => handlePageChange(e, page)}
             className={`px-3 py-1 border rounded-lg ${
               currentPage === page
                 ? 'bg-indigo-600 text-white border-indigo-600'
@@ -97,12 +115,12 @@ const Pagination = ({
           </button>
         ))}
 
-        {/* Last page if not in visible range */}
         {endPage < totalPages && (
           <>
             {endPage < totalPages - 1 && <span className="px-2 text-gray-500">...</span>}
             <button
-              onClick={() => onPageChange(totalPages)}
+              type="button"
+              onClick={(e) => handlePageChange(e, totalPages)}
               className="px-3 py-1 border rounded-lg hover:bg-gray-50"
             >
               {totalPages}
@@ -110,9 +128,9 @@ const Pagination = ({
           </>
         )}
 
-        {/* Next Button */}
         <button
-          onClick={() => onPageChange(currentPage + 1)}
+          type="button"
+          onClick={(e) => handlePageChange(e, currentPage + 1)}
           disabled={currentPage === totalPages}
           className="p-2 border rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
           title="Next page"
@@ -120,10 +138,10 @@ const Pagination = ({
           <ChevronRight className="w-5 h-5" />
         </button>
 
-        {/* Last Page Button */}
         {showFirstLast && (
           <button
-            onClick={() => onPageChange(totalPages)}
+            type="button"
+            onClick={(e) => handlePageChange(e, totalPages)}
             disabled={currentPage === totalPages}
             className="p-2 border rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
             title="Last page"

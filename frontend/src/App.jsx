@@ -28,6 +28,7 @@ import VerifyEmailPage from './components/VerifyEmailPage';
 //import TwoFactorSetupModal from './components/TwoFactorSetupModal';
 //import TwoFactorVerificationModal from './components/TwoFactorVerificationModal';
 import ProfileSettingsPage from './pages/ProfileSettingsPage';
+import ReportDetailPage from './pages/ReportDetailPage';
 
 
 function App() {
@@ -57,6 +58,7 @@ function App() {
         <Route path="/custom-reports" element={<ProtectedRoute><CustomReportsPage /></ProtectedRoute>} />
         <Route path="/custom-reports/create" element={<ProtectedRoute><CreateReportPage /></ProtectedRoute>} />
         <Route path="/custom-reports/:reportId/edit" element={<ProtectedRoute><CreateReportPage /></ProtectedRoute>} />
+        <Route path="/custom-reports/:reportId" element={<ProtectedRoute><ReportDetailPage /></ProtectedRoute>} />
 
         {/* Subscription Management Routes */}
         <Route path="/subscriptions" element={<ProtectedRoute><SubscriptionManagementPage /></ProtectedRoute>} />

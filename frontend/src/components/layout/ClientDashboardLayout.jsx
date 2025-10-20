@@ -11,7 +11,6 @@ const ClientDashboardLayout = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [isSidebarHovered, setIsSidebarHovered] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
@@ -45,14 +44,11 @@ const ClientDashboardLayout = ({ children }) => {
     return user?.username?.[0].toUpperCase() || 'U';
   };
 
-  const sidebarWidth = isSidebarOpen || isSidebarHovered ? 'w-64' : 'w-20';
+  const sidebarWidth = isSidebarOpen ? 'w-64' : 'w-20';
 
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
-      {/* COLLAPSIBLE SIDEBAR */}
       <aside
-        onMouseEnter={() => !isSidebarOpen && setIsSidebarHovered(true)}
-        onMouseLeave={() => setIsSidebarHovered(false)}
         className={`${sidebarWidth} transition-all duration-300 ease-in-out bg-gradient-to-b from-slate-800 via-slate-900 to-slate-900 text-white flex flex-col shadow-2xl relative z-50`}
       >
         {/* Logo Section */}
@@ -62,7 +58,7 @@ const ClientDashboardLayout = ({ children }) => {
               <div className="w-10 h-10 bg-gradient-to-br from-purple-600 via-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
                 <Database className="w-6 h-6 text-white" />
               </div>
-              {(isSidebarOpen || isSidebarHovered) && (
+              {(isSidebarOpen) && (
                 <div className="transition-opacity duration-200">
                   <h2 className="text-lg font-bold text-white">Zeugma</h2>
                   <p className="text-xs text-slate-400">Client Portal</p>
@@ -89,10 +85,10 @@ const ClientDashboardLayout = ({ children }) => {
                   }`}
                 >
                   <Icon className={`w-5 h-5 ${active ? 'text-white' : link.color}`} />
-                  {(isSidebarOpen || isSidebarHovered) && (
+                  {(isSidebarOpen) && (
                     <span className="font-medium transition-opacity duration-200">{link.name}</span>
                   )}
-                  {active && (isSidebarOpen || isSidebarHovered) && (
+                  {active && (isSidebarOpen) && (
                     <ChevronRight className="w-4 h-4 ml-auto" />
                   )}
                 </button>
@@ -103,14 +99,14 @@ const ClientDashboardLayout = ({ children }) => {
 
         {/* User Section */}
         <div className="p-4 border-t border-slate-700/50">
-          <div className={`flex items-center gap-3 p-3 rounded-xl bg-slate-800/50 ${!(isSidebarOpen || isSidebarHovered) && 'justify-center'}`}>
+          <div className={`flex items-center gap-3 p-3 rounded-xl bg-slate-800/50 ${!(isSidebarOpen) && 'justify-center'}`}>
             <div className="relative">
               <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-blue-600 flex items-center justify-center text-sm font-bold shadow-lg">
                 {getUserInitials()}
               </div>
               <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-slate-800"></div>
             </div>
-            {(isSidebarOpen || isSidebarHovered) && (
+            {(isSidebarOpen) && (
               <div className="flex-1 transition-opacity duration-200">
                 <p className="text-sm font-semibold text-white truncate">{user?.full_name || user?.username}</p>
                 <p className="text-xs text-slate-400">Premium Account</p>
@@ -124,14 +120,14 @@ const ClientDashboardLayout = ({ children }) => {
               className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-slate-300 hover:bg-slate-800 hover:text-white transition-all"
             >
               <Settings className="w-5 h-5" />
-              {(isSidebarOpen || isSidebarHovered) && <span className="font-medium">Profile Settings</span>}
+              {(isSidebarOpen) && <span className="font-medium">Profile Settings</span>}
             </button>
             <button
               onClick={logout}
               className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-slate-300 hover:bg-red-600/10 hover:text-red-400 transition-all"
             >
               <LogOut className="w-5 h-5" />
-              {(isSidebarOpen || isSidebarHovered) && <span className="font-medium">Logout</span>}
+              {(isSidebarOpen) && <span className="font-medium">Logout</span>}
             </button>
           </div>
         </div>

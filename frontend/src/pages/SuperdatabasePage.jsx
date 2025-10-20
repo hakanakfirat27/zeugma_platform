@@ -1,3 +1,5 @@
+// frontend/src/pages/SuperdatabasePage.jsx
+
 import { FileText } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -16,7 +18,10 @@ import FilterSidebar from '../components/database/FilterSidebar';
 const SuperdatabasePage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [selectedCategory, setSelectedCategory] = useState('ALL');
+
+  // UPDATED: Multi-category selection with Set
+  const [selectedCategories, setSelectedCategories] = useState(new Set(['ALL']));
+
   const [searchQuery, setSearchQuery] = useState('');
   const [filters, setFilters] = useState({});
   const [countryFilters, setCountryFilters] = useState([]);
@@ -28,86 +33,98 @@ const SuperdatabasePage = () => {
   const [showStats, setShowStats] = useState(true);
   const [ordering, setOrdering] = useState('');
 
-// Stats from backend endpoint
-const [stats, setStats] = useState({
-  total: 0,
-  countriesCount: 0,
-  topCountries: [],
-  allCountries: []
-});
-const [statsLoading, setStatsLoading] = useState(false);
+  // Stats from backend endpoint
+  const [stats, setStats] = useState({
+    total: 0,
+    countriesCount: 0,
+    topCountries: [],
+    allCountries: []
+  });
+  const [statsLoading, setStatsLoading] = useState(false);
 
-// Fetch ALL countries ONCE when component mounts or category changes
-useEffect(() => {
-  const fetchAllCountries = async () => {
-    try {
-      const params = new URLSearchParams();
-      if (selectedCategory && selectedCategory !== 'ALL') {
-        params.append('category', selectedCategory);
-      }
-      const response = await api.get(`/api/database-stats/?${params.toString()}`);
+  // Fetch ALL countries ONCE when component mounts or category changes
+  useEffect(() => {
+    const fetchAllCountries = async () => {
+      try {
+        const params = new URLSearchParams();
 
-      setStats(prev => ({
-        ...prev,
-        allCountries: response.data.all_countries || []
-      }));
-    } catch (error) {
-      console.error('Failed to fetch countries:', error);
-    }
-  };
-
-  fetchAllCountries();
-}, [selectedCategory]); // Only refetch when category changes
-
-// Fetch other stats when filters change
-useEffect(() => {
-  const fetchStats = async () => {
-    setStatsLoading(true);
-    try {
-      const params = new URLSearchParams();
-
-      if (selectedCategory && selectedCategory !== 'ALL') {
-        params.append('category', selectedCategory);
-      }
-      if (searchQuery) {
-        params.append('search', searchQuery);
-      }
-      if (countryFilters.length > 0) {
-        params.append('countries', countryFilters.join(','));
-      }
-
-      // Add filters
-      Object.keys(filters).forEach(key => {
-        if (filters[key] === true) {
-          params.append(key, 'true');
-        } else if (filters[key] === false) {
-          params.append(key, 'false');
+        // UPDATED: Handle multiple categories
+        if (selectedCategories.has('ALL')) {
+          // Don't append any category
+        } else {
+          params.append('categories', Array.from(selectedCategories).join(','));
         }
-      });
 
-      const response = await api.get(`/api/database-stats/?${params.toString()}`);
+        const response = await api.get(`/api/database-stats/?${params.toString()}`);
 
-      setStats(prev => ({
-        ...prev, // Keep allCountries from previous state
-        total: response.data.total_count,
-        countriesCount: response.data.countries_count,
-        topCountries: response.data.top_countries || []
-      }));
+        setStats(prev => ({
+          ...prev,
+          allCountries: response.data.all_countries || []
+        }));
+      } catch (error) {
+        console.error('Failed to fetch countries:', error);
+      }
+    };
 
-    } catch (error) {
-      console.error('Failed to fetch stats:', error);
-    } finally {
-      setStatsLoading(false);
-    }
-  };
+    fetchAllCountries();
+  }, [selectedCategories]); // Dependency updated
 
-  fetchStats();
-}, [selectedCategory, searchQuery, filters, countryFilters]);
+  // Fetch other stats when filters change
+  useEffect(() => {
+    const fetchStats = async () => {
+      setStatsLoading(true);
+      try {
+        const params = new URLSearchParams();
 
+        // UPDATED: Handle multiple categories
+        if (selectedCategories.has('ALL')) {
+          // Don't append any category
+        } else {
+          params.append('categories', Array.from(selectedCategories).join(','));
+        }
 
+        if (searchQuery) {
+          params.append('search', searchQuery);
+        }
+        if (countryFilters.length > 0) {
+          params.append('countries', countryFilters.join(','));
+        }
+
+        // Add filters
+        Object.keys(filters).forEach(key => {
+          if (filters[key] === true) {
+            params.append(key, 'true');
+          } else if (filters[key] === false) {
+            params.append(key, 'false');
+          }
+        });
+
+        const response = await api.get(`/api/database-stats/?${params.toString()}`);
+
+        setStats(prev => ({
+          ...prev, // Keep allCountries from previous state
+          total: response.data.total_count,
+          countriesCount: response.data.countries_count,
+          topCountries: response.data.top_countries || []
+        }));
+
+      } catch (error) {
+        console.error('Failed to fetch stats:', error);
+      } finally {
+        setStatsLoading(false);
+      }
+    };
+
+    fetchStats();
+  }, [selectedCategories, searchQuery, filters, countryFilters]);
+
+  // UPDATED: Convert Set to comma-separated string for API
+  const categoriesParam = selectedCategories.has('ALL')
+    ? 'ALL'
+    : Array.from(selectedCategories).join(',');
 
   const { data: recordsData, isLoading } = useRecords({
-    category: selectedCategory,
+    categories: categoriesParam,  // CHANGED: category → categories
     search: searchQuery,
     page: currentPage,
     page_size: pageSize,
@@ -116,13 +133,20 @@ useEffect(() => {
     ...filters,
   });
 
-  const { data: filterOptions = [] } = useFilterOptions(selectedCategory);
+  // UPDATED: Use first selected category for filter options, or 'ALL' if multiple/none
+  const filterOptionsCategory = selectedCategories.size === 1 && !selectedCategories.has('ALL')
+    ? Array.from(selectedCategories)[0]
+    : 'ALL';
+
+  const { data: filterOptions = [] } = useFilterOptions(filterOptionsCategory);
 
   const records = recordsData?.results || [];
   const totalCount = recordsData?.count || 0;
   const totalPages = Math.ceil(totalCount / pageSize);
 
-  const activeFiltersCount = Object.keys(filters).filter(key => filters[key] !== undefined).length + countryFilters.length;
+  // UPDATED: Include category filters in count
+  const categoryFilterCount = selectedCategories.has('ALL') ? 0 : selectedCategories.size;
+  const activeFiltersCount = Object.keys(filters).filter(key => filters[key] !== undefined).length + countryFilters.length + categoryFilterCount;
 
   const toggleRecordSelection = (factoryId) => {
     const newSelected = new Set(selectedRecords);
@@ -141,47 +165,46 @@ useEffect(() => {
       setSelectedRecords(new Set(records.map(r => r.factory_id)));
     }
   };
-  // Add this NEW function after selectAllRecords
-const handleCreateReport = () => {
-  // Build the filter criteria object
-  const filterCriteria = {};
 
-  // Step 1: Add category (only if not "ALL")
-  if (selectedCategory && selectedCategory !== 'ALL') {
-    filterCriteria.category = selectedCategory;
-  }
+  // UPDATED: Handle multiple categories
+  const handleCreateReport = () => {
+    const filterCriteria = {};
 
-  // Step 2: Add country filters
-  if (countryFilters.length > 0) {
-    filterCriteria.country = countryFilters;
-  }
-
-  // Step 3: Add material/property filters (BOTH true AND false)
-  Object.keys(filters).forEach(key => {
-    // Include both true (include) and false (exclude) filters
-    if (filters[key] === true || filters[key] === false) {
-      filterCriteria[key] = filters[key];
+    // Add categories (only if not "ALL")
+    if (!selectedCategories.has('ALL') && selectedCategories.size > 0) {
+      const categoriesArray = Array.from(selectedCategories);
+      // If only one category, send as string for backward compatibility
+      // If multiple categories, send as array
+      filterCriteria.categories = categoriesArray.length === 1 ? categoriesArray[0] : categoriesArray;
     }
-  });
 
-  console.log('🚀 Navigating to Create Report with filters:', filterCriteria);
-  console.log('📊 Total records:', totalCount);
-  console.log('📁 Selected category:', selectedCategory);
-
-  // Navigate to create report page with all filter data
-  navigate('/custom-reports/create', {
-    state: {
-      filterCriteria: filterCriteria,
-      recordCount: totalCount,
-      selectedCategory: selectedCategory === 'ALL' ? null : selectedCategory
+    // Add country filters
+    if (countryFilters.length > 0) {
+      filterCriteria.country = countryFilters;
     }
-  });
-};
+
+    // Add material/property filters
+    Object.keys(filters).forEach(key => {
+      if (filters[key] === true || filters[key] === false) {
+        filterCriteria[key] = filters[key];
+      }
+    });
+
+    console.log('🚀 Navigating to Create Report with filters:', filterCriteria);
+    console.log('📊 Total records:', totalCount);
+
+    navigate('/custom-reports/create', {
+      state: {
+        filterCriteria: filterCriteria,
+        recordCount: totalCount,
+      }
+    });
+  };
 
   return (
     <DashboardLayout>
       {/* Header */}
-    <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white px-8 py-8 shadow-lg">
+      <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white px-8 py-8 shadow-lg">
         <div className="flex items-center gap-3 mb-2">
           <button
             onClick={() => navigate('/staff-dashboard')}
@@ -192,52 +215,52 @@ const handleCreateReport = () => {
           <h1 className="text-2xl font-bold">Superdatabase Management</h1>
         </div>
         <p className="text-indigo-100 text-sm ml-12">Complete administrative control over all records</p>
-    </div>
+      </div>
 
       {/* Content */}
       <div className="flex-1 overflow-auto bg-white">
         <div className="max-w-7xl mx-auto px-8 py-6">
           {/* Action Bar */}
           <div className="flex items-center justify-between mb-6">
-<div className="flex items-center gap-3">
-  <button
-    onClick={() => setShowStats(!showStats)}
-    className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2"
-  >
-    <BarChart3 className="w-4 h-4" />
-    {showStats ? 'Hide' : 'Show'} Stats
-  </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setShowStats(!showStats)}
+                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2"
+              >
+                <BarChart3 className="w-4 h-4" />
+                {showStats ? 'Hide' : 'Show'} Stats
+              </button>
 
-  <button
-    onClick={() => setShowFilters(true)}
-    className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2"
-  >
-    <SlidersHorizontal className="w-4 h-4" />
-    Filters
-    {activeFiltersCount > 0 && (
-      <span className="bg-blue-600 text-white text-xs px-2 py-0.5 rounded-full">
-        {activeFiltersCount}
-      </span>
-    )}
-  </button>
+              <button
+                onClick={() => setShowFilters(true)}
+                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2"
+              >
+                <SlidersHorizontal className="w-4 h-4" />
+                Filters
+                {activeFiltersCount > 0 && (
+                  <span className="bg-blue-600 text-white text-xs px-2 py-0.5 rounded-full">
+                    {activeFiltersCount}
+                  </span>
+                )}
+              </button>
 
-  {/* NEW BUTTON HERE */}
-  {(activeFiltersCount > 0 || totalCount > 0) && (
-    <button
-      onClick={handleCreateReport}
-      className="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg hover:from-purple-700 hover:to-indigo-700 flex items-center gap-2 shadow-md transition-all"
-      title="Create custom report from current filters"
-    >
-      <FileText className="w-4 h-4" />
-      Create Report from Filters
-      {totalCount > 0 && (
-        <span className="bg-white bg-opacity-20 px-2 py-0.5 rounded-full text-xs">
-          {totalCount} records
-        </span>
-      )}
-    </button>
-  )}
-</div>
+              {/* Create Report Button */}
+              {(activeFiltersCount > 0 || totalCount > 0) && (
+                <button
+                  onClick={handleCreateReport}
+                  className="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg hover:from-purple-700 hover:to-indigo-700 flex items-center gap-2 shadow-md transition-all"
+                  title="Create custom report from current filters"
+                >
+                  <FileText className="w-4 h-4" />
+                  Create Report from Filters
+                  {totalCount > 0 && (
+                    <span className="bg-white bg-opacity-20 px-2 py-0.5 rounded-full text-xs">
+                      {totalCount} records
+                    </span>
+                  )}
+                </button>
+              )}
+            </div>
 
             <div className="flex items-center gap-3">
               <button
@@ -330,44 +353,85 @@ const handleCreateReport = () => {
             </div>
           )}
 
-          {/* Category Tabs */}
-          <div className="border-b mb-6">
-            <div className="flex flex-wrap gap-1">
-              <button
-                onClick={() => {
-                  setSelectedCategory('ALL');
-                  setCurrentPage(1);
-                  setSelectedRecords(new Set());
-                }}
-                className={`px-6 py-3 font-medium whitespace-nowrap border-b-2 transition-colors ${
-                  selectedCategory === 'ALL'
-                    ? 'border-indigo-600 text-indigo-600'
-                    : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
-                }`}
-              >
-                All Categories
-              </button>
-              {CATEGORIES.filter(c => c.value !== 'ALL').map(category => (
-                <button
-                  key={category.value}
-                  onClick={() => {
-                    setSelectedCategory(category.value);
-                    setCurrentPage(1);
-                    setSelectedRecords(new Set());
-                  }}
-                  className={`px-6 py-3 font-medium whitespace-nowrap border-b-2 transition-colors ${
-                    selectedCategory === category.value
-                      ? 'border-indigo-600 text-indigo-600'
-                      : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
-                  }`}
-                >
-                  {category.label}
-                </button>
-              ))}
+          {/* NEW: Multi-Select Category Filter with Checkboxes */}
+          <div className="mb-6">
+            <div className="bg-white rounded-lg border border-gray-200 p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-gray-700">Select Categories</h3>
+                <span className="text-xs text-gray-500">
+                  {selectedCategories.has('ALL')
+                    ? 'All categories selected'
+                    : `${selectedCategories.size} selected`}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
+                {/* "All Categories" Checkbox */}
+                <label className="flex items-center gap-2 p-3 hover:bg-gray-50 rounded-lg cursor-pointer border border-gray-200 transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={selectedCategories.has('ALL')}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedCategories(new Set(['ALL']));
+                      } else {
+                        setSelectedCategories(new Set());
+                      }
+                      setCurrentPage(1);
+                      setSelectedRecords(new Set());
+                    }}
+                    className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 focus:ring-2"
+                  />
+                  <span className="text-sm font-medium text-gray-900">All Categories</span>
+                </label>
+
+                {/* Individual Category Checkboxes */}
+                {CATEGORIES.filter(cat => cat.value !== 'ALL').map(category => (
+                  <label
+                    key={category.value}
+                    className={`flex items-center gap-2 p-3 hover:bg-gray-50 rounded-lg cursor-pointer border transition-colors ${
+                      selectedCategories.has(category.value) && !selectedCategories.has('ALL')
+                        ? 'border-indigo-500 bg-indigo-50'
+                        : 'border-gray-200'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedCategories.has(category.value)}
+                      onChange={(e) => {
+                        const newSelected = new Set(selectedCategories);
+                        newSelected.delete('ALL'); // Remove "ALL" when selecting specific categories
+
+                        if (e.target.checked) {
+                          newSelected.add(category.value);
+                        } else {
+                          newSelected.delete(category.value);
+                        }
+
+                        // If none selected, default to ALL
+                        if (newSelected.size === 0) {
+                          newSelected.add('ALL');
+                        }
+
+                        setSelectedCategories(newSelected);
+                        setCurrentPage(1);
+                        setSelectedRecords(new Set());
+                      }}
+                      disabled={selectedCategories.has('ALL')}
+                      className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 focus:ring-2 disabled:opacity-50"
+                    />
+                    <span className={`text-sm ${
+                      selectedCategories.has('ALL') ? 'text-gray-400' : 'text-gray-900'
+                    }`}>
+                      {category.label}
+                    </span>
+                  </label>
+                ))}
+              </div>
             </div>
           </div>
 
-          {/* SIMPLIFIED Live Search */}
+          {/* Live Search */}
           <div className="mb-6">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
@@ -378,7 +442,7 @@ const handleCreateReport = () => {
                   setSearchQuery(e.target.value);
                   setCurrentPage(1);
                 }}
-                placeholder="Search by company name, region..."
+                placeholder="Search by company name, country, region..."
                 className="w-full pl-10 pr-10 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
               />
               {searchQuery && (
@@ -397,7 +461,7 @@ const handleCreateReport = () => {
           </div>
 
           {/* Active Filters Chips */}
-          {(Object.keys(filters).length > 0 || countryFilters.length > 0) && (
+          {(Object.keys(filters).length > 0 || countryFilters.length > 0 || (!selectedCategories.has('ALL') && selectedCategories.size > 0)) && (
             <div className="mb-4">
               <div className="flex items-center gap-2 mb-2">
                 <span className="text-sm font-medium text-gray-700">Active filters:</span>
@@ -405,6 +469,7 @@ const handleCreateReport = () => {
                   onClick={() => {
                     setFilters({});
                     setCountryFilters([]);
+                    setSelectedCategories(new Set(['ALL']));  // Reset categories
                     setCurrentPage(1);
                   }}
                   className="text-sm text-indigo-600 hover:text-indigo-700 font-medium"
@@ -413,6 +478,34 @@ const handleCreateReport = () => {
                 </button>
               </div>
               <div className="flex flex-wrap gap-2">
+                {/* NEW: Category Filter Chips */}
+                {!selectedCategories.has('ALL') && selectedCategories.size > 0 && (
+                  <>
+                    {Array.from(selectedCategories).map(categoryValue => {
+                      const cat = CATEGORIES.find(c => c.value === categoryValue);
+                      return (
+                        <span
+                          key={categoryValue}
+                          className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-100 text-blue-800 border border-blue-300 rounded-full text-sm font-medium"
+                        >
+                          Category: {cat?.label || categoryValue}
+                          <button
+                            onClick={() => {
+                              const newSelected = new Set(selectedCategories);
+                              newSelected.delete(categoryValue);
+                              setSelectedCategories(newSelected.size === 0 ? new Set(['ALL']) : newSelected);
+                              setCurrentPage(1);
+                            }}
+                            className="hover:opacity-70"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </span>
+                      );
+                    })}
+                  </>
+                )}
+
                 {/* Boolean Filters */}
                 {Object.entries(filters)
                   .filter(([_, value]) => value !== undefined)
@@ -482,36 +575,18 @@ const handleCreateReport = () => {
                 <span className="text-sm font-medium text-indigo-900">
                   {selectedRecords.size} record{selectedRecords.size !== 1 ? 's' : ''} selected
                 </span>
-                <button
-                  onClick={() => setSelectedRecords(new Set())}
-                  className="text-sm text-indigo-600 hover:text-indigo-700"
-                >
-                  Clear selection
-                </button>
               </div>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => alert('Export coming soon')}
-                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2"
+                  onClick={() => alert('Export selected')}
+                  className="px-3 py-1.5 bg-white border border-indigo-300 text-indigo-700 rounded-lg hover:bg-indigo-50 flex items-center gap-2 text-sm"
                 >
                   <Download className="w-4 h-4" />
-                  Export
+                  Export Selected
                 </button>
                 <button
-                  onClick={() => alert('Bulk edit')}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
-                >
-                  <Edit className="w-4 h-4" />
-                  Edit
-                </button>
-                <button
-                  onClick={() => {
-                    if (confirm(`Delete ${selectedRecords.size} records?`)) {
-                      alert('Deleting...');
-                      setSelectedRecords(new Set());
-                    }
-                  }}
-                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2"
+                  onClick={() => alert('Delete selected')}
+                  className="px-3 py-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2 text-sm"
                 >
                   <Trash2 className="w-4 h-4" />
                   Delete

@@ -15,6 +15,22 @@ const ClientSubscriptionsPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState('all'); // all, active, expiring, expired
 
+  // Helper function to get actual plan based on duration
+  const getActualPlan = (subscription) => {
+    const startDate = new Date(subscription.start_date);
+    const endDate = new Date(subscription.end_date);
+    const daysDiff = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24));
+
+    // If the period is more than 60 days, it's annual
+    return daysDiff > 60 ? 'ANNUAL' : 'MONTHLY';
+  };
+
+  // Helper function to format plan display
+  const formatPlan = (subscription) => {
+    const actualPlan = getActualPlan(subscription);
+    return actualPlan === 'ANNUAL' ? 'Annual' : 'Monthly';
+  };
+
   useEffect(() => {
     loadSubscriptions();
   }, []);
@@ -108,7 +124,15 @@ const ClientSubscriptionsPage = () => {
             <p className="text-4xl font-bold">{expiredCount}</p>
           </div>
 
-
+          <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl shadow-lg p-6 text-white">
+            <div className="flex items-center justify-between mb-3">
+              <div className="w-12 h-12 bg-white/20 backdrop-blur-xl rounded-xl flex items-center justify-center">
+                <DollarSign className="w-6 h-6" />
+              </div>
+            </div>
+            <p className="text-sm text-blue-100 mb-1 font-medium">Total Value</p>
+            <p className="text-4xl font-bold">${totalValue.toFixed(0)}</p>
+          </div>
         </div>
 
         {/* Filters */}
@@ -168,7 +192,6 @@ const ClientSubscriptionsPage = () => {
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                       Plan
                     </th>
-
                     <th className="px-6 py-4 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">
                       Actions
                     </th>
@@ -177,6 +200,7 @@ const ClientSubscriptionsPage = () => {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {filteredSubscriptions.map((sub) => {
                     const isExpiringSoon = sub.is_active && sub.days_remaining <= 30;
+                    const actualPlan = getActualPlan(sub);
 
                     return (
                       <tr key={sub.id} className="hover:bg-gray-50 transition-colors">
@@ -221,11 +245,14 @@ const ClientSubscriptionsPage = () => {
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="inline-flex items-center px-3 py-1 rounded-lg text-xs font-semibold bg-purple-100 text-purple-700">
-                            {sub.plan}
+                          <span className={`inline-flex items-center px-3 py-1 rounded-lg text-xs font-semibold ${
+                            actualPlan === 'ANNUAL'
+                              ? 'bg-purple-100 text-purple-700'
+                              : 'bg-blue-100 text-blue-700'
+                          }`}>
+                            {formatPlan(sub)}
                           </span>
                         </td>
-
                         <td className="px-6 py-4 whitespace-nowrap text-right">
                           {sub.is_active ? (
                             <button

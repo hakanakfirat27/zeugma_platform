@@ -528,12 +528,58 @@ class CustomReport(models.Model):
         return self.title
 
     def update_record_count(self):
-        """Update the record count based on filter criteria"""
+        """
+        Update the record count based on filter criteria.
+        Supports both single category and multiple categories.
+        """
+        from django.db.models import Q
+
         queryset = SuperdatabaseRecord.objects.all()
 
-        # Apply category filter - ONLY if specified and not empty
+        # Handle categories (can be single string or array of strings)
+        if 'categories' in self.filter_criteria:
+            categories = self.filter_criteria['categories']
+
+            if isinstance(categories, list) and len(categories) > 0:
+                # Multiple categories - use OR logic
+                category_query = Q()
+                for category in categories:
+                    category_query |= Q(category__iexact=category)
+                queryset = queryset.filter(category_query)
+            elif isinstance(categories, str):
+                # Single category as string
+                queryset = queryset.filter(category__iexact=categories)
+
+        # Backward compatibility: handle old 'category' field (single category)
+        elif 'category' in self.filter_criteria and self.filter_criteria['category']:
+            queryset = queryset.filter(category__iexact=self.filter_criteria['category'])
+
+        # Apply country filter
+        if 'country' in self.filter_criteria:
+            countries = self.filter_criteria['country']
+            if isinstance(countries, list) and len(countries) > 0:
+                queryset = queryset.filter(country__in=countries)
+
+        # Apply boolean filters (materials, properties, etc.)
+        for field, value in self.filter_criteria.items():
+            if field not in ['category', 'categories', 'country']:
+                if isinstance(value, bool):
+                    queryset = queryset.filter(**{field: value})
+
+        self.record_count = queryset.count()
+        self.save(update_fields=['record_count'])
+
+    def get_filtered_records(self):
+        """
+        Get SuperdatabaseRecord queryset filtered by this report's criteria.
+        """
+        from django.db.models import Q
+
+        queryset = SuperdatabaseRecord.objects.all()
+
+        # Apply category filter - ONLY 'category' (singular), not 'categories'
         if 'category' in self.filter_criteria and self.filter_criteria['category']:
-            queryset = queryset.filter(category=self.filter_criteria['category'])
+            queryset = queryset.filter(category__iexact=self.filter_criteria['category'])
 
         # Apply country filter
         if 'country' in self.filter_criteria:
@@ -544,31 +590,8 @@ class CustomReport(models.Model):
         # Apply boolean filters (materials, properties, etc.)
         for field, value in self.filter_criteria.items():
             if field not in ['category', 'country']:
-                # Check if it's a boolean field
                 if isinstance(value, bool):
                     queryset = queryset.filter(**{field: value})
-
-        self.record_count = queryset.count()
-        self.save(update_fields=['record_count'])
-
-        return self.record_count
-
-    def get_filtered_records(self):
-        """Get all records matching this report's criteria"""
-        from django.db.models import Q
-        queryset = SuperdatabaseRecord.objects.all()
-
-        if self.filter_criteria:
-            filter_q = Q()
-            for field, value in self.filter_criteria.items():
-                if isinstance(value, list):
-                    field_q = Q()
-                    for v in value:
-                        field_q |= Q(**{field: v})
-                    filter_q &= field_q
-                else:
-                    filter_q &= Q(**{field: value})
-            queryset = queryset.filter(filter_q)
 
         return queryset
 

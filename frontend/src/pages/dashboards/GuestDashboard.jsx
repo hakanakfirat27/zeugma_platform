@@ -171,7 +171,7 @@ const GuestDataTable = ({ data, onRowClick, onSort, currentSort }) => {
 const GuestDashboard = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const [selectedCategory, setSelectedCategory] = useState('ALL');
+  const [selectedCategories, setSelectedCategories] = useState(new Set(['ALL']));
   const [searchQuery, setSearchQuery] = useState('');
   const [filters, setFilters] = useState({});
   const [countryFilters, setCountryFilters] = useState([]);
@@ -200,8 +200,10 @@ const GuestDashboard = () => {
     const fetchAllCountries = async () => {
       try {
         const params = new URLSearchParams();
-        if (selectedCategory && selectedCategory !== 'ALL') {
-          params.append('category', selectedCategory);
+        if (selectedCategories.has('ALL')) {
+          // Don't append any category
+        } else {
+          params.append('categories', Array.from(selectedCategories).join(','));
         }
         const response = await api.get(`/api/database-stats/?${params.toString()}`);
         setStats(prev => ({
@@ -213,7 +215,7 @@ const GuestDashboard = () => {
       }
     };
     fetchAllCountries();
-  }, [selectedCategory]);
+  }, [selectedCategories]);
 
   // Fetch other stats when filters change
   useEffect(() => {
@@ -221,8 +223,10 @@ const GuestDashboard = () => {
       setStatsLoading(true);
       try {
         const params = new URLSearchParams();
-        if (selectedCategory && selectedCategory !== 'ALL') {
-          params.append('category', selectedCategory);
+        if (selectedCategories.has('ALL')) {
+          // Don't append any category
+        } else {
+          params.append('categories', Array.from(selectedCategories).join(','));
         }
         if (searchQuery) {
           params.append('search', searchQuery);
@@ -251,10 +255,14 @@ const GuestDashboard = () => {
       }
     };
     fetchStats();
-  }, [selectedCategory, searchQuery, filters, countryFilters]);
+  }, [selectedCategories, searchQuery, filters, countryFilters]);
 
-  const { data: recordsData, isLoading } = useRecords({
-    category: selectedCategory,
+    const categoriesParam = selectedCategories.has('ALL')
+      ? 'ALL'
+      : Array.from(selectedCategories).join(',');
+
+    const { data: recordsData, isLoading } = useRecords({
+      categories: categoriesParam,
     search: searchQuery,
     page: currentPage,
     page_size: pageSize,
@@ -263,13 +271,18 @@ const GuestDashboard = () => {
     ...filters,
   });
 
-  const { data: filterOptions = [] } = useFilterOptions(selectedCategory);
+    const filterOptionsCategory = selectedCategories.size === 1 && !selectedCategories.has('ALL')
+      ? Array.from(selectedCategories)[0]
+      : 'ALL';
+
+    const { data: filterOptions = [] } = useFilterOptions(filterOptionsCategory);
 
   const records = recordsData?.results || [];
   const totalCount = recordsData?.count || 0;
   const totalPages = Math.ceil(totalCount / pageSize);
 
-  const activeFiltersCount = Object.keys(filters).filter(key => filters[key] !== undefined).length + countryFilters.length;
+    const categoryFilterCount = selectedCategories.has('ALL') ? 0 : selectedCategories.size;
+    const activeFiltersCount = Object.keys(filters).filter(key => filters[key] !== undefined).length + countryFilters.length + categoryFilterCount;
 
   useEffect(() => {
     const handleFullscreenChange = () => setIsFullscreen(Boolean(document.fullscreenElement));
@@ -562,44 +575,76 @@ const GuestDashboard = () => {
               </div>
             )}
 
-            {/* Category Tabs - New Design */}
+            {/* Multi-Select Category Filter with Checkboxes */}
             <div className="mb-6">
-              <div className="mb-3 flex items-center justify-between">
-                <div>
-                  <h3 className="text-xl font-semibold text-gray-900 mb-1">Browse by Category</h3>
-                  <p className="text-base text-gray-500">Select a category to filter companies by their industry sector</p>
+              <div className="bg-white rounded-lg border border-gray-200 p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-semibold text-gray-700">Select Categories</h3>
+                  <span className="text-xs text-gray-500">
+                    {selectedCategories.has('ALL')
+                      ? 'All categories selected'
+                      : `${selectedCategories.size} selected`}
+                  </span>
                 </div>
-                {selectedCategory !== 'ALL' && (
-                  <button
-                    onClick={() => {
-                      setSelectedCategory('ALL');
-                      setCurrentPage(1);
-                    }}
-                    className="text-xs text-indigo-600 hover:text-indigo-700 font-medium flex items-center gap-1 transition-colors"
-                  >
-                    <X className="w-3 h-3" />
-                    Clear Selection
-                  </button>
-                )}
-              </div>
 
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-2">
-                <div className="flex flex-wrap gap-2">
-                  {CATEGORIES.map(category => (
-                    <button
-                      key={category.value}
-                      onClick={() => {
-                        setSelectedCategory(category.value);
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
+                  {/* "All Categories" Checkbox */}
+                  <label className="flex items-center gap-2 p-3 hover:bg-gray-50 rounded-lg cursor-pointer border border-gray-200 transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={selectedCategories.has('ALL')}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedCategories(new Set(['ALL']));
+                        } else {
+                          setSelectedCategories(new Set());
+                        }
                         setCurrentPage(1);
                       }}
-                      className={`px-5 py-2.5 rounded-lg font-medium whitespace-nowrap transition-all duration-200 ${
-                        selectedCategory === category.value
-                          ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md shadow-indigo-500/30 scale-105'
-                          : 'bg-gray-50 text-gray-700 hover:bg-gray-100 hover:text-gray-900 hover:shadow-sm'
+                      className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 focus:ring-2"
+                    />
+                    <span className="text-sm font-medium text-gray-900">All Categories</span>
+                  </label>
+
+                  {/* Individual Category Checkboxes */}
+                  {CATEGORIES.filter(cat => cat.value !== 'ALL').map(category => (
+                    <label
+                      key={category.value}
+                      className={`flex items-center gap-2 p-3 hover:bg-gray-50 rounded-lg cursor-pointer border transition-colors ${
+                        selectedCategories.has(category.value) && !selectedCategories.has('ALL')
+                          ? 'border-indigo-500 bg-indigo-50'
+                          : 'border-gray-200'
                       }`}
                     >
-                      {category.label}
-                    </button>
+                      <input
+                        type="checkbox"
+                        checked={selectedCategories.has(category.value)}
+                        onChange={(e) => {
+                          const newSelected = new Set(selectedCategories);
+                          newSelected.delete('ALL');
+
+                          if (e.target.checked) {
+                            newSelected.add(category.value);
+                          } else {
+                            newSelected.delete(category.value);
+                          }
+
+                          if (newSelected.size === 0) {
+                            newSelected.add('ALL');
+                          }
+
+                          setSelectedCategories(newSelected);
+                          setCurrentPage(1);
+                        }}
+                        disabled={selectedCategories.has('ALL')}
+                        className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 focus:ring-2 disabled:opacity-50"
+                      />
+                      <span className={`text-sm ${
+                        selectedCategories.has('ALL') ? 'text-gray-400' : 'text-gray-900'
+                      }`}>
+                        {category.label}
+                      </span>
+                    </label>
                   ))}
                 </div>
               </div>
@@ -642,6 +687,7 @@ const GuestDashboard = () => {
                     onClick={() => {
                       setFilters({});
                       setCountryFilters([]);
+                      setSelectedCategories(new Set(['ALL']));
                       setCurrentPage(1);
                     }}
                     className="text-sm text-indigo-600 hover:text-indigo-700 font-medium"

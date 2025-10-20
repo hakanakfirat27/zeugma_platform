@@ -5,6 +5,8 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
+from django_filters.rest_framework import DjangoFilterBackend  # ADD THIS
+from rest_framework.filters import SearchFilter, OrderingFilter  # ADD THIS
 from dateutil.relativedelta import relativedelta
 
 from accounts.models import User, UserRole
@@ -19,6 +21,7 @@ from .serializers import (
     SuperdatabaseRecordSerializer
 )
 from .pagination import CustomPagination
+from .filters import SuperdatabaseRecordFilter  # ADD THIS
 
 
 class CustomReportListCreateAPIView(generics.ListCreateAPIView):
@@ -106,37 +109,56 @@ class ReportPreviewAPIView(APIView):
     """
     Preview a report based on filter criteria.
     Returns sample records and statistics.
+    Supports both single category and multiple categories.
     """
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
         filter_criteria = request.data.get('filter_criteria', {})
 
-        # Build query
+        print(f"🔍 Report Preview - Received filter_criteria: {filter_criteria}")
+
+        # Start with all records
         queryset = SuperdatabaseRecord.objects.all()
 
-        if filter_criteria:
-            filter_q = Q()
-            for field, value in filter_criteria.items():
-                if isinstance(value, list):
-                    # Handle multiple values (OR condition)
-                    field_q = Q()
-                    for v in value:
-                        if isinstance(v, bool):
-                            field_q |= Q(**{field: v})
-                        else:
-                            field_q |= Q(**{f'{field}__icontains': v}) if isinstance(v, str) else Q(**{field: v})
-                    filter_q &= field_q
-                else:
-                    if isinstance(value, bool):
-                        filter_q &= Q(**{field: value})
-                    else:
-                        filter_q &= Q(**{f'{field}__icontains': value}) if isinstance(value, str) else Q(
-                            **{field: value})
+        # Handle categories (can be single string or array of strings)
+        if 'categories' in filter_criteria:
+            categories = filter_criteria['categories']
+            print(f"📂 Processing 'categories' field: {categories}")
 
-            queryset = queryset.filter(filter_q)
+            if isinstance(categories, list) and len(categories) > 0:
+                # Multiple categories - use OR logic
+                category_query = Q()
+                for category in categories:
+                    category_query |= Q(category__iexact=category)
+                queryset = queryset.filter(category_query)
+                print(f"✅ Applied multiple categories filter. Count: {queryset.count()}")
+            elif isinstance(categories, str):
+                # Single category as string
+                queryset = queryset.filter(category__iexact=categories)
+                print(f"✅ Applied single category filter. Count: {queryset.count()}")
+
+        # Backward compatibility: handle old 'category' field (single category)
+        elif 'category' in filter_criteria and filter_criteria['category']:
+            queryset = queryset.filter(category__iexact=filter_criteria['category'])
+            print(f"✅ Applied legacy 'category' filter. Count: {queryset.count()}")
+
+        # Apply country filter
+        if 'country' in filter_criteria:
+            countries = filter_criteria['country']
+            if isinstance(countries, list) and len(countries) > 0:
+                queryset = queryset.filter(country__in=countries)
+                print(f"🌍 Applied country filter: {countries}. Count: {queryset.count()}")
+
+        # Apply boolean filters (materials, properties, etc.)
+        for field, value in filter_criteria.items():
+            if field not in ['category', 'categories', 'country']:
+                if isinstance(value, bool):
+                    queryset = queryset.filter(**{field: value})
+                    print(f"🔧 Applied boolean filter {field}={value}. Count: {queryset.count()}")
 
         total_records = queryset.count()
+        print(f"📊 Final count: {total_records}")
 
         # Get sample records (first 10)
         sample_records = queryset[:10]
@@ -153,17 +175,8 @@ class ReportPreviewAPIView(APIView):
         # Count by country (top 10)
         country_breakdown = queryset.values('country').annotate(
             count=Count('id')
-        ).order_by('-count')[:10]
+        ).filter(country__isnull=False).order_by('-count')[:10]
         field_breakdown['countries'] = list(country_breakdown)
-
-        # Serialize response
-        serializer = ReportPreviewSerializer(data={
-            'total_records': total_records,
-            'filter_criteria': filter_criteria,
-            'sample_records': sample_records,
-            'field_breakdown': field_breakdown
-        })
-        serializer.is_valid()
 
         return Response({
             'total_records': total_records,
@@ -176,36 +189,118 @@ class ReportPreviewAPIView(APIView):
 class ReportRecordsAPIView(generics.ListAPIView):
     """
     Get all records for a specific custom report.
-    Clients can only access reports they have active subscriptions to.
+    Staff can access any report. Clients can only access reports they have active subscriptions to.
+    Supports multi-category filtering.
     """
-    permission_classes = [IsAuthenticated]
     serializer_class = SuperdatabaseRecordSerializer
     pagination_class = CustomPagination
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    filterset_class = SuperdatabaseRecordFilter
+    search_fields = ['company_name', 'country', 'region']
+    ordering_fields = ['company_name', 'country', 'last_updated']
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
+        from accounts.models import UserRole
+
+        # Get report_id from URL
         report_id = self.kwargs.get('report_id')
-        user = self.request.user
+
+        if not report_id:
+            return SuperdatabaseRecord.objects.none()
 
         try:
+            # Get the report
             report = CustomReport.objects.get(report_id=report_id)
         except CustomReport.DoesNotExist:
             return SuperdatabaseRecord.objects.none()
 
-        # Check if client has active subscription
-        if user.role == UserRole.CLIENT:
-            has_subscription = Subscription.objects.filter(
-                client=user,
-                report=report,
-                status=SubscriptionStatus.ACTIVE,
-                start_date__lte=timezone.now().date(),
-                end_date__gte=timezone.now().date()
-            ).exists()
+        # Check permissions
+        if self.request.user.role == UserRole.CLIENT:
+            # Clients need an active subscription
+            from django.utils import timezone
+            today = timezone.now().date()
 
-            if not has_subscription:
+            try:
+                subscription = Subscription.objects.get(
+                    client=self.request.user,
+                    report=report,
+                    status=SubscriptionStatus.ACTIVE,
+                    start_date__lte=today,
+                    end_date__gte=today
+                )
+            except Subscription.DoesNotExist:
                 return SuperdatabaseRecord.objects.none()
+        elif self.request.user.role not in [UserRole.SUPERADMIN, UserRole.STAFF_ADMIN]:
+            # Only staff and clients can access reports
+            return SuperdatabaseRecord.objects.none()
 
-        # Return filtered records
-        return report.get_filtered_records()
+        # Start with all records
+        queryset = SuperdatabaseRecord.objects.all()
+
+        # Apply report's filter criteria
+        filter_criteria = report.filter_criteria or {}
+
+        print(f"🔍 ReportRecordsAPI - Report: {report.title}")
+        print(f"📋 Filter Criteria: {filter_criteria}")
+
+        # Build Q object for filtering
+        filter_q = Q()
+
+        # Handle categories (can be single string or array of strings)
+        if 'categories' in filter_criteria:
+            categories = filter_criteria['categories']
+            print(f"📂 Processing 'categories' field: {categories}")
+
+            if isinstance(categories, list) and len(categories) > 0:
+                # Multiple categories - use OR logic
+                category_query = Q()
+                for category in categories:
+                    category_query |= Q(category__iexact=category)
+                filter_q &= category_query
+                print(f"✅ Applied multiple categories filter")
+            elif isinstance(categories, str):
+                # Single category as string
+                filter_q &= Q(category__iexact=categories)
+                print(f"✅ Applied single category filter")
+
+        # Backward compatibility: handle old 'category' field (single category)
+        elif 'category' in filter_criteria and filter_criteria['category']:
+            filter_q &= Q(category__iexact=filter_criteria['category'])
+            print(f"✅ Applied legacy 'category' filter: {filter_criteria['category']}")
+
+        # Handle country filter
+        if 'country' in filter_criteria:
+            countries = filter_criteria['country']
+            if isinstance(countries, list) and len(countries) > 0:
+                filter_q &= Q(country__in=countries)
+                print(f"🌍 Applied country filter: {countries}")
+
+        # Handle all other filters (materials, properties, etc.)
+        for field, value in filter_criteria.items():
+            # Skip already processed fields
+            if field in ['category', 'categories', 'country']:
+                continue
+
+            if value is not None:
+                if isinstance(value, bool):
+                    # Boolean filter
+                    filter_q &= Q(**{field: value})
+                    print(f"🔧 Applied boolean filter: {field}={value}")
+                elif isinstance(value, list):
+                    # List of values
+                    if len(value) > 0:
+                        filter_q &= Q(**{f"{field}__in": value})
+                        print(f"📝 Applied list filter: {field} in {value}")
+
+        # Apply all filters
+        if filter_q:
+            queryset = queryset.filter(filter_q)
+
+        count = queryset.count()
+        print(f"📊 Final queryset count: {count}")
+
+        return queryset
 
 
 # ============= SUBSCRIPTION VIEWS =============

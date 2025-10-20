@@ -6,8 +6,9 @@ from django.http import HttpResponse
 import csv
 import traceback
 from io import StringIO
+from django.db.models import Count
 
-from .models import CustomReport, SuperdatabaseRecord, Subscription, DashboardWidget
+from .models import CustomReport, SuperdatabaseRecord, Subscription, DashboardWidget, SubscriptionStatus
 from accounts.models import User, UserRole
 
 from rest_framework import generics, viewsets, status
@@ -173,16 +174,32 @@ def update_widget_order(request):
 @permission_classes([IsAuthenticated])
 def report_preview(request):
     """
-    Preview how many records will be in a custom report based on filter criteria
+    Preview how many records will be in a custom report based on filter criteria.
+    Supports both single category and multiple categories.
     """
     filter_criteria = request.data.get('filter_criteria', {})
 
     # Start with all records
     queryset = SuperdatabaseRecord.objects.all()
 
-    # Apply category filter - ONLY if category is specified and not empty
-    if 'category' in filter_criteria and filter_criteria['category']:
-        queryset = queryset.filter(category=filter_criteria['category'])
+    # Handle categories (can be single string or array of strings)
+    if 'categories' in filter_criteria:
+        categories = filter_criteria['categories']
+
+        if isinstance(categories, list) and len(categories) > 0:
+            # Multiple categories - use OR logic
+            from django.db.models import Q
+            category_query = Q()
+            for category in categories:
+                category_query |= Q(category__iexact=category)
+            queryset = queryset.filter(category_query)
+        elif isinstance(categories, str):
+            # Single category as string
+            queryset = queryset.filter(category__iexact=categories)
+
+    # Backward compatibility: handle old 'category' field (single category)
+    elif 'category' in filter_criteria and filter_criteria['category']:
+        queryset = queryset.filter(category__iexact=filter_criteria['category'])
 
     # Apply country filter
     if 'country' in filter_criteria:
@@ -192,31 +209,25 @@ def report_preview(request):
 
     # Apply boolean filters (materials, properties, etc.)
     for field, value in filter_criteria.items():
-        if field not in ['category', 'country']:
-            # Check if it's a boolean field
+        if field not in ['category', 'categories', 'country']:
             if isinstance(value, bool):
                 queryset = queryset.filter(**{field: value})
 
-    # Get statistics
+    # Get total count
     total_records = queryset.count()
 
-    # Breakdown by category
+    # Get breakdown by category
     category_breakdown = list(
         queryset.values('category')
         .annotate(count=Count('id'))
         .order_by('-count')
     )
 
-    # Add readable category names
-    for item in category_breakdown:
-        category_obj = next((c for c in CATEGORIES if c['value'] == item['category']), None)
-        if category_obj:
-            item['category'] = category_obj['label']
-
-    # Breakdown by country
+    # Get breakdown by country
     country_breakdown = list(
         queryset.values('country')
         .annotate(count=Count('id'))
+        .filter(country__isnull=False)
         .order_by('-count')[:10]
     )
 
@@ -244,7 +255,7 @@ def client_report_export(request):
         subscription = Subscription.objects.filter(
             client=request.user,
             report__report_id=report_id,  # Use report__report_id to access CustomReport
-            status='ACTIVE',
+            status=SubscriptionStatus.ACTIVE,
             start_date__lte=today,
             end_date__gte=today
         ).first()
@@ -330,24 +341,53 @@ def client_report_stats(request):
     try:
         report_id = request.GET.get('report_id')
 
+        print(f"\n{'=' * 60}")
+        print(f"📊 CLIENT REPORT STATS REQUEST")
+        print(f"   Report ID: {report_id}")
+        print(f"   User: {request.user.username}")
+        print(f"{'=' * 60}")
+
         if not report_id:
             return Response({'error': 'Report ID is required'}, status=400)
 
         # Verify subscription
         today = timezone.now().date()
+
+        print(f"\n🔍 Looking for subscription...")
+        print(f"   Client: {request.user}")
+        print(f"   Report ID: {report_id}")
+        print(f"   Today: {today}")
+
         subscription = Subscription.objects.filter(
             client=request.user,
-            report__report_id=report_id,  # Use report__report_id
-            status='ACTIVE',
+            report__report_id=report_id,
+            status=SubscriptionStatus.ACTIVE,
             start_date__lte=today,
             end_date__gte=today
         ).first()
 
         if not subscription:
+            print(f"❌ No active subscription found")
+            # Let's check what subscriptions exist
+            all_subs = Subscription.objects.filter(client=request.user)
+            print(f"   User has {all_subs.count()} total subscriptions:")
+            for sub in all_subs:
+                print(
+                    f"     - Report: {sub.report.title}, Status: {sub.status}, Start: {sub.start_date}, End: {sub.end_date}")
+
             return Response({'error': 'No active subscription'}, status=403)
+
+        print(f"✅ Found subscription: {subscription}")
+        print(f"   Report: {subscription.report.title}")
+        print(f"   Status: {subscription.status}")
+        print(f"   Dates: {subscription.start_date} to {subscription.end_date}")
 
         # Get the CustomReport
         report = subscription.report
+
+        print(f"\n📋 Report details:")
+        print(f"   Title: {report.title}")
+        print(f"   Filter Criteria: {report.filter_criteria}")
 
         # Get filtered records based on report's filter_criteria
         queryset = report.get_filtered_records()

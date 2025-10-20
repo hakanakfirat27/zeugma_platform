@@ -23,7 +23,7 @@ urlpatterns = [
     path('report-stats/', ClientReportStatsAPIView.as_view(), name='client-report-stats'),
 
     # Get filter options for a specific report
-    path('filter-options/', ClientFilterOptionsAPIView.as_view(), name='client-filter-options'),
+    path('filter-options/', ClientFilterOptionsAPIView.as_view(), name='client-report-filters'),
 
     path('report-export/', ClientReportExportAPIView.as_view(), name='client-report-export'),
 ]

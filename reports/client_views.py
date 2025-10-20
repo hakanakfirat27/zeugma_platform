@@ -44,15 +44,15 @@ class ClientSubscriptionsAPIView(APIView):
         for sub in subscriptions:
             data.append({
                 'id': sub.id,
-                'report_id': str(sub.report.report_id),  # ✅ FIXED: Use report_id UUID
+                'report_id': str(sub.report.report_id),
                 'report_title': sub.report.title,
                 'report_description': sub.report.description,
                 'start_date': sub.start_date,
                 'end_date': sub.end_date,
                 'is_active': sub.is_active,
                 'days_remaining': (sub.end_date - today).days,
-                'plan': sub.plan,  # Added plan info
-                'amount_paid': float(sub.amount_paid) if sub.amount_paid else 0  # Added pricing
+                'plan': sub.plan,
+                'amount_paid': float(sub.amount_paid) if sub.amount_paid else 0
             })
 
         return Response(data)
@@ -87,8 +87,8 @@ class ClientReportDataAPIView(generics.ListAPIView):
             today = timezone.now().date()
             subscription = Subscription.objects.get(
                 client=self.request.user,
-                report__report_id=report_id,  # ✅ FIXED: Use report_id for lookup
-                status=SubscriptionStatus.ACTIVE,  # ✅ FIXED: Check status field
+                report__report_id=report_id,
+                status=SubscriptionStatus.ACTIVE,
                 start_date__lte=today,
                 end_date__gte=today
             )
@@ -102,13 +102,17 @@ class ClientReportDataAPIView(generics.ListAPIView):
         # Start with all records
         queryset = SuperdatabaseRecord.objects.all()
 
-        # Apply report's filter criteria
-        # The filter_criteria is a JSON object like:
-        # {"country": "Germany", "pvc": True, "category": "INJECTION"}
+        # Apply report's base filter criteria
         filter_q = Q()
         for field, value in filter_criteria.items():
+            if field == 'categories':
+                if isinstance(value, list) and len(value) > 0:
+                    filter_q &= Q(category__in=value)
+                elif isinstance(value, str) and value:
+                    filter_q &= Q(category=value)
+                continue
+
             if value is not None:
-                # Handle list values (multiple countries, etc.)
                 if isinstance(value, list):
                     if len(value) > 0:
                         filter_q &= Q(**{f"{field}__in": value})
@@ -117,6 +121,18 @@ class ClientReportDataAPIView(generics.ListAPIView):
 
         if filter_q:
             queryset = queryset.filter(filter_q)
+
+        # Handle additional category filter from user (not from report criteria)
+        categories_param = self.request.query_params.get('categories')
+        if categories_param:
+            # This is when user selects specific categories in the filter sidebar
+            category_list = [c.strip() for c in categories_param.split(',') if c.strip()]
+            if category_list:
+                queryset = queryset.filter(category__in=category_list)
+
+        # Apply other filters (search, ordering, etc.)
+        filterset = SuperdatabaseRecordFilter(self.request.GET, queryset=queryset)
+        queryset = filterset.qs
 
         return queryset
 
@@ -149,8 +165,8 @@ class ClientReportStatsAPIView(APIView):
             today = timezone.now().date()
             subscription = Subscription.objects.get(
                 client=request.user,
-                report__report_id=report_id,  # ✅ FIXED: Use report_id
-                status=SubscriptionStatus.ACTIVE,  # ✅ FIXED: Check status
+                report__report_id=report_id,
+                status=SubscriptionStatus.ACTIVE,
                 start_date__lte=today,
                 end_date__gte=today
             )
@@ -164,13 +180,19 @@ class ClientReportStatsAPIView(APIView):
         report = subscription.report
         filter_criteria = report.filter_criteria or {}
 
-        # Build base queryset with report criteria
-        queryset = SuperdatabaseRecord.objects.all()
+        # Build BASE queryset with ONLY report criteria (not user filters)
+        base_queryset = SuperdatabaseRecord.objects.all()
 
         filter_q = Q()
         for field, value in filter_criteria.items():
+            if field == 'categories':
+                if isinstance(value, list) and len(value) > 0:
+                    filter_q &= Q(category__in=value)
+                elif isinstance(value, str) and value:
+                    filter_q &= Q(category=value)
+                continue
+
             if value is not None:
-                # Handle list values
                 if isinstance(value, list):
                     if len(value) > 0:
                         filter_q &= Q(**{f"{field}__in": value})
@@ -178,13 +200,29 @@ class ClientReportStatsAPIView(APIView):
                     filter_q &= Q(**{field: value})
 
         if filter_q:
-            queryset = queryset.filter(filter_q)
+            base_queryset = base_queryset.filter(filter_q)
+
+        # Get available categories from BASE queryset (before user filters)
+        # This ensures all categories in the report stay visible in the filter
+        available_categories = list(
+            base_queryset.values_list('category', flat=True).distinct().order_by('category')
+        )
+
+        # NOW apply user filters for stats calculation
+        queryset = base_queryset
+
+        # Handle additional category filter from user
+        categories_param = request.query_params.get('categories')
+        if categories_param:
+            category_list = [c.strip() for c in categories_param.split(',') if c.strip()]
+            if category_list:
+                queryset = queryset.filter(category__in=category_list)
 
         # Apply additional user filters from request
         filterset = SuperdatabaseRecordFilter(request.GET, queryset=queryset)
         queryset = filterset.qs
 
-        # Calculate stats
+        # Calculate stats on FILTERED queryset
         total_count = queryset.count()
 
         countries_data = queryset.values('country').annotate(
@@ -203,7 +241,7 @@ class ClientReportStatsAPIView(APIView):
         )
         all_countries = [c for c in all_countries if c]
 
-        # Get category distribution
+        # Get category distribution from FILTERED queryset
         categories_data = queryset.values('category').annotate(
             count=Count('id')
         ).order_by('-count')
@@ -216,7 +254,8 @@ class ClientReportStatsAPIView(APIView):
                 for item in top_countries
             ],
             'all_countries': all_countries,
-            'categories': list(categories_data)
+            'categories': list(categories_data),
+            'available_categories': available_categories,  # From BASE queryset
         })
 
 
@@ -245,8 +284,8 @@ class ClientFilterOptionsAPIView(APIView):
             today = timezone.now().date()
             subscription = Subscription.objects.get(
                 client=request.user,
-                report__report_id=report_id,  # ✅ FIXED: Use report_id
-                status=SubscriptionStatus.ACTIVE,  # ✅ FIXED: Check status
+                report__report_id=report_id,
+                status=SubscriptionStatus.ACTIVE,
                 start_date__lte=today,
                 end_date__gte=today
             )
@@ -257,13 +296,20 @@ class ClientFilterOptionsAPIView(APIView):
         report = subscription.report
         filter_criteria = report.filter_criteria or {}
 
-        # Build base queryset with report criteria
+        # Start with base queryset filtered by report criteria
         queryset = SuperdatabaseRecord.objects.all()
 
+        # Apply ONLY the report's base filter criteria (not user's additional filters)
         filter_q = Q()
         for field, value in filter_criteria.items():
+            if field == 'categories':
+                if isinstance(value, list) and len(value) > 0:
+                    filter_q &= Q(category__in=value)
+                elif isinstance(value, str) and value:
+                    filter_q &= Q(category=value)
+                continue
+
             if value is not None:
-                # Handle list values
                 if isinstance(value, list):
                     if len(value) > 0:
                         filter_q &= Q(**{f"{field}__in": value})
@@ -273,11 +319,7 @@ class ClientFilterOptionsAPIView(APIView):
         if filter_q:
             queryset = queryset.filter(filter_q)
 
-        # Apply additional filters from request
-        filterset = SuperdatabaseRecordFilter(request.GET, queryset=queryset)
-        queryset = filterset.qs
-
-        # Get all boolean fields
+        # Get all boolean fields from the model
         boolean_model_fields = {
             f.name for f in SuperdatabaseRecord._meta.get_fields()
             if f.get_internal_type() == 'BooleanField'
@@ -290,26 +332,27 @@ class ClientFilterOptionsAPIView(APIView):
         }
         counts = queryset.aggregate(**aggregation_queries)
 
-        # Build response
+        # Build response - include ALL fields, even those with 0 count
         response_data = []
-        for field_name in boolean_model_fields:
+        for field_name in sorted(boolean_model_fields):
             count = counts.get(f'{field_name}_count', 0)
-            if count > 0:  # Only show fields with data
-                try:
-                    label = SuperdatabaseRecord._meta.get_field(field_name).verbose_name or field_name
-                    if label:
-                        label = label[0].upper() + label[1:]
-                except:
-                    label = field_name.replace('_', ' ').title()
 
-                response_data.append({
-                    "field": field_name,
-                    "label": label,
-                    "count": count
-                })
+            # Get the verbose name from the model
+            try:
+                label = SuperdatabaseRecord._meta.get_field(field_name).verbose_name or field_name
+                if label:
+                    label = label[0].upper() + label[1:]
+            except:
+                label = field_name.replace('_', ' ').title()
 
-        # Sort by count descending
-        response_data.sort(key=lambda x: x['count'], reverse=True)
+            response_data.append({
+                "field": field_name,
+                "label": label,
+                "count": count
+            })
+
+        # Sort by count descending, then by label
+        response_data.sort(key=lambda x: (-x['count'], x['label']))
 
         return Response(response_data)
 
@@ -342,8 +385,8 @@ class ClientReportExportAPIView(APIView):
             today = timezone.now().date()
             subscription = Subscription.objects.get(
                 client=request.user,
-                report__report_id=report_id,  # ✅ FIXED: Use report_id
-                status=SubscriptionStatus.ACTIVE,  # ✅ FIXED: Check status
+                report__report_id=report_id,
+                status=SubscriptionStatus.ACTIVE,
                 start_date__lte=today,
                 end_date__gte=today
             )
@@ -362,8 +405,14 @@ class ClientReportExportAPIView(APIView):
 
         filter_q = Q()
         for field, value in filter_criteria.items():
+            if field == 'categories':
+                if isinstance(value, list) and len(value) > 0:
+                    filter_q &= Q(category__in=value)
+                elif isinstance(value, str) and value:
+                    filter_q &= Q(category=value)
+                continue
+
             if value is not None:
-                # Handle list values
                 if isinstance(value, list):
                     if len(value) > 0:
                         filter_q &= Q(**{f"{field}__in": value})
@@ -372,6 +421,13 @@ class ClientReportExportAPIView(APIView):
 
         if filter_q:
             queryset = queryset.filter(filter_q)
+
+        # Handle category filter from user
+        categories_param = request.query_params.get('categories')
+        if categories_param:
+            category_list = [c.strip() for c in categories_param.split(',') if c.strip()]
+            if category_list:
+                queryset = queryset.filter(category__in=category_list)
 
         # Apply additional user filters from request
         filterset = SuperdatabaseRecordFilter(request.GET, queryset=queryset)

@@ -1,6 +1,6 @@
 // frontend/src/hooks/useDatabase.js
 
-import { useQuery, keepPreviousData } from '@tanstack/react-query'; // <-- IMPORT keepPreviousData
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import api from '../utils/api';
 
 export const useRecords = (filters) => {
@@ -9,10 +9,11 @@ export const useRecords = (filters) => {
     queryFn: async () => {
       const params = new URLSearchParams();
 
-      // Add filters to query params
-      if (filters.category && filters.category !== 'ALL') {
-        params.append('category', filters.category);
+      // UPDATED: Changed from 'category' to 'categories'
+      if (filters.categories && filters.categories !== 'ALL') {
+        params.append('categories', filters.categories);
       }
+
       if (filters.search) {
         params.append('search', filters.search);
       }
@@ -31,10 +32,10 @@ export const useRecords = (filters) => {
         params.append('countries', filters.countries);
       }
 
-      // FIXED: Add boolean filters - Handle both true AND false
+      // Add boolean filters - Handle both true AND false
       Object.keys(filters).forEach(key => {
-        // Skip already handled filters
-        if (['category', 'search', 'page', 'page_size', 'ordering', 'countries'].includes(key)) { // Added 'countries' to skip list
+        // UPDATED: Skip 'categories' instead of 'category'
+        if (['categories', 'search', 'page', 'page_size', 'ordering', 'countries'].includes(key)) {
           return;
         }
 
@@ -47,9 +48,7 @@ export const useRecords = (filters) => {
       const response = await api.get(`/api/records/?${params.toString()}`);
       return response.data;
     },
-    // --- THIS IS THE FIX ---
-    // This tells React Query to show the previous page's data
-    // as a placeholder while the new page is loading.
+    // Show previous data while loading new data
     placeholderData: keepPreviousData,
   });
 };

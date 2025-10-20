@@ -9,11 +9,15 @@ const FilterSidebar = ({
   countryFilters = [],
   onCountryFilterChange,
   allCountries = [],
+  categoryFilters = [],
+  onCategoryFilterChange = () => {},
+  availableCategories = [],
   onApply,
   onReset
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [countrySearch, setCountrySearch] = useState('');
+  const [categorySearchQuery, setCategorySearchQuery] = useState('');
 
   // Live filter based on search query
   const filteredOptions = useMemo(() => {
@@ -33,6 +37,14 @@ const FilterSidebar = ({
       country.toLowerCase().includes(countrySearch.toLowerCase())
     );
   }, [allCountries, countrySearch]);
+
+  // Filter categories based on search
+  const filteredCategories = useMemo(() => {
+    if (!categorySearchQuery) return availableCategories;
+    return availableCategories.filter(cat =>
+      cat.toLowerCase().includes(categorySearchQuery.toLowerCase())
+    );
+  }, [availableCategories, categorySearchQuery]);
 
   // Immediate filter change - applies instantly
   const handleFilterChange = (field, value) => {
@@ -56,6 +68,17 @@ const FilterSidebar = ({
     onCountryFilterChange(newCountryFilters);
   };
 
+  // Immediate category toggle - applies instantly
+  const toggleCategory = (category) => {
+    let newCategoryFilters;
+    if (categoryFilters.includes(category)) {
+      newCategoryFilters = categoryFilters.filter(c => c !== category);
+    } else {
+      newCategoryFilters = [...categoryFilters, category];
+    }
+    onCategoryFilterChange(newCategoryFilters);
+  };
+
   const handleApplyFilters = () => {
     onClose();
   };
@@ -63,10 +86,11 @@ const FilterSidebar = ({
   const handleClearAll = () => {
     setSearchQuery('');
     setCountrySearch('');
+    setCategorySearchQuery('');
     onReset();
   };
 
-  const activeFilterCount = Object.keys(filters).filter(key => filters[key] !== undefined).length + countryFilters.length;
+  const activeFilterCount = Object.keys(filters).filter(key => filters[key] !== undefined).length + countryFilters.length + categoryFilters.length;
 
   // Count active boolean filters only
   const activeBooleanFilterCount = Object.keys(filters).filter(key => filters[key] !== undefined).length;
@@ -108,39 +132,41 @@ const FilterSidebar = ({
           {/* Country Filter Section FIRST */}
           {allCountries.length > 0 && (
             <div className="mb-6">
-              <div className="flex items-center justify-between mb-3">
-                <h4 className="font-semibold text-gray-900 text-sm">Countries</h4>
-                {countryFilters.length > 0 && (
-                  <span className="bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-full text-xs font-medium">
-                    {countryFilters.length}
-                  </span>
-                )}
-              </div>
+              <h3 className="text-sm font-semibold text-gray-700 mb-3">
+                Countries {allCountries.length > 1 && `(${allCountries.length})`}
+              </h3>
 
-              {/* Country Search */}
-              <div className="relative mb-3">
-                <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                <input
-                  type="text"
-                  value={countrySearch}
-                  onChange={(e) => setCountrySearch(e.target.value)}
-                  placeholder="Search countries..."
-                  className="w-full pl-8 pr-8 py-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                />
-                {countrySearch && (
-                  <button
-                    onClick={() => setCountrySearch('')}
-                    className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                )}
-              </div>
+              {/* Only show search if there are more than 5 countries */}
+              {allCountries.length > 5 && (
+                <div className="relative mb-3">
+                  <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <input
+                    type="text"
+                    value={countrySearch}
+                    onChange={(e) => setCountrySearch(e.target.value)}
+                    placeholder="Search countries..."
+                    className="w-full pl-8 pr-8 py-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  />
+                  {countrySearch && (
+                    <button
+                      onClick={() => setCountrySearch('')}
+                      className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
+              )}
 
-              {/* Country List - Simple, always visible */}
+              {/* Country List - Dynamic height based on count */}
               <div
-                className="border border-gray-200 rounded-lg bg-gray-50 p-2 overflow-y-auto"
-                style={{ height: '280px' }}
+                className={`border border-gray-200 rounded-lg bg-gray-50 p-2 ${
+                  allCountries.length > 8 ? 'overflow-y-auto' : ''
+                }`}
+                style={{
+                  maxHeight: allCountries.length > 8 ? '280px' : 'auto',
+                  height: allCountries.length <= 3 ? 'auto' : allCountries.length > 8 ? '280px' : `${allCountries.length * 40}px`
+                }}
               >
                 <div className="space-y-1">
                   {filteredCountries.length === 0 ? (
@@ -164,104 +190,178 @@ const FilterSidebar = ({
                 </div>
               </div>
 
-              <div className="border-b my-4"></div>
+              {(allCountries.length > 0 && (availableCategories.length > 0 || filterOptions.length > 0)) && (
+                <div className="border-b my-4"></div>
+              )}
             </div>
           )}
 
-          {/* Search Filters Section SECOND */}
-          <div className="mb-4">
-            <div className="flex items-center justify-between mb-3">
-              <h4 className="font-semibold text-gray-900 text-sm">Search Filters</h4>
-              {activeBooleanFilterCount > 0 && (
-                <span className="bg-green-100 text-green-800 px-2 py-0.5 rounded-full text-xs font-medium">
-                  {activeBooleanFilterCount}
-                </span>
-              )}
-            </div>
+        {/* Categories Filter Section */}
+        {availableCategories.length > 0 && (
+          <div className="mb-6">
+            <h3 className="text-sm font-semibold text-gray-700 mb-3">
+              Categories {availableCategories.length > 1 && `(${availableCategories.length})`}
+            </h3>
 
-            {/* Search Box */}
-            <div className="relative mb-4">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search filters..."
-                className="w-full pl-9 pr-9 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              )}
-            </div>
+            {/* Only show search if there are more than 5 categories */}
+            {availableCategories.length > 5 && (
+              <div className="relative mb-3">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search categories..."
+                  value={categorySearchQuery}
+                  onChange={(e) => setCategorySearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                />
+                {categorySearchQuery && (
+                  <button
+                    onClick={() => setCategorySearchQuery('')}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
+            )}
 
-            {/* Filter List */}
-            <div className="space-y-3">
-              {filteredOptions.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  <p className="text-sm">No filters found</p>
-                  {searchQuery && (
-                    <button
-                      onClick={() => setSearchQuery('')}
-                      className="text-xs text-indigo-600 hover:text-indigo-700 mt-2"
-                    >
-                      Clear search
-                    </button>
-                  )}
-                </div>
+            {/* Category List - Dynamic height based on count */}
+            <div className={`space-y-2 ${availableCategories.length > 8 ? 'max-h-48 overflow-y-auto' : ''}`}>
+              {filteredCategories.length === 0 ? (
+                <p className="text-sm text-gray-500 text-center py-4">No categories found</p>
               ) : (
-                filteredOptions.map(option => (
-                  <div key={option.field} className="bg-white border border-gray-200 rounded-lg p-4 hover:border-gray-300 transition-colors">
-                    <div className="flex items-center justify-between mb-3">
-                      <h4 className="font-semibold text-gray-900 text-sm">{option.label}</h4>
-                      <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
-                        {option.count}
-                      </span>
-                    </div>
+                filteredCategories.map((category) => {
+                  // Handle both old format (strings) and new format (objects)
+                  const categoryCode = typeof category === 'string' ? category : category.code;
+                  const categoryDisplay = typeof category === 'string' ? category : category.display_name;
+                  const isChecked = categoryFilters.includes(categoryCode);
 
-                    <div className="space-y-2">
-                      <label className="flex items-center gap-2 cursor-pointer group">
-                        <input
-                          type="radio"
-                          name={option.field}
-                          checked={filters[option.field] === undefined}
-                          onChange={() => handleFilterChange(option.field, undefined)}
-                          className="w-4 h-4 text-gray-400 border-gray-300 focus:ring-indigo-500"
-                        />
-                        <span className="text-sm text-gray-600 group-hover:text-gray-900">Any</span>
-                      </label>
-
-                      <label className="flex items-center gap-2 cursor-pointer group">
-                        <input
-                          type="radio"
-                          name={option.field}
-                          checked={filters[option.field] === true}
-                          onChange={() => handleFilterChange(option.field, true)}
-                          className="w-4 h-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"
-                        />
-                        <span className="text-sm text-gray-900 font-medium group-hover:text-indigo-600">Include</span>
-                      </label>
-
-                      <label className="flex items-center gap-2 cursor-pointer group">
-                        <input
-                          type="radio"
-                          name={option.field}
-                          checked={filters[option.field] === false}
-                          onChange={() => handleFilterChange(option.field, false)}
-                          className="w-4 h-4 text-red-600 border-gray-300 focus:ring-red-500"
-                        />
-                        <span className="text-sm text-gray-900 font-medium group-hover:text-red-600">Exclude</span>
-                      </label>
-                    </div>
-                  </div>
-                ))
+                  return (
+                    <label
+                      key={categoryCode}
+                      className="flex items-center gap-3 p-2 hover:bg-gray-50 rounded-lg cursor-pointer transition-colors"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={() => {
+                          if (isChecked) {
+                            onCategoryFilterChange(categoryFilters.filter(c => c !== categoryCode));
+                          } else {
+                            onCategoryFilterChange([...categoryFilters, categoryCode]);
+                          }
+                        }}
+                        className="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
+                      />
+                      <span className="text-sm text-gray-700 flex-1">{categoryDisplay}</span>
+                    </label>
+                  );
+                })
               )}
             </div>
+
+            {filterOptions.length > 0 && (
+              <div className="border-b my-4"></div>
+            )}
           </div>
+        )}
+
+          {/* Search Filters Section */}
+          {filterOptions.length > 0 && (
+            <div className="mb-4">
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="font-semibold text-gray-900 text-sm">Search Filters</h4>
+                {activeBooleanFilterCount > 0 && (
+                  <span className="bg-green-100 text-green-800 px-2 py-0.5 rounded-full text-xs font-medium">
+                    {activeBooleanFilterCount}
+                  </span>
+                )}
+              </div>
+
+              {/* Search Box */}
+              <div className="relative mb-4">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search filters..."
+                  className="w-full pl-9 pr-9 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+
+              {/* Filter List */}
+              <div className="space-y-3">
+                {filteredOptions.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    <p className="text-sm">No filters found</p>
+                    {searchQuery && (
+                      <button
+                        onClick={() => setSearchQuery('')}
+                        className="text-xs text-indigo-600 hover:text-indigo-700 mt-2"
+                      >
+                        Clear search
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  filteredOptions.map(option => (
+                    <div key={option.field} className="bg-white border border-gray-200 rounded-lg p-4 hover:border-gray-300 transition-colors">
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="font-semibold text-gray-900 text-sm">{option.label}</h4>
+                        <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
+                          {option.count}
+                        </span>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="flex items-center gap-2 cursor-pointer group">
+                          <input
+                            type="radio"
+                            name={option.field}
+                            checked={filters[option.field] === undefined}
+                            onChange={() => handleFilterChange(option.field, undefined)}
+                            className="w-4 h-4 text-gray-400 border-gray-300 focus:ring-indigo-500"
+                          />
+                          <span className="text-sm text-gray-600 group-hover:text-gray-900">Any</span>
+                        </label>
+
+                        <label className="flex items-center gap-2 cursor-pointer group">
+                          <input
+                            type="radio"
+                            name={option.field}
+                            checked={filters[option.field] === true}
+                            onChange={() => handleFilterChange(option.field, true)}
+                            className="w-4 h-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"
+                          />
+                          <span className="text-sm text-gray-900 font-medium group-hover:text-indigo-600">Include</span>
+                        </label>
+
+                        <label className="flex items-center gap-2 cursor-pointer group">
+                          <input
+                            type="radio"
+                            name={option.field}
+                            checked={filters[option.field] === false}
+                            onChange={() => handleFilterChange(option.field, false)}
+                            className="w-4 h-4 text-red-600 border-gray-300 focus:ring-red-500"
+                          />
+                          <span className="text-sm text-gray-900 font-medium group-hover:text-red-600">Exclude</span>
+                        </label>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Footer with Clear All and Apply Filters buttons */}
