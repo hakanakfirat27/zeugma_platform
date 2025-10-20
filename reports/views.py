@@ -28,6 +28,7 @@ from .fields import (
     INJECTION_FIELDS, BLOW_FIELDS, ROTO_FIELDS, PE_FILM_FIELDS, SHEET_FIELDS,
     PIPE_FIELDS, TUBE_HOSE_FIELDS, PROFILE_FIELDS, CABLE_FIELDS, COMPOUNDER_FIELDS, ALL_COMMONS
 )
+from notifications.services import NotificationService
 
 User = get_user_model()
 
@@ -938,3 +939,21 @@ class EnabledWidgetsAPIView(APIView):
         widgets = DashboardWidget.objects.filter(is_enabled=True).order_by('display_order')
         serializer = DashboardWidgetSerializer(widgets, many=True)
         return Response(serializer.data)
+
+
+def create_report(request):
+    # ... your report creation logic
+    report = Report.objects.create(
+        user=user,
+        title="Monthly Analytics",
+        # ... other fields
+    )
+
+    # Create notification
+    NotificationService.create_subscription_expiry_notification(
+        user=subscription.client,
+        subscription_id=subscription.id,
+        days_remaining=(subscription.end_date - timezone.now()).days
+    )
+
+    return Response({"message": "Report created"})

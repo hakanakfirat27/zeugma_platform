@@ -21,7 +21,8 @@ from .serializers import (
     SuperdatabaseRecordSerializer
 )
 from .pagination import CustomPagination
-from .filters import SuperdatabaseRecordFilter  # ADD THIS
+from .filters import SuperdatabaseRecordFilter
+from notifications.services import NotificationService
 
 
 class CustomReportListCreateAPIView(generics.ListCreateAPIView):
@@ -348,7 +349,49 @@ class SubscriptionListCreateAPIView(generics.ListCreateAPIView):
         if self.request.user.role not in [UserRole.SUPERADMIN, UserRole.STAFF_ADMIN]:
             raise PermissionError("Only staff can create subscriptions.")
 
-        serializer.save()
+        # Save the subscription
+        subscription = serializer.save()
+
+        # 🔔 CREATE NOTIFICATIONS FOR THE CLIENT
+        try:
+            # Always create report notification
+            NotificationService.create_report_notification(
+                user=subscription.client,
+                report_id=subscription.report.id,
+                report_title=subscription.report.title
+            )
+
+            # Calculate days remaining
+            days_remaining = (subscription.end_date - timezone.now().date()).days
+
+            # Create subscription renewal reminder based on plan type
+            should_notify = False
+
+            if subscription.plan == SubscriptionPlan.ANNUAL:
+                # Only notify if less than 30 days remaining for annual subscriptions
+                if days_remaining <= 30:
+                    should_notify = True
+            elif subscription.plan == SubscriptionPlan.MONTHLY:
+                # Only notify if less than 15 days remaining for monthly subscriptions
+                if days_remaining <= 15:
+                    should_notify = True
+
+            if should_notify:
+                NotificationService.create_subscription_expiry_notification(
+                    user=subscription.client,
+                    subscription_id=subscription.id,
+                    days_remaining=days_remaining
+                )
+                print(
+                    f"✅ Subscription renewal reminder created for {subscription.client.username} ({days_remaining} days remaining)")
+            else:
+                print(
+                    f"ℹ️ No renewal reminder needed for {subscription.client.username} ({days_remaining} days remaining)")
+
+            print(f"✅ Report notification created for user {subscription.client.username}")
+
+        except Exception as e:
+            print(f"❌ Error creating notification: {str(e)}")
 
 
 class SubscriptionDetailAPIView(generics.RetrieveUpdateDestroyAPIView):

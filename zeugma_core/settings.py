@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     'accounts',
     'reports',
     'dashboard',
+    'notifications',
     'rest_framework',
     'corsheaders',
     'django_filters',
@@ -136,8 +137,9 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 AUTH_USER_MODEL = 'accounts.User'
 
-LOGIN_REDIRECT_URL = '/' # Redirect to the homepage after login
-LOGOUT_REDIRECT_URL = '/' # Redirect to the homepage after logout
+LOGIN_REDIRECT_URL = '/dashboard/'
+LOGOUT_REDIRECT_URL = '/accounts/login/'  # Add this
+LOGIN_URL = '/accounts/login/'  # Also add this for consistency
 
 STATICFILES_DIRS = [BASE_DIR / "static"]
 
@@ -215,3 +217,11 @@ DEFAULT_FROM_EMAIL = 'Zeugma Platform <zeugma.research@gmail.com>'
 
 # For development
 #DEFAULT_FROM_EMAIL = 'zeugma.research@gmail.com'
+
+# Celery Configuration (if using Celery for scheduled tasks)
+CELERY_BROKER_URL = 'redis://localhost:6379/0'
+CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = 'UTC'

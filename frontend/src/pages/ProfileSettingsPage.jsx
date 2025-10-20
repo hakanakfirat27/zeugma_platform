@@ -235,7 +235,7 @@ const ProfileSettingsPage = () => {
       <div className="min-h-screen bg-gray-50">
         {/* Header */}
         <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white px-8 py-8 shadow-lg">
-          <div className="max-w-4xl mx-auto">
+          <div className="max-w-4xl">
             <div className="flex items-center gap-3 mb-2">
               <button
                 onClick={() => navigate(getDashboardPath())}
@@ -243,9 +243,9 @@ const ProfileSettingsPage = () => {
               >
                 <ArrowLeft className="w-5 h-5" />
               </button>
-              <h1 className="text-2xl font-bold">Profile Settings</h1>
+              <h1 className="text-3xl font-bold">Profile Settings</h1>
             </div>
-            <p className="text-indigo-100 text-sm ml-12">
+            <p className="text-indigo-100 text-sm">
               Manage your account settings and preferences
             </p>
           </div>

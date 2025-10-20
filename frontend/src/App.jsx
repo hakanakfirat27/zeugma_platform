@@ -29,6 +29,8 @@ import VerifyEmailPage from './components/VerifyEmailPage';
 //import TwoFactorVerificationModal from './components/TwoFactorVerificationModal';
 import ProfileSettingsPage from './pages/ProfileSettingsPage';
 import ReportDetailPage from './pages/ReportDetailPage';
+import ClientDashboardLayout from './components/layout/ClientDashboardLayout';
+import ClientNotifications from './pages/client/ClientNotifications';
 
 
 function App() {
@@ -70,6 +72,16 @@ function App() {
         <Route path="/client/subscriptions" element={<ProtectedRoute allowedRoles={['CLIENT']}><ClientSubscriptionsPage /></ProtectedRoute>}/>
         <Route path="/client/chat" element={<ProtectedRoute allowedRoles={['CLIENT']}><ClientChatPage /></ProtectedRoute>}/>
         <Route path="/client/faq" element={<ProtectedRoute allowedRoles={['CLIENT']}><ClientFAQPage /></ProtectedRoute>}/>
+<Route
+  path="/client/notifications"
+  element={
+    <ProtectedRoute>
+      <ClientDashboardLayout>
+        <ClientNotifications />
+      </ClientDashboardLayout>
+    </ProtectedRoute>
+  }
+/>
 
         {/* Catch all */}
         <Route path="*" element={<Navigate to="/" replace />} />
