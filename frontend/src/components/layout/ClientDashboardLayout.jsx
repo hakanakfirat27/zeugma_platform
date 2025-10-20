@@ -592,20 +592,20 @@ const ClientDashboardLayout = ({ children }) => {
                     </div>
 
                     {/* Footer */}
-{/* Footer */}
-{notifications.length > 0 && (
-  <div className="p-3 border-t border-gray-200 bg-gray-50">
-    <button
-      onClick={() => {
-        navigate('/client/notifications');
-        setShowNotifications(false);
-      }}
-      className="w-full text-center text-sm text-blue-600 hover:text-blue-700 font-medium"
-    >
-      View All Notifications
-    </button>
-  </div>
-)}
+                    {/* Footer */}
+                    {notifications.length > 0 && (
+                      <div className="p-3 border-t border-gray-200 bg-gray-50">
+                        <button
+                          onClick={() => {
+                            navigate('/client/notifications');
+                            setShowNotifications(false);
+                          }}
+                          className="w-full text-center text-sm text-blue-600 hover:text-blue-700 font-medium"
+                        >
+                          View All Notifications
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

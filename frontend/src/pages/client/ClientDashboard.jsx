@@ -148,20 +148,7 @@ const ClientDashboard = () => {
             </div>
           </div>
 
-          {/* Total Companies */}
-          <div className="relative overflow-hidden bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl shadow-lg p-6 text-white">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16"></div>
-            <div className="relative">
-              <div className="flex items-center justify-between mb-3">
-                <div className="w-12 h-12 bg-white/20 backdrop-blur-xl rounded-xl flex items-center justify-center">
-                  <BarChart3 className="w-6 h-6" />
-                </div>
-                <PieIcon className="w-8 h-8 text-white/30" />
-              </div>
-              <p className="text-sm text-blue-100 mb-1 font-medium">Access to Companies</p>
-              <p className="text-4xl font-bold">All Reports</p>
-            </div>
-          </div>
+
         </div>
 
         {/* Recent Reports & Subscriptions */}

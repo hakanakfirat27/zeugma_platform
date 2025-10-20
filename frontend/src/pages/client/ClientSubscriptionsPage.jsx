@@ -123,16 +123,6 @@ const ClientSubscriptionsPage = () => {
             <p className="text-sm text-red-100 mb-1 font-medium">Expired</p>
             <p className="text-4xl font-bold">{expiredCount}</p>
           </div>
-
-          <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl shadow-lg p-6 text-white">
-            <div className="flex items-center justify-between mb-3">
-              <div className="w-12 h-12 bg-white/20 backdrop-blur-xl rounded-xl flex items-center justify-center">
-                <DollarSign className="w-6 h-6" />
-              </div>
-            </div>
-            <p className="text-sm text-blue-100 mb-1 font-medium">Total Value</p>
-            <p className="text-4xl font-bold">${totalValue.toFixed(0)}</p>
-          </div>
         </div>
 
         {/* Filters */}

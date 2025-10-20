@@ -43,7 +43,6 @@ const ClientReportViewPage = () => {
   const [selectedRecord, setSelectedRecord] = useState(null);
   const [showFilters, setShowFilters] = useState(false);
   const [exportLoading, setExportLoading] = useState(false);
-  const [showVisualization, setShowVisualization] = useState(false);
 
   // REACT QUERY HOOKS
   const { data: reportAccess, isLoading: accessLoading } = useClientReportAccess(reportId);
@@ -337,7 +336,7 @@ const ClientReportViewPage = () => {
             </button>
 
             <button
-              onClick={() => setShowVisualization(true)}
+              onClick={() => navigate(`/client/reports/${reportId}/visualization`)}
               className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all flex items-center gap-2 shadow-lg"
             >
               <BarChart3 className="w-5 h-5" />
@@ -533,110 +532,6 @@ const ClientReportViewPage = () => {
           onClose={() => setSelectedRecord(null)}
           isGuest={false}
         />
-      )}
-
-      {/* VISUALIZATION MODAL */}
-      {showVisualization && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden">
-            <div className="bg-gradient-to-br from-purple-500 to-blue-600 p-6 flex items-center justify-between">
-              <h2 className="text-2xl font-bold text-white">Data Visualization</h2>
-              <button
-                onClick={() => setShowVisualization(false)}
-                className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-              >
-                <X className="w-6 h-6 text-white" />
-              </button>
-            </div>
-
-            <div className="p-6 overflow-y-auto max-h-[calc(90vh-80px)]">
-              {/* Statistics Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl p-6 text-white shadow-lg">
-                  <div className="flex items-center justify-between mb-2">
-                    <Database className="w-8 h-8 opacity-80" />
-                    <TrendingUp className="w-5 h-5" />
-                  </div>
-                  <div className="text-3xl font-bold mb-1">
-                    {statsLoading ? '...' : (stats?.total_count || 0).toLocaleString()}
-                  </div>
-                  <div className="text-blue-100 text-sm">Total Companies</div>
-                </div>
-
-                <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl p-6 text-white shadow-lg">
-                  <div className="flex items-center justify-between mb-2">
-                    <Globe className="w-8 h-8 opacity-80" />
-                    <BarChart3 className="w-5 h-5" />
-                  </div>
-                  <div className="text-3xl font-bold mb-1">
-                    {statsLoading ? '...' : stats?.countries_count || 0}
-                  </div>
-                  <div className="text-purple-100 text-sm">Countries</div>
-                </div>
-
-                <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-2xl p-6 text-white shadow-lg">
-                  <div className="flex items-center justify-between mb-2">
-                    <PieChart className="w-8 h-8 opacity-80" />
-                    <Calendar className="w-5 h-5" />
-                  </div>
-                  <div className="text-3xl font-bold mb-1">
-                    {reportAccess?.days_remaining || 0}
-                  </div>
-                  <div className="text-green-100 text-sm">Days Remaining</div>
-                </div>
-              </div>
-
-              {/* Charts */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {countryChartData.length > 0 && (
-                  <div className="bg-gray-50 rounded-xl p-6">
-                    <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                      <Globe className="w-5 h-5 text-blue-600" />
-                      Top Countries
-                    </h3>
-                    <ResponsiveContainer width="100%" height={300}>
-                      <BarChart data={countryChartData}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="name" fontSize={12} />
-                        <YAxis fontSize={12} />
-                        <Tooltip />
-                        <Bar dataKey="value" fill="#3B82F6" radius={[8, 8, 0, 0]} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                )}
-
-                {categoryChartData.length > 0 && (
-                  <div className="bg-gray-50 rounded-xl p-6">
-                    <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                      <PieChart className="w-5 h-5 text-purple-600" />
-                      Categories
-                    </h3>
-                    <ResponsiveContainer width="100%" height={300}>
-                      <RechartsPie>
-                        <Pie
-                          data={categoryChartData}
-                          cx="50%"
-                          cy="50%"
-                          labelLine={false}
-                          label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                          outerRadius={100}
-                          fill="#8884d8"
-                          dataKey="value"
-                        >
-                          {categoryChartData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                          ))}
-                        </Pie>
-                        <Tooltip />
-                      </RechartsPie>
-                    </ResponsiveContainer>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
       )}
     </ClientDashboardLayout>
   );
