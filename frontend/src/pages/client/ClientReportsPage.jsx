@@ -137,7 +137,7 @@ const ClientReportsPage = () => {
             </p>
           </div>
         ) : viewMode === 'cards' ? (
-          /* CARD VIEW */
+          /* CARD VIEW WITH FIXED HEIGHT */
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredReports.map((report) => {
               const isExpiringSoon = report.days_remaining <= 30;
@@ -145,78 +145,80 @@ const ClientReportsPage = () => {
               return (
                 <div
                   key={report.id}
-                  className="group bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden border-2 border-transparent hover:border-purple-200"
+                  className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 border-2 border-transparent hover:border-purple-200 flex flex-col h-[420px]"
                 >
                   {/* Card Header */}
-                  <div className="bg-gradient-to-br from-purple-500 to-blue-600 p-6 text-white">
+                  <div className="bg-gradient-to-br from-purple-500 to-blue-600 p-6 text-white flex-shrink-0">
                     <div className="flex items-start justify-between mb-4">
                       <div className="w-14 h-14 bg-white/20 backdrop-blur-xl rounded-2xl flex items-center justify-center">
                         <BarChart3 className="w-7 h-7" />
                       </div>
                       {report.is_active ? (
-                        <div className="bg-green-500 text-white px-3 py-1 rounded-lg text-xs font-semibold flex items-center gap-1">
-                          <CheckCircle className="w-3 h-3" />
+                        <span className="flex items-center gap-2 px-3 py-1.5 bg-green-500/20 backdrop-blur-xl rounded-full text-xs font-semibold border border-green-300/30">
+                          <CheckCircle className="w-3.5 h-3.5" />
                           Active
-                        </div>
+                        </span>
                       ) : (
-                        <div className="bg-red-500 text-white px-3 py-1 rounded-lg text-xs font-semibold flex items-center gap-1">
-                          <AlertCircle className="w-3 h-3" />
-                          Expired
-                        </div>
+                        <span className="flex items-center gap-2 px-3 py-1.5 bg-red-500/20 backdrop-blur-xl rounded-full text-xs font-semibold border border-red-300/30">
+                          <AlertCircle className="w-3.5 h-3.5" />
+                          Inactive
+                        </span>
                       )}
                     </div>
-                    <h3 className="text-xl font-bold mb-2 line-clamp-2">{report.report_title}</h3>
-                    <p className="text-sm text-purple-100 line-clamp-2">{report.report_description}</p>
+
+                    {/* Title - Limited to 2 lines */}
+                    <h3 className="text-xl font-bold mb-2 line-clamp-2 h-14">
+                      {report.report_title}
+                    </h3>
                   </div>
 
                   {/* Card Body */}
-                  <div className="p-6">
-                    {/* Stats */}
-                    <div className="grid grid-cols-2 gap-4 mb-5">
-                      <div className="text-center p-3 bg-gray-50 rounded-xl">
-                        <Calendar className="w-5 h-5 text-gray-400 mx-auto mb-1" />
-                        <p className="text-xs text-gray-500">Expires</p>
+                  <div className="p-6 flex flex-col flex-1">
+                    {/* Description - Limited to 3 lines */}
+                    <p className="text-gray-600 text-sm mb-6 line-clamp-3 h-[60px]">
+                      {report.report_description}
+                    </p>
+
+                    {/* Stats Grid */}
+                    <div className="grid grid-cols-2 gap-4 mb-6">
+                      <div className="bg-gray-50 rounded-xl p-3">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Calendar className="w-4 h-4 text-gray-400" />
+                          <span className="text-xs text-gray-500 font-medium">Expires</span>
+                        </div>
                         <p className="text-sm font-bold text-gray-900">
                           {new Date(report.end_date).toLocaleDateString()}
                         </p>
                       </div>
-                      <div className="text-center p-3 bg-gray-50 rounded-xl">
-                        <TrendingUp className="w-5 h-5 text-gray-400 mx-auto mb-1" />
-                        <p className="text-xs text-gray-500">Days Left</p>
-                        <p className={`text-sm font-bold ${
-                          isExpiringSoon ? 'text-orange-600' : 'text-green-600'
-                        }`}>
+
+                      <div className={`rounded-xl p-3 ${
+                        isExpiringSoon
+                          ? 'bg-orange-50 border border-orange-200'
+                          : 'bg-green-50 border border-green-200'
+                      }`}>
+                        <div className="flex items-center gap-2 mb-1">
+                          <TrendingUp className={`w-4 h-4 ${isExpiringSoon ? 'text-orange-400' : 'text-green-400'}`} />
+                          <span className={`text-xs font-medium ${isExpiringSoon ? 'text-orange-600' : 'text-green-600'}`}>
+                            Days Left
+                          </span>
+                        </div>
+                        <p className={`text-sm font-bold ${isExpiringSoon ? 'text-orange-900' : 'text-green-900'}`}>
                           {report.days_remaining}
                         </p>
                       </div>
                     </div>
 
-                    {/* Warning for Expiring */}
-                    {isExpiringSoon && report.is_active && (
-                      <div className="mb-4 p-3 bg-orange-50 border border-orange-200 rounded-xl">
-                        <div className="flex items-center gap-2">
-                          <AlertCircle className="w-4 h-4 text-orange-600" />
-                          <p className="text-xs font-medium text-orange-800">
-                            Expires in {report.days_remaining} days - Renew soon!
-                          </p>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Action Button */}
-                    <button
-                      onClick={() => navigate(`/client/reports/${report.report_id}`)}
-                      disabled={!report.is_active}
-                      className={`w-full py-3 rounded-xl font-semibold transition-all flex items-center justify-center gap-2 ${
-                        report.is_active
-                          ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white hover:from-purple-700 hover:to-blue-700 shadow-md hover:shadow-lg'
-                          : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                      }`}
-                    >
-                      <Eye className="w-5 h-5" />
-                      {report.is_active ? 'View Report' : 'Expired'}
-                      {report.is_active && <ArrowRight className="w-4 h-4" />}
-                    </button>
+                    {/* View Button - Always at bottom */}
+                    <div className="mt-auto">
+                      <button
+                        onClick={() => navigate(`/client/reports/${report.report_id}`)}
+                        className="w-full px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-xl hover:from-purple-700 hover:to-blue-700 transition-all flex items-center justify-center gap-2 font-semibold shadow-lg group"
+                      >
+                        <Eye className="w-5 h-5" />
+                        View Report
+                        <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               );

@@ -252,7 +252,7 @@ const ProfileSettingsPage = () => {
         </div>
 
         {/* Content */}
-        <div className="max-w-4xl mx-auto p-8">
+        <div className="max-w-7xl mx-auto p-8">
           {/* Message Alert */}
           {message.text && (
             <div className={`mb-6 p-4 rounded-lg flex items-start gap-3 ${

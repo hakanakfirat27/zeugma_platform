@@ -23,6 +23,7 @@ import pyotp
 import qrcode
 import io
 import base64
+import datetime
 
 
 User = get_user_model()
@@ -940,6 +941,38 @@ If you didn't try to log in, please secure your account immediately.
 
 Best regards,
 Zeugma Platform Team
+    """
+
+    # HTML version
+    html_message = f"""
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Your Verification Code</title>
+        <style>
+            body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+            .container {{ width: 90%; max-width: 600px; margin: 20px auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px; }}
+            .header {{ font-size: 24px; font-weight: bold; color: #000; }}
+            .code {{ font-size: 36px; font-weight: bold; color: #000; letter-spacing: 4px; margin: 25px 0; padding: 15px; background-color: #f4f4f4; text-align: center; border-radius: 4px; }}
+            .footer {{ margin-top: 20px; font-size: 12px; color: #888; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">Zeugma Platform</div>
+            <p>Hello {user.first_name or user.username},</p>
+            <p>Here is your verification code to complete your login:</p>
+            <div class="code">{code}</div>
+            <p>This code is valid for 10 minutes.</p>
+            <p>If you did not request this code, please ignore this email and contact support if you have concerns about your account security.</p>
+            <div class="footer">
+                <p>&copy; {current_year} Zeugma Platform. All rights reserved.</p>
+            </div>
+        </div>
+    </body>
+    </html>
     """
 
     try:

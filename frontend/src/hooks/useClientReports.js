@@ -107,6 +107,7 @@ export const useClientReportAccess = (reportId) => {
     },
     enabled: !!reportId,
     retry: 1,
-    staleTime: 60000,
+    staleTime: 0,  // ⭐ Changed from 60000 to 0 - Always fetch fresh data
+    cacheTime: 0,  // ⭐ Don't cache at all for subscription data
   });
 };

@@ -5,10 +5,11 @@ import axios from 'axios';
 import {
   LayoutDashboard, FileText, CreditCard, MessageSquare, HelpCircle,
   LogOut, Menu, Bell, Maximize, Settings, ChevronRight,
-  Database, ArrowRight, Check, X, Trash2, CheckCheck
+  Database, ArrowRight, Check, X, Trash2, CheckCheck,
+  User, Shield, ChevronDown
 } from 'lucide-react';
 
-const ClientDashboardLayout = ({ children }) => {
+const ClientDashboardLayout = ({ children, pageTitle }) => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -19,7 +20,7 @@ const ClientDashboardLayout = ({ children }) => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-
+  const menuRef = useRef(null);
   const notificationRef = useRef(null);
 
   const navLinks = [
@@ -46,6 +47,22 @@ const ClientDashboardLayout = ({ children }) => {
     }
     return cookieValue;
   };
+
+
+  const [showAvatarMenu, setShowAvatarMenu] = useState(false);
+  const avatarMenuRef = useRef(null);
+
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (avatarMenuRef.current && !avatarMenuRef.current.contains(event.target)) {
+        setShowAvatarMenu(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Configure axios defaults
   useEffect(() => {
@@ -439,7 +456,7 @@ const ClientDashboardLayout = ({ children }) => {
               {/* Page Title */}
               <div>
                 <h1 className="text-xl font-bold text-gray-900">
-                  {navLinks.find(link => isActive(link.path))?.name || 'Dashboard'}
+                  {navLinks.find(link => isActive(link.path))?.name || 'My Profile'}
                 </h1>
               </div>
             </div>
@@ -619,12 +636,145 @@ const ClientDashboardLayout = ({ children }) => {
                 <Settings className="w-5 h-5 text-gray-600" />
               </button>
 
-              {/* User Avatar */}
-              <button className="flex items-center gap-2 p-1 pr-3 hover:bg-gray-100 rounded-xl transition-colors">
-                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-purple-500 to-blue-600 flex items-center justify-center text-sm font-bold text-white shadow-md">
-                  {getUserInitials()}
+                {/* User Avatar Dropdown */}
+                <div className="relative" ref={avatarMenuRef}>
+                  <button
+                    onClick={() => setShowAvatarMenu(!showAvatarMenu)}
+                    className="flex items-center gap-2 p-1 pr-3 hover:bg-gray-100 rounded-xl transition-colors"
+                  >
+                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-purple-500 to-blue-600 flex items-center justify-center text-sm font-bold text-white shadow-md ring-2 ring-white">
+                      {getUserInitials()}
+                    </div>
+                    <div className="hidden md:block text-left">
+                      <p className="text-sm font-semibold text-gray-900 leading-none">
+                        {user?.full_name || user?.username}
+                      </p>
+                      <p className="text-xs text-gray-500">Premium Account</p>
+                    </div>
+                    <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${showAvatarMenu ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  {/* Dropdown Menu */}
+                  {showAvatarMenu && (
+                    <div className="absolute right-0 mt-2 w-72 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                      {/* User Info Header */}
+                      <div className="bg-gradient-to-br from-purple-500 to-blue-600 p-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-xl flex items-center justify-center text-lg font-bold text-white shadow-lg ring-2 ring-white/30">
+                            {getUserInitials()}
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-sm font-bold text-white">
+                              {user?.full_name || user?.username}
+                            </p>
+                            <p className="text-xs text-purple-100">
+                              {user?.email}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Premium Badge */}
+                        <div className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 bg-white/10 backdrop-blur-xl rounded-full border border-white/20">
+                          <Shield className="w-3.5 h-3.5 text-white" />
+                          <span className="text-xs font-semibold text-white">Premium Member</span>
+                        </div>
+                      </div>
+
+                      {/* Menu Items */}
+                      <div className="p-2">
+                        {/* My Reports */}
+                        <button
+                          onClick={() => {
+                            navigate('/client/reports');
+                            setShowAvatarMenu(false);
+                          }}
+                          className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 rounded-xl transition-colors text-left group"
+                        >
+                          <div className="w-9 h-9 rounded-lg bg-purple-50 flex items-center justify-center group-hover:bg-purple-100 transition-colors">
+                            <FileText className="w-4 h-4 text-purple-600" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-sm font-semibold text-gray-900">My Reports</p>
+                            <p className="text-xs text-gray-500">Access and manage your reports</p>
+                          </div>
+                        </button>
+
+                        {/* My Subscriptions */}
+                        <button
+                          onClick={() => {
+                            navigate('/client/subscriptions');
+                            setShowAvatarMenu(false);
+                          }}
+                          className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 rounded-xl transition-colors text-left group"
+                        >
+                          <div className="w-9 h-9 rounded-lg bg-green-50 flex items-center justify-center group-hover:bg-green-100 transition-colors">
+                            <CreditCard className="w-4 h-4 text-green-600" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-sm font-semibold text-gray-900">My Subscriptions</p>
+                            <p className="text-xs text-gray-500">Manage your subscriptions</p>
+                          </div>
+                        </button>
+
+                        {/* My Profile */}
+                        <button
+                          onClick={() => {
+                            navigate('/my-profile');
+                            setShowAvatarMenu(false);
+                          }}
+                          className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 rounded-xl transition-colors text-left group"
+                        >
+                          <div className="w-9 h-9 rounded-lg bg-blue-50 flex items-center justify-center group-hover:bg-blue-100 transition-colors">
+                            <User className="w-4 h-4 text-blue-600" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-sm font-semibold text-gray-900">My Profile</p>
+                            <p className="text-xs text-gray-500">View and edit your profile</p>
+                          </div>
+                        </button>
+
+                        {/* Account Settings */}
+                        <button
+                          onClick={() => {
+                            navigate('/profile-settings');
+                            setShowAvatarMenu(false);
+                          }}
+                          className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 rounded-xl transition-colors text-left group"
+                        >
+                          <div className="w-9 h-9 rounded-lg bg-purple-50 flex items-center justify-center group-hover:bg-purple-100 transition-colors">
+                            <Settings className="w-4 h-4 text-purple-600" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-sm font-semibold text-gray-900">Profile Settings</p>
+                            <p className="text-xs text-gray-500">Account preferences</p>
+                          </div>
+                        </button>
+                      </div>
+
+                      {/* Divider */}
+                      <div className="border-t border-gray-100 my-2"></div>
+
+                      {/* Logout */}
+                      <div className="p-2">
+                        <button
+                          onClick={() => {
+                            logout();
+                            setShowAvatarMenu(false);
+                          }}
+                          className="w-full flex items-center gap-3 px-4 py-3 hover:bg-red-50 rounded-xl transition-colors text-left group"
+                        >
+                          <div className="w-9 h-9 rounded-lg bg-red-50 flex items-center justify-center group-hover:bg-red-100 transition-colors">
+                            <LogOut className="w-4 h-4 text-red-600" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-sm font-semibold text-red-600">Logout</p>
+                            <p className="text-xs text-red-400">Sign out of your account</p>
+                          </div>
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              </button>
             </div>
           </div>
         </header>

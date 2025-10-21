@@ -32,6 +32,7 @@ import ReportDetailPage from './pages/ReportDetailPage';
 import ClientDashboardLayout from './components/layout/ClientDashboardLayout';
 import ClientNotifications from './pages/client/ClientNotifications';
 import ClientReportVisualizationPage from './pages/client/ClientReportVisualizationPage';
+import MyProfilePage from './pages/MyProfilePage';
 
 
 function App() {
@@ -56,6 +57,7 @@ function App() {
         <Route path="/create-password/:uidb64/:token" element={<CreatePasswordPage />} />
         <Route path="/update-profile" element={<ProfileUpdatePage />} />
         <Route path="/profile-settings" element={<ProtectedRoute><ProfileSettingsPage /></ProtectedRoute>} />
+        <Route path="/my-profile" element={<ProtectedRoute><MyProfilePage /></ProtectedRoute>} />
 
         {/* Custom Reports Routes */}
         <Route path="/custom-reports" element={<ProtectedRoute><CustomReportsPage /></ProtectedRoute>} />

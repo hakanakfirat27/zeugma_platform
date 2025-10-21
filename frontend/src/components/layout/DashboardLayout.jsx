@@ -8,7 +8,7 @@ import {
     FileText, CreditCard, Users, Settings
 } from 'lucide-react'; // MODIFIED: Added Users icon
 
-const DashboardLayout = ({ children }) => {
+const DashboardLayout = ({ children, pageTitle }) => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();

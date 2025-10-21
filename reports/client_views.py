@@ -14,6 +14,7 @@ from .serializers import SuperdatabaseRecordSerializer
 from .pagination import CustomPagination
 from .filters import SuperdatabaseRecordFilter
 import csv
+import datetime
 
 
 class ClientSubscriptionsAPIView(APIView):
@@ -50,7 +51,7 @@ class ClientSubscriptionsAPIView(APIView):
                 'start_date': sub.start_date,
                 'end_date': sub.end_date,
                 'is_active': sub.is_active,
-                'days_remaining': (sub.end_date - today).days,
+                'days_remaining': (sub.end_date - datetime.date.today()).days,
                 'plan': sub.plan,
                 'amount_paid': float(sub.amount_paid) if sub.amount_paid else 0
             })
