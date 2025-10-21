@@ -1,4 +1,5 @@
 // frontend/src/pages/ReportDetailPage.jsx
+// MODIFIED: Moved Edit/Delete buttons back to the Action Bar in the content area.
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -288,42 +289,21 @@ const ReportDetailPage = () => {
     );
   }
 
-  return (
-    <DashboardLayout>
-      {/* Header */}
-      <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white px-8 py-8 shadow-lg">
-        <div className="flex items-center gap-3 mb-2">
-          <button
-            onClick={() => navigate('/custom-reports')}
-            className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <div className="flex-1">
-            <h1 className="text-2xl font-bold">{report.title}</h1>
-            <p className="text-indigo-100 text-sm mt-1">{report.description}</p>
-          </div>
-          {isStaff && (
-            <div className="flex gap-2">
-              <button
-                onClick={handleEditReport}
-                className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition flex items-center gap-2"
-              >
-                <Edit className="w-4 h-4" />
-                Edit
-              </button>
-              <button
-                onClick={handleDeleteReport}
-                className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition flex items-center gap-2"
-              >
-                <Trash2 className="w-4 h-4" />
-                Delete
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
+  // Define page subtitle
+  const pageSubtitle = (
+    <p className="text-sm text-white-500 mt-1">{report.description}</p> // Color for white header
+  );
 
+  // --- MODIFIED: Header actions REMOVED Edit/Delete ---
+  const pageHeaderActions = null; // Removed Edit/Delete, Export is now in content
+
+  return (
+    // Pass pageTitle, pageSubtitleBottom, and headerActions
+    <DashboardLayout
+      pageTitle={report.title}
+      pageSubtitleBottom={pageSubtitle}
+      headerActions={pageHeaderActions} // Pass null or empty fragment if no actions
+    >
       {/* Content */}
       <div className="flex-1 overflow-auto bg-white">
         <div className="max-w-7xl mx-auto px-8 py-6">
@@ -406,27 +386,48 @@ const ReportDetailPage = () => {
 
           {/* Action Bar */}
           <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setShowFilters(true)}
-                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2"
-              >
-                <SlidersHorizontal className="w-4 h-4" />
-                Additional Filters
-                {activeFiltersCount > 0 && (
-                  <span className="bg-blue-600 text-white text-xs px-2 py-0.5 rounded-full">
-                    {activeFiltersCount}
-                  </span>
-                )}
-              </button>
+            {/* Left side: Filter Button */}
+            <button
+              onClick={() => setShowFilters(true)}
+              className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2 text-gray-700 text-sm"
+            >
+              <SlidersHorizontal className="w-4 h-4" />
+              Additional Filters
+              {activeFiltersCount > 0 && (
+                <span className="bg-blue-600 text-white text-xs px-2 py-0.5 rounded-full">
+                  {activeFiltersCount}
+                </span>
+              )}
+            </button>
 
-              <button
-                onClick={handleExport}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2"
-              >
-                <Download className="w-4 h-4" />
-                Export Data
-              </button>
+            {/* Right side: Export/Edit/Delete Buttons */}
+            {/* --- MODIFIED: Added buttons back here --- */}
+            <div className="flex items-center gap-3">
+               <button
+                 onClick={handleExport}
+                 className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2 text-sm"
+               >
+                 <Download className="w-4 h-4" />
+                 Export Data
+               </button>
+               {isStaff && (
+                 <>
+                   <button
+                     onClick={handleEditReport}
+                     className="px-4 py-2 border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg transition flex items-center gap-2 text-sm" // Adjusted style for white background
+                   >
+                     <Edit className="w-4 h-4" />
+                     Edit
+                   </button>
+                   <button
+                     onClick={handleDeleteReport}
+                     className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition flex items-center gap-2 text-sm" // Adjusted style for white background
+                   >
+                     <Trash2 className="w-4 h-4" />
+                     Delete
+                   </button>
+                 </>
+               )}
             </div>
           </div>
 

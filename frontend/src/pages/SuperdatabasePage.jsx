@@ -1,4 +1,5 @@
 // frontend/src/pages/SuperdatabasePage.jsx
+// MODIFIED: Merged header by removing secondary header and adding props to DashboardLayout
 
 import { FileText } from 'lucide-react';
 import { useState, useEffect } from 'react';
@@ -201,21 +202,18 @@ const SuperdatabasePage = () => {
     });
   };
 
+  // --- NEW: Define the header subtitle ---
+  const pageSubtitle = (
+    <p className="text-sm text-white-700">Complete administrative control over all records</p>
+  );
+
   return (
-    <DashboardLayout>
-      {/* Header */}
-      <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white px-8 py-8 shadow-lg">
-        <div className="flex items-center gap-3 mb-2">
-          <button
-            onClick={() => navigate('/staff-dashboard')}
-            className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <h1 className="text-2xl font-bold">Superdatabase Management</h1>
-        </div>
-        <p className="text-indigo-100 text-sm ml-12">Complete administrative control over all records</p>
-      </div>
+    // --- MODIFIED: Pass pageTitle and pageSubtitleBottom to DashboardLayout ---
+    <DashboardLayout
+      pageTitle="Superdatabase Management"
+      pageSubtitleBottom={pageSubtitle}
+    >
+      {/* --- REMOVED: The secondary gradient header div --- */}
 
       {/* Content */}
       <div className="flex-1 overflow-auto bg-white">
@@ -225,7 +223,7 @@ const SuperdatabasePage = () => {
             <div className="flex items-center gap-3">
               <button
                 onClick={() => setShowStats(!showStats)}
-                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2"
+                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2 text-gray-700 text-sm" // Added text style
               >
                 <BarChart3 className="w-4 h-4" />
                 {showStats ? 'Hide' : 'Show'} Stats
@@ -233,7 +231,7 @@ const SuperdatabasePage = () => {
 
               <button
                 onClick={() => setShowFilters(true)}
-                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2"
+                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2 text-gray-700 text-sm" // Added text style
               >
                 <SlidersHorizontal className="w-4 h-4" />
                 Filters
@@ -248,7 +246,7 @@ const SuperdatabasePage = () => {
               {(activeFiltersCount > 0 || totalCount > 0) && (
                 <button
                   onClick={handleCreateReport}
-                  className="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg hover:from-purple-700 hover:to-indigo-700 flex items-center gap-2 shadow-md transition-all"
+                  className="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg hover:from-purple-700 hover:to-indigo-700 flex items-center gap-2 shadow-md transition-all text-sm" // Added text style
                   title="Create custom report from current filters"
                 >
                   <FileText className="w-4 h-4" />
@@ -265,7 +263,7 @@ const SuperdatabasePage = () => {
             <div className="flex items-center gap-3">
               <button
                 onClick={() => alert('Import coming soon')}
-                className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 flex items-center gap-2"
+                className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 flex items-center gap-2 text-sm" // Added text style
               >
                 <Upload className="w-4 h-4" />
                 Import Data
@@ -273,7 +271,7 @@ const SuperdatabasePage = () => {
 
               <button
                 onClick={() => alert('Add new record')}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 text-sm" // Added text style
               >
                 <Plus className="w-4 h-4" />
                 Add Record

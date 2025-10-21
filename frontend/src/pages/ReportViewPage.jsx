@@ -1,6 +1,7 @@
 // frontend/src/pages/ReportViewPage.jsx
+// MODIFIED: Merged header by removing secondary header and adding props to DashboardLayout
 
-import { useState, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, Search, X, Edit, Users, Calendar, Globe,
@@ -141,21 +142,19 @@ const ReportViewPage = () => {
     );
   }
 
+  // --- NEW: Define page subtitle ---
+  const pageSubtitle = (
+    <p className="text-sm text-white-500 mt-1">{report.description}</p> // Color for white header
+  );
+
+
   return (
-    <DashboardLayout>
-      {/* Header */}
-      <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white px-8 py-8 shadow-lg">
-        <div className="flex items-center gap-3 mb-2">
-          <button
-            onClick={() => navigate('/custom-reports')}
-            className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <h1 className="text-2xl font-bold">{report.title}</h1>
-        </div>
-        <p className="text-indigo-100 text-sm ml-12">{report.description}</p>
-      </div>
+    // --- MODIFIED: Pass pageTitle and pageSubtitleBottom ---
+    <DashboardLayout
+      pageTitle={report.title}
+      pageSubtitleBottom={pageSubtitle}
+    >
+      {/* --- REMOVED: The secondary gradient header div --- */}
 
       {/* Content */}
       <div className="max-w-7xl mx-auto px-8 py-6">
@@ -207,7 +206,7 @@ const ReportViewPage = () => {
           <div className="flex items-center gap-3">
             <button
               onClick={() => setShowFilters(true)}
-              className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2"
+              className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2 text-gray-700 text-sm" // Added text style
             >
               <Filter className="w-4 h-4" />
               Filters
@@ -223,7 +222,7 @@ const ReportViewPage = () => {
             <div className="flex items-center gap-3">
               <button
                 onClick={() => navigate(`/custom-reports/${reportId}/edit`)}
-                className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 flex items-center gap-2"
+                className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 flex items-center gap-2 text-sm" // Added text style
               >
                 <Edit className="w-4 h-4" />
                 Edit Report

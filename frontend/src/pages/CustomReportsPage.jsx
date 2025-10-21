@@ -1,4 +1,6 @@
 // frontend/src/pages/CustomReportsPage.jsx
+// MODIFIED: Merged header by removing secondary header and adding props to DashboardLayout
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -72,25 +74,22 @@ const CustomReportsPage = () => {
     );
   }
 
+  // --- NEW: Define the header subtitle ---
+  const pageSubtitle = (
+    <p className="text-sm text-white-500"> {/* Color for white header */}
+      {isStaff
+        ? 'Create and manage custom database reports'
+        : 'Browse available custom reports'}
+    </p>
+  );
+
   return (
-    <DashboardLayout>
-      {/* Header - Same style as Superdatabase */}
-      <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white px-8 py-8 shadow-lg">
-        <div className="flex items-center gap-3 mb-2">
-          <button
-            onClick={() => navigate('/staff-dashboard')}
-            className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <h1 className="text-2xl font-bold">Custom Reports</h1>
-        </div>
-        <p className="text-indigo-100 text-sm ml-12">
-          {isStaff
-            ? 'Create and manage custom database reports'
-            : 'Browse available custom reports'}
-        </p>
-      </div>
+    // --- MODIFIED: Pass pageTitle and pageSubtitleBottom to DashboardLayout ---
+    <DashboardLayout
+      pageTitle="Custom Reports"
+      pageSubtitleBottom={pageSubtitle}
+    >
+      {/* --- REMOVED: The secondary gradient header div --- */}
 
       {/* Content */}
       <div className="flex-1 overflow-auto bg-white">
@@ -121,7 +120,7 @@ const CustomReportsPage = () => {
             {isStaff && (
               <button
                 onClick={handleCreateReport}
-                className="ml-4 px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition flex items-center gap-2 shadow-md"
+                className="ml-4 px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition flex items-center gap-2 shadow-md text-sm" // Added text-sm
               >
                 <Plus className="w-5 h-5" />
                 Create New Report

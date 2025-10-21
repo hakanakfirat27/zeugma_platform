@@ -1,8 +1,9 @@
 // frontend/src/pages/dashboards/StaffDashboard.jsx
+// MODIFIED: Removed text-indigo-100 from subtitle props to fix visibility on white header.
 
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Settings, RefreshCw, Lock, Unlock, Download, GripVertical, Moon, Sun } from 'lucide-react';
+import { Settings, RefreshCw, Lock, Unlock, GripVertical } from 'lucide-react';
 import {
   DndContext,
   closestCenter,
@@ -76,23 +77,6 @@ const StaffDashboard = () => {
   const [isLocked, setIsLocked] = useState(true);
   const [activeId, setActiveId] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [darkMode, setDarkMode] = useState(false);
-
-  useEffect(() => {
-    const root = window.document.documentElement;
-    if (darkMode) {
-      root.classList.add('dark');
-    } else {
-      root.classList.remove('dark');
-    }
-    return () => {
-      root.classList.remove('dark');
-    };
-  }, [darkMode]);
-
-  const toggleDarkMode = () => {
-    setDarkMode(prev => !prev);
-  };
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -185,7 +169,7 @@ const StaffDashboard = () => {
 
   if (loading) {
     return (
-      <DashboardLayout>
+      <DashboardLayout pageTitle="Loading...">
         <div className="flex items-center justify-center h-screen">
           <LoadingSpinner />
         </div>
@@ -196,6 +180,7 @@ const StaffDashboard = () => {
   const activeWidget = widgets.find(w => w.id === activeId);
 
   const organizeWidgetsIntoRows = () => {
+    // ... (This function is unchanged)
     const rows = [];
     let currentRow = [];
     let currentRowWidth = 0;
@@ -221,79 +206,81 @@ const StaffDashboard = () => {
 
   const widgetRows = organizeWidgetsIntoRows();
 
-  return (
-    <DashboardLayout>
-      {/* Header */}
-      <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white px-8 py-8 shadow-lg">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex items-center justify-between">
-            <div className="flex-1">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></div>
-                <span className="text-indigo-100 text-sm font-medium">
-                  {new Date().toLocaleDateString('en-US', {
-                    weekday: 'long',
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric'
-                  })}
-                </span>
-              </div>
-              <h1 className="text-3xl font-bold mb-1">Analytics Dashboard</h1>
-              <p className="text-indigo-100">
-                {isLocked ? 'Real-time insights and metrics' : '🎯 Drag widgets to reorder'}
-              </p>
-            </div>
+  const dashboardHeaderActions = (
+    <>
+      <button
+        onClick={toggleLock}
+        className={`px-4 py-2.5 backdrop-blur-sm rounded-lg transition-all flex items-center gap-2 font-medium ${
+          isLocked
+            ? 'bg-white/10 hover:bg-white/20'
+            : 'bg-yellow-500/20 hover:bg-yellow-500/30 border-2 border-yellow-400'
+        }`}
+        title={isLocked ? 'Unlock to reorder widgets' : 'Lock dashboard'}
+      >
+        {isLocked ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
+        <span className="hidden sm:inline">{isLocked ? 'Locked' : 'Lock'}</span>
+      </button>
+      <button
+        onClick={handleRefresh}
+        disabled={refreshing || isSaving}
+        className="px-4 py-2.5 bg-white/10 hover:bg-white/20 backdrop-blur-sm rounded-lg transition-all flex items-center gap-2 font-medium disabled:opacity-50"
+      >
+        <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+        <span className="hidden sm:inline">Refresh</span>
+      </button>
+      <button
+        onClick={() => navigate('/widget-management')}
+        className="px-4 py-2.5 bg-white/90 hover:bg-white text-indigo-600 rounded-lg transition-all flex items-center gap-2 font-semibold shadow-lg"
+      >
+        <Settings className="w-4 h-4" />
+        <span className="hidden sm:inline">Settings</span>
+      </button>
+    </>
+  );
 
-            <div className="flex items-center gap-3">
-              <button
-                onClick={toggleDarkMode}
-                className="p-2.5 backdrop-blur-sm rounded-lg transition-all bg-white/10 hover:bg-white/20"
-                title={darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-              >
-                {darkMode ? <Sun className="w-10 h-6" /> : <Moon className="w-10 h-6" />}
-              </button>
-              <button
-                onClick={toggleLock}
-                className={`px-4 py-2.5 backdrop-blur-sm rounded-lg transition-all flex items-center gap-2 font-medium ${
-                  isLocked
-                    ? 'bg-white/10 hover:bg-white/20'
-                    : 'bg-yellow-500/20 hover:bg-yellow-500/30 border-2 border-yellow-400'
-                }`}
-                title={isLocked ? 'Unlock to reorder widgets' : 'Lock dashboard'}
-              >
-                {isLocked ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
-                <span className="hidden sm:inline">{isLocked ? 'Locked' : 'Lock'}</span>
-              </button>
-              <button
-                onClick={handleRefresh}
-                disabled={refreshing || isSaving}
-                className="px-4 py-2.5 bg-white/10 hover:bg-white/20 backdrop-blur-sm rounded-lg transition-all flex items-center gap-2 font-medium disabled:opacity-50"
-              >
-                <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-                <span className="hidden sm:inline">Refresh</span>
-              </button>
-              <button
-                onClick={() => navigate('/widget-management')}
-                className="px-4 py-2.5 bg-white/90 hover:bg-white text-indigo-600 rounded-lg transition-all flex items-center gap-2 font-semibold shadow-lg"
-              >
-                <Settings className="w-4 h-4" />
-                <span className="hidden sm:inline">Settings</span>
-              </button>
-            </div>
-          </div>
+  // --- MODIFIED: Define the header TOP subtitle (Time) ---
+  const dashboardSubtitleTop = (
+    <div className="flex items-center gap-3">
+      <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></div>
+      {/* --- MODIFIED: Removed 'text-indigo-100' --- */}
+      <span className="text-sm font-medium">
+        {new Date().toLocaleDateString('en-US', {
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        })}
+      </span>
+    </div>
+  );
+
+  // --- MODIFIED: Define the header BOTTOM subtitle (Insights) ---
+  const dashboardSubtitleBottom = (
+    // --- MODIFIED: Removed 'text-indigo-100' ---
+    <p className="text-sm">
+      {isLocked ? 'Real-time insights and metrics' : '🎯 Drag widgets to reorder'}
+    </p>
+  );
+
+  return (
+    <DashboardLayout
+      pageTitle="Analytics Dashboard"
+      headerActions={dashboardHeaderActions}
+      //pageSubtitleTop={dashboardSubtitleTop}
+      pageSubtitleBottom={dashboardSubtitleBottom}
+    >
+      {/* Main Content */}
+      <div className="flex-1 overflow-auto bg-gray-50">
+        <div className="max-w-7xl mx-auto p-8">
+
+          {/* The 'isSaving' message remains, with its own margin */}
           {isSaving && (
-            <div className="mt-3 flex items-center gap-2 text-indigo-100 text-sm">
+            <div className="mb-6 flex items-center gap-2 text-indigo-600 text-sm">
               <RefreshCw className="w-4 h-4 animate-spin" />
               <span>Saving widget order...</span>
             </div>
           )}
-        </div>
-      </div>
 
-      {/* Main Content */}
-      <div className="flex-1 overflow-auto bg-gray-50 dark:bg-gray-900">
-        <div className="max-w-7xl mx-auto p-8">
           <style>{`
             @keyframes fadeIn {
               from {
@@ -389,19 +376,7 @@ const StaffDashboard = () => {
       </div>
 
       <style>{`
-        .dark .bg-gray-50 { background-color: #111827; }
-        .dark .bg-white { background-color: #1f2937; }
-        .dark .card {
-            background-color: #1f2937;
-            border-color: #374151;
-         }
-        .dark .text-gray-900 { color: #f9fafb; }
-        .dark .text-gray-800 { color: #f3f4f6; }
-        .dark .text-gray-700 { color: #e5e7eb; }
-        .dark .text-gray-600 { color: #d1d5db; }
-        .dark .text-gray-500 { color: #9ca3af; }
-        .dark .border, .dark .border-b, .dark .border-t, .dark .border-l-4, .dark .border-gray-100, .dark .border-gray-200 { border-color: #374151; }
-        .dark .divide-y > :not([hidden]) ~ :not([hidden]) { border-color: #374151; }
+        /* All dark mode styles have been removed */
       `}</style>
     </DashboardLayout>
   );

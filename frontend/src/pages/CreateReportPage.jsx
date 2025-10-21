@@ -1,4 +1,6 @@
 // frontend/src/pages/CreateReportPage.jsx
+// MODIFIED: Merged header by removing secondary header and adding props to DashboardLayout
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation, useParams } from 'react-router-dom';
 import DashboardLayout from '../components/layout/DashboardLayout';
@@ -56,7 +58,7 @@ const CreateReportPage = () => {
       const response = await api.get(`/api/custom-reports/${reportId}/`);
       const report = response.data;
 
-      console.log('📝 Loading report for edit:', report);
+      console.log('統 Loading report for edit:', report);
 
       // Set basic form data
       setFormData({
@@ -128,7 +130,7 @@ const CreateReportPage = () => {
   // UPDATED: Handle preloaded filters with multi-category support
   useEffect(() => {
     if (Object.keys(preloadedFilters).length > 0) {
-      console.log('📦 Preloaded Filters:', preloadedFilters);
+      console.log('逃 Preloaded Filters:', preloadedFilters);
 
       // Handle categories (can be string or array)
       if (preloadedFilters.categories) {
@@ -164,7 +166,7 @@ const CreateReportPage = () => {
         }
       });
 
-      console.log('🎯 Material Filters:', materialFilters);
+      console.log('識 Material Filters:', materialFilters);
       setSelectedFilters(materialFilters);
 
       // Generate title based on selected categories
@@ -330,7 +332,7 @@ const CreateReportPage = () => {
       criteria.country = selectedCountries;
     }
 
-    console.log('📋 Building Filter Criteria:', criteria);
+    console.log('搭 Building Filter Criteria:', criteria);
 
     return criteria;
   };
@@ -350,7 +352,7 @@ const CreateReportPage = () => {
       setLoading(true);
       const criteria = buildFilterCriteria();
 
-      console.log('📤 Submitting report with criteria:', criteria);
+      console.log('豆 Submitting report with criteria:', criteria);
 
       const submitData = {
         title: formData.title,
@@ -362,7 +364,7 @@ const CreateReportPage = () => {
         filter_criteria: criteria
       };
 
-      console.log('📤 Full submit data:', submitData);
+      console.log('豆 Full submit data:', submitData);
 
       if (isEditMode) {
         // UPDATE existing report
@@ -400,32 +402,21 @@ const CreateReportPage = () => {
     { number: 3, title: 'Review', icon: <CheckCircle2 className="w-5 h-5" /> }
   ];
 
-  return (
-    <DashboardLayout>
-      {/* Header */}
-      <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white px-8 py-8 shadow-lg">
-        <div className="flex items-center gap-3 mb-2">
-          <button onClick={() => navigate('/custom-reports')} className="p-2 hover:bg-white/10 rounded-lg transition-colors">
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <h1 className="text-2xl font-bold">{isEditMode ? 'Edit Custom Report' : 'Create Custom Report'}</h1>
-        </div>
-        <p className="text-indigo-100 text-sm ml-12">
-          {isEditMode ? 'Update report details and filters' : 'Define filters to create a custom database report'}
-        </p>
+  // --- NEW: Define page title and subtitle ---
+  const pageTitle = isEditMode ? 'Edit Custom Report' : 'Create Custom Report';
+  const pageSubtitle = (
+    <p className="text-sm text-white-500"> {/* Color for white header */}
+      {isEditMode ? 'Update report details and filters' : 'Define filters to create a custom database report'}
+    </p>
+  );
 
-        {Object.keys(preloadedFilters).length > 0 && !isEditMode && (
-          <div className="mt-4 ml-12 bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg p-4">
-            <div className="flex items-start gap-3">
-              <CheckCircle2 className="w-5 h-5 text-white mt-0.5" />
-              <div>
-                <p className="text-sm font-medium text-white">Filters imported from Superdatabase</p>
-                <p className="text-sm text-indigo-100 mt-1">{preloadedRecordCount} records found with your selected filters.</p>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
+  return (
+    // --- MODIFIED: Pass pageTitle and pageSubtitleBottom ---
+    <DashboardLayout
+      pageTitle={pageTitle}
+      pageSubtitleBottom={pageSubtitle}
+    >
+      {/* --- REMOVED: The secondary gradient header div --- */}
 
       <div className="flex-1 overflow-auto bg-gradient-to-br from-gray-50 to-gray-100">
         <div className="max-w-7xl mx-auto px-8 py-8">
@@ -891,7 +882,7 @@ const CreateReportPage = () => {
                           </div>
                           <div className="flex gap-4 pt-2">
                             <span className={`text-xs px-2 py-1 rounded-full ${formData.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>
-                              {formData.is_active ? '✓ Active' : 'Inactive'}
+                              {formData.is_active ? '✅ Active' : 'Inactive'}
                             </span>
                           </div>
                         </div>
@@ -984,7 +975,7 @@ const CreateReportPage = () => {
                         {loading ? (
                           <>
                             <LoadingSpinner />
-                            Creating...
+                            {isEditMode ? 'Updating...' : 'Creating...'}
                           </>
                         ) : (
                           <>

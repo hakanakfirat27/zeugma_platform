@@ -1,4 +1,5 @@
 // frontend/src/pages/MyProfilePage.jsx
+// MODIFIED: Uses the dynamic 'Layout' component instead of hardcoding ClientDashboardLayout
 
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -37,10 +38,12 @@ const MyProfilePage = () => {
     });
   };
 
+  // --- This line correctly determines the layout based on role ---
   const Layout = user?.role === 'CLIENT' ? ClientDashboardLayout : DashboardLayout;
 
   return (
-    <ClientDashboardLayout pageTitle="My Profile">
+    // --- MODIFIED: Use the dynamic 'Layout' component here ---
+    <Layout pageTitle="My Profile">
       <div className="max-w-7xl mx-auto p-6 space-y-6">
         {/* Header with Back Button */}
         <div className="flex items-center justify-between">
@@ -221,7 +224,8 @@ const MyProfilePage = () => {
           </div>
         </div>
       </div>
-    </ClientDashboardLayout>
+    {/* --- MODIFIED: Use the dynamic 'Layout' closing tag --- */}
+    </Layout>
   );
 };
 

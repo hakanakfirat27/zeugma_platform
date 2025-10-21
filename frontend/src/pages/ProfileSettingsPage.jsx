@@ -1,3 +1,6 @@
+// frontend/src/pages/ProfileSettingsPage.jsx
+// MODIFIED: Merged header by removing secondary header and adding props to LayoutComponent
+
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -230,26 +233,20 @@ const ProfileSettingsPage = () => {
 
   const LayoutComponent = user?.role === 'CLIENT' ? ClientDashboardLayout : DashboardLayout;
 
+  // --- NEW: Define the header subtitle ---
+  const pageSubtitle = (
+      <p className="text-sm text-white-500">Manage your account settings and preferences</p> // Color for white header
+  );
+
   return (
-    <LayoutComponent>
+    // --- MODIFIED: Pass pageTitle and potentially subtitle props ---
+    <LayoutComponent
+      pageTitle="Profile Settings"
+      // Conditionally pass subtitles only if it's DashboardLayout
+      {...(LayoutComponent === DashboardLayout && { pageSubtitleBottom: pageSubtitle })}
+    >
       <div className="min-h-screen bg-gray-50">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white px-8 py-8 shadow-lg">
-          <div className="max-w-4xl">
-            <div className="flex items-center gap-3 mb-2">
-              <button
-                onClick={() => navigate(getDashboardPath())}
-                className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-              >
-                <ArrowLeft className="w-5 h-5" />
-              </button>
-              <h1 className="text-3xl font-bold">Profile Settings</h1>
-            </div>
-            <p className="text-indigo-100 text-sm">
-              Manage your account settings and preferences
-            </p>
-          </div>
-        </div>
+        {/* --- REMOVED: The secondary gradient header div --- */}
 
         {/* Content */}
         <div className="max-w-7xl mx-auto p-8">

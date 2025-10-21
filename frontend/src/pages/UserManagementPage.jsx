@@ -1,3 +1,6 @@
+// frontend/src/pages/UserManagementPage.jsx
+// MODIFIED: Merged header by removing secondary header and adding props to DashboardLayout
+
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -264,24 +267,21 @@ const UserManagementPage = () => {
     XLSX.writeFile(wb, filename);
   };
 
+  // --- NEW: Define the header subtitle ---
+  const pageSubtitle = (
+    <p className="text-sm text-white-500">Add, edit, and manage all platform users.</p> // Color for white header
+  );
+
   return (
-    <DashboardLayout>
+    // --- MODIFIED: Pass pageTitle and pageSubtitleBottom ---
+    <DashboardLayout
+        pageTitle="User Management"
+        pageSubtitleBottom={pageSubtitle}
+    >
       {/* Toast Notifications */}
       <ToastContainer toasts={toasts} removeToast={removeToast} />
 
-      {/* Header */}
-    <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white px-8 py-8 shadow-lg">
-        <div className="flex items-center gap-3 mb-2">
-          <button
-            onClick={() => navigate('/staff-dashboard')}
-            className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <h1 className="text-2xl font-bold">User Management</h1>
-        </div>
-        <p className="text-indigo-100 text-sm ml-12">Add, edit, and manage all platform users.</p>
-    </div>
+      {/* --- REMOVED: The secondary gradient header div --- */}
 
       {/* Main Content */}
       <div className="p-8">
@@ -337,14 +337,14 @@ const UserManagementPage = () => {
               <div className="flex gap-3 w-full lg:w-auto">
                 <button
                   onClick={handleExportToExcel}
-                  className="flex-1 lg:flex-none px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition flex items-center justify-center gap-2 shadow-md"
+                  className="flex-1 lg:flex-none px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition flex items-center justify-center gap-2 shadow-md text-sm" // Added text-sm
                 >
                   <Download className="w-5 h-5" />
                   Export to Excel
                 </button>
                 <button
                   onClick={() => handleOpenModal()}
-                  className="flex-1 lg:flex-none px-5 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition flex items-center justify-center gap-2 shadow-md"
+                  className="flex-1 lg:flex-none px-5 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition flex items-center justify-center gap-2 shadow-md text-sm" // Added text-sm
                 >
                   <UserPlus className="w-5 h-5" />
                   Add User
@@ -714,7 +714,6 @@ const UserFormModal = ({ user, onClose, onSubmit, isLoading, error }) => {
           <EmailInput
             value={formData.email}
             onChange={handleChange}
-
             existingUserId={user?.id}
           />
 

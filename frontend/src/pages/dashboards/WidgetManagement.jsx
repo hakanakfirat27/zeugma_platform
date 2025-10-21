@@ -1,3 +1,5 @@
+// frontend/src/pages/WidgetManagement.jsx
+// MODIFIED: Merged header by removing secondary header and adding props to DashboardLayout
 
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -121,34 +123,30 @@ const WidgetManagement = () => {
   const filteredWidgets = getFilteredWidgets();
   const enabledCount = filteredWidgets.filter(w => w.is_enabled).length;
 
+  // --- NEW: Define page subtitle ---
+  const pageSubtitle = (
+    <p className="text-sm text-white-500 mt-1">Customize your dashboard</p> // Color for white header
+  );
+
+  // --- NEW: Define header actions (Refresh button) ---
+  const headerActions = (
+      <button
+        onClick={fetchWidgets}
+        className="px-4 py-2 text-white-700 hover:bg-white/20 rounded-lg transition-colors flex items-center gap-2 text-sm" // Style for white header
+      >
+        <RefreshCw className="w-4 h-4" />
+        Refresh
+      </button>
+  );
+
   return (
-    <DashboardLayout>
-      {/* Header */}
-      <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-8 py-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => navigate('/staff-dashboard')}
-              className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </button>
-            <div>
-              <h1 className="text-2xl font-bold">Widget Management</h1>
-              <p className="text-indigo-100 mt-1">Customize your dashboard</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={fetchWidgets}
-              className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors flex items-center gap-2"
-            >
-              <RefreshCw className="w-4 h-4" />
-              Refresh
-            </button>
-          </div>
-        </div>
-      </div>
+    // --- MODIFIED: Pass pageTitle, pageSubtitleBottom, and headerActions ---
+    <DashboardLayout
+      pageTitle="Widget Management"
+      pageSubtitleBottom={pageSubtitle}
+      headerActions={headerActions}
+    >
+      {/* --- REMOVED: The secondary gradient header div --- */}
 
       {/* Content */}
       <div className="flex-1 overflow-auto p-8">
@@ -181,7 +179,7 @@ const WidgetManagement = () => {
             </div>
             <div>
               <p className="text-sm text-gray-600">Disabled</p>
-              <p className="text-2xl font-bold text-gray-400">{filteredWidgets.length - enabledCount}</p>
+              <p className="text-2xl font-bold text-red-400">{filteredWidgets.length - enabledCount}</p>
             </div>
           </div>
 
@@ -197,7 +195,7 @@ const WidgetManagement = () => {
             <button
               onClick={() => bulkToggle(false)}
               disabled={saving}
-              className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50"
+              className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50"
             >
               <EyeOff className="w-4 h-4" />
               Disable All
@@ -232,13 +230,18 @@ const WidgetManagement = () => {
           {filteredWidgets.map(widget => (
             <div
               key={widget.id}
-              className={`card hover:shadow-md transition-all ${
+              className={`card hover:shadow-md transition-all ${ // Note: 'card' class might need definition if not global
                 widget.is_enabled ? 'border-l-4 border-l-green-500' : 'opacity-60'
-              }`}
+              }`} style={{
+                 backgroundColor: 'white',
+                 borderRadius: '0.75rem', /* rounded-xl */
+                 border: '1px solid #e5e7eb', /* border-gray-200 */
+                 padding: '1rem' /* p-4 equivalent */
+              }}
             >
               <div className="flex items-start gap-4">
                 {/* Drag Handle */}
-                <div className="cursor-move text-gray-400 hover:text-gray-600">
+                <div className="cursor-move text-gray-400 hover:text-gray-600 pt-1"> {/* Adjusted padding */}
                   <GripVertical className="w-5 h-5" />
                 </div>
 
@@ -261,7 +264,7 @@ const WidgetManagement = () => {
                     <button
                       onClick={() => toggleWidget(widget.id)}
                       className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                        widget.is_enabled ? 'bg-green-600' : 'bg-gray-300'
+                        widget.is_enabled ? 'bg-green-600' : 'bg-gray-600'
                       }`}
                     >
                       <span
