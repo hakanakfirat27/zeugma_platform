@@ -994,3 +994,28 @@ Zeugma Platform Team
             'success': False,
             'message': f'Failed to send email: {str(e)}'
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_admin_users(request):
+    """
+    Get list of admin users for clients to chat with
+    Only returns basic info for SUPERADMIN and STAFF_ADMIN users
+    """
+    # Get all admin users
+    admin_users = User.objects.filter(
+        role__in=['SUPERADMIN', 'STAFF_ADMIN'],
+        is_active=True
+    ).order_by('first_name', 'username')
+
+    # Return simplified user data
+    users_data = [{
+        'id': user.id,
+        'username': user.username,
+        'full_name': user.full_name or user.username,
+        'email': user.email,
+        'role': user.role
+    } for user in admin_users]
+
+    return Response(users_data)

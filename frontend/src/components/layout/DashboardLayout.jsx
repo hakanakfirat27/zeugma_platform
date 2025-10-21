@@ -1,12 +1,11 @@
-// frontend/src/components/layout/DashboardLayout.jsx
-
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
     LayoutDashboard, Database, LogOut, Maximize, Minimize,
     FileText, CreditCard, Users, Settings
-} from 'lucide-react'; // MODIFIED: Added Users icon
+} from 'lucide-react';
+import { MessageSquare } from 'lucide-react';
 
 const DashboardLayout = ({ children, pageTitle }) => {
   const { user, logout } = useAuth();
@@ -21,7 +20,9 @@ const DashboardLayout = ({ children, pageTitle }) => {
     { name: 'Subscriptions', path: '/subscriptions', icon: CreditCard, roles: ['SUPERADMIN', 'STAFF_ADMIN'] },
     // --- NEW LINK FOR USER MANAGEMENT ---
     { name: 'User Management', path: '/user-management', icon: Users, roles: ['SUPERADMIN'] },
+    { name: 'Chat', path: '/staff-chat', icon: MessageSquare, roles: ['SUPERADMIN', 'STAFF_ADMIN'] },
     { name: 'Profile Settings', path: '/profile-settings', icon: Settings, roles: ['SUPERADMIN', 'STAFF_ADMIN'] },
+
   ];
 
   useEffect(() => {
@@ -93,13 +94,6 @@ const DashboardLayout = ({ children, pageTitle }) => {
           </div>
         </nav>
         <div className  ="p-4 border-t border-gray-700 space-y-2">
-          <button
-            onClick={() => navigate('/profile-settings')}
-            className="w-full flex items-center gap-3 px-3 py-3 rounded-lg transition-all text-gray-300 hover:bg-gray-800 hover:text-white"
-          >
-            <Settings className="w-5 h-5" />
-            <span className="font-medium">Profile Settings</span>
-          </button>
           <button onClick={toggleFullscreen} className="w-full flex items-center gap-3 px-3 py-3 rounded-lg transition-all text-gray-300 hover:bg-gray-800 hover:text-white">
             {isFullscreen ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
             <span className="font-medium">{isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}</span>

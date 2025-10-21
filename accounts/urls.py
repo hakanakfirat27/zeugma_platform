@@ -1,4 +1,3 @@
-
 from django.urls import path, include
 from . import views
 
@@ -8,8 +7,11 @@ urlpatterns = [
     path('logout/', views.logout_view, name='logout'),
     path('signup/', views.signup_view, name='signup'),
 
-    # User profile endpoint - UPDATED NAME
-    path('user/', views.user_profile_view, name='user-profile'),  # ← Changed from user_view
+    # User profile endpoint
+    path('user/', views.user_profile_view, name='user-profile'),
+
+    # NEW: Get admin users for chat
+    path('admins/', views.get_admin_users, name='get-admins'),
 
     # Include API URLs
     path('', include('accounts.api_urls')),

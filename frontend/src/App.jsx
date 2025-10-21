@@ -33,6 +33,7 @@ import ClientDashboardLayout from './components/layout/ClientDashboardLayout';
 import ClientNotifications from './pages/client/ClientNotifications';
 import ClientReportVisualizationPage from './pages/client/ClientReportVisualizationPage';
 import MyProfilePage from './pages/MyProfilePage';
+import StaffChatPage from './pages/StaffChatPage';
 
 
 function App() {
@@ -77,6 +78,7 @@ function App() {
         <Route path="/client/faq" element={<ProtectedRoute allowedRoles={['CLIENT']}><ClientFAQPage /></ProtectedRoute>}/>
         <Route path="/client/notifications" element={<ProtectedRoute><ClientDashboardLayout><ClientNotifications /></ClientDashboardLayout></ProtectedRoute>}/>
         <Route path="/client/reports/:reportId/visualization" element={<ClientReportVisualizationPage />} />
+        <Route path="/staff-chat" element={<ProtectedRoute allowedRoles={['SUPERADMIN', 'STAFF_ADMIN']}><StaffChatPage /></ProtectedRoute>} />
 
         {/* Catch all */}
         <Route path="*" element={<Navigate to="/" replace />} />

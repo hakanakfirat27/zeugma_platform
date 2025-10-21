@@ -8,6 +8,8 @@ import {
   Database, ArrowRight, Check, X, Trash2, CheckCheck,
   User, Shield, ChevronDown
 } from 'lucide-react';
+import useChatUnreadCount from '../../hooks/useChatUnreadCount';
+
 
 const ClientDashboardLayout = ({ children, pageTitle }) => {
   const { user, logout } = useAuth();
@@ -22,6 +24,7 @@ const ClientDashboardLayout = ({ children, pageTitle }) => {
   const [error, setError] = useState(null);
   const menuRef = useRef(null);
   const notificationRef = useRef(null);
+  const chatUnreadCount = useChatUnreadCount();
 
   const navLinks = [
     { name: 'Dashboard', path: '/client/dashboard', icon: LayoutDashboard, color: 'text-blue-500' },

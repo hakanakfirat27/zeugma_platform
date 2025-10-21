@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     'reports',
     'dashboard',
     'notifications',
+    'chat',
     'rest_framework',
     'corsheaders',
     'django_filters',

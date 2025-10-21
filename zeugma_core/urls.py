@@ -17,4 +17,5 @@ urlpatterns = [
     path('accounts/', include('accounts.urls')),
     path('dashboard/', include('dashboard.urls')),
     path('api/client/', include('reports.client_api_urls')),
+    path('api/', include('chat.urls')),
 ]
