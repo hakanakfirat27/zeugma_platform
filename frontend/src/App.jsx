@@ -29,11 +29,13 @@ import VerifyEmailPage from './components/VerifyEmailPage';
 //import TwoFactorVerificationModal from './components/TwoFactorVerificationModal';
 import ProfileSettingsPage from './pages/ProfileSettingsPage';
 import ReportDetailPage from './pages/ReportDetailPage';
+import DashboardLayout from './components/layout/DashboardLayout';
 import ClientDashboardLayout from './components/layout/ClientDashboardLayout';
 import ClientNotifications from './pages/client/ClientNotifications';
 import ClientReportVisualizationPage from './pages/client/ClientReportVisualizationPage';
 import MyProfilePage from './pages/MyProfilePage';
 import StaffChatPage from './pages/StaffChatPage';
+import StaffNotifications from './pages/StaffNotifications';
 
 
 function App() {
@@ -63,21 +65,27 @@ function App() {
         {/* Custom Reports Routes */}
         <Route path="/custom-reports" element={<ProtectedRoute><CustomReportsPage /></ProtectedRoute>} />
         <Route path="/custom-reports/create" element={<ProtectedRoute><CreateReportPage /></ProtectedRoute>} />
-        <Route path="/custom-reports/:reportId/edit" element={<ProtectedRoute><CreateReportPage /></ProtectedRoute>} />
         <Route path="/custom-reports/:reportId" element={<ProtectedRoute><ReportDetailPage /></ProtectedRoute>} />
+        <Route path="/custom-reports/:reportId/edit" element={<ProtectedRoute><CreateReportPage /></ProtectedRoute>} />
+
+        <Route path="/client/reports/:reportId/visualization" element={<ClientReportVisualizationPage />} />
+        <Route path="/client/reports" element={<ProtectedRoute allowedRoles={['CLIENT']}><ClientReportsPage /></ProtectedRoute>}/>
+        <Route path="/client/reports/:reportId" element={<ProtectedRoute allowedRoles={['CLIENT']}><ClientReportViewPage /></ProtectedRoute>}/>
 
         {/* Subscription Management Routes */}
         <Route path="/subscriptions" element={<ProtectedRoute><SubscriptionManagementPage /></ProtectedRoute>} />
 
         {/* Client Routes */}
         <Route path="/client/dashboard" element={<ProtectedRoute allowedRoles={['CLIENT']}><ClientDashboard /></ProtectedRoute>}/>
-        <Route path="/client/reports" element={<ProtectedRoute allowedRoles={['CLIENT']}><ClientReportsPage /></ProtectedRoute>}/>
-        <Route path="/client/reports/:reportId" element={<ProtectedRoute allowedRoles={['CLIENT']}><ClientReportViewPage /></ProtectedRoute>}/>
         <Route path="/client/subscriptions" element={<ProtectedRoute allowedRoles={['CLIENT']}><ClientSubscriptionsPage /></ProtectedRoute>}/>
-        <Route path="/client/chat" element={<ProtectedRoute allowedRoles={['CLIENT']}><ClientChatPage /></ProtectedRoute>}/>
         <Route path="/client/faq" element={<ProtectedRoute allowedRoles={['CLIENT']}><ClientFAQPage /></ProtectedRoute>}/>
+
+        {/* Notifications Routes */}
         <Route path="/client/notifications" element={<ProtectedRoute><ClientDashboardLayout><ClientNotifications /></ClientDashboardLayout></ProtectedRoute>}/>
-        <Route path="/client/reports/:reportId/visualization" element={<ClientReportVisualizationPage />} />
+        <Route path="/staff/notifications" element={<ProtectedRoute><DashboardLayout><StaffNotifications /></DashboardLayout></ProtectedRoute>}/>
+
+        {/* Chat Routes */}
+        <Route path="/client/chat" element={<ProtectedRoute allowedRoles={['CLIENT']}><ClientChatPage /></ProtectedRoute>}/>
         <Route path="/staff-chat" element={<ProtectedRoute allowedRoles={['SUPERADMIN', 'STAFF_ADMIN']}><StaffChatPage /></ProtectedRoute>} />
 
         {/* Catch all */}

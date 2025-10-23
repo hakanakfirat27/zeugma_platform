@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -25,7 +24,7 @@ const DashboardLayout = ({ children, pageTitle, headerActions, pageSubtitleTop, 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const notificationRef = useRef(null);
-  const chatUnreadCount = useChatUnreadCount();
+  const { unreadCount: chatUnreadCount, clearCount: clearChatBadge } = useChatUnreadCount();
 
   const menuRef = useRef(null);
   const [showAvatarMenu, setShowAvatarMenu] = useState(false);
@@ -104,11 +103,53 @@ const DashboardLayout = ({ children, pageTitle, headerActions, pageSubtitleTop, 
     }
   };
 
-  // Fetch notifications on component mount and set up polling
+  // Fetch notifications on component mount and set up WebSocket + polling
   useEffect(() => {
     fetchNotifications();
-    const interval = setInterval(fetchNotifications, 30000); // Poll every 30 seconds
-    return () => clearInterval(interval);
+
+    // Connect to notification WebSocket for INSTANT updates
+    const wsScheme = window.location.protocol === 'https:' ? 'wss' : 'ws';
+    const notifWsUrl = `${wsScheme}://${window.location.hostname}:8000/ws/notifications/`;
+
+    console.log('🔔 Notification Bell: Connecting to WebSocket');
+    const notifWs = new WebSocket(notifWsUrl);
+
+    notifWs.onopen = () => {
+      console.log('✅ Notification Bell: WebSocket connected');
+    };
+
+    notifWs.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      console.log('🔔 Notification Bell: Received:', data);
+
+      // Refresh notification bell when any notification arrives
+      if (data.type === 'notification') {
+        console.log('📨 Notification Bell: Updating instantly!');
+        fetchNotifications();
+
+        // Also refresh chat badge if it's a chat message notification
+        if (data.notification && data.notification.notification_type === 'message') {
+          console.log('💬 Notification Bell: Triggering chat badge refresh');
+          // The hook will handle this via its own WebSocket connection
+        }
+      }
+    };
+
+    notifWs.onerror = (error) => {
+      console.error('❌ Notification Bell: WebSocket error:', error);
+    };
+
+    notifWs.onclose = () => {
+      console.log('🔴 Notification Bell: WebSocket disconnected');
+    };
+
+    // No polling needed - WebSocket handles everything instantly!
+
+    return () => {
+      if (notifWs.readyState === WebSocket.OPEN) {
+        notifWs.close();
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -223,17 +264,23 @@ const DashboardLayout = ({ children, pageTitle, headerActions, pageSubtitleTop, 
   };
 
   const clearAll = async () => {
+    if (!window.confirm('Are you sure you want to clear all notifications?')) return;
+
     try {
       const csrfToken = getCSRFToken();
       await axios.delete(
         'http://localhost:8000/api/notifications/clear_all/',
-        {},
-        { withCredentials: true, headers: { 'X-CSRFToken': csrfToken } }
+        {
+          withCredentials: true,
+          headers: { 'X-CSRFToken': csrfToken }
+        }
       );
       setNotifications([]);
       setUnreadCount(0);
+      fetchNotifications(); // Refresh to confirm
     } catch (error) {
       console.error('Error clearing all notifications:', error);
+      alert('Failed to clear notifications. Please try again.');
     }
   };
 
@@ -319,7 +366,13 @@ const DashboardLayout = ({ children, pageTitle, headerActions, pageSubtitleTop, 
                 return (
                   <button
                     key={link.name}
-                    onClick={() => navigate(link.path)}
+                    onClick={() => {
+                      navigate(link.path);
+                      // Clear chat badge immediately when clicking Chat
+                      if (isChatLink) {
+                        clearChatBadge();
+                      }
+                    }}
                     className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all group relative ${
                       active
                         ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg'
@@ -575,7 +628,7 @@ const DashboardLayout = ({ children, pageTitle, headerActions, pageSubtitleTop, 
                       <div className="p-3 border-t border-gray-200 bg-gray-50">
                         <button
                           onClick={() => {
-                            navigate('/client/notifications');
+                            navigate('/staff/notifications');
                             setShowNotifications(false);
                           }}
                           className="w-full text-center text-sm text-blue-600 hover:text-blue-700 font-medium"

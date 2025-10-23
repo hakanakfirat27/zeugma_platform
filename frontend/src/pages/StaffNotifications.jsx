@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '../contexts/AuthContext';
 import axios from 'axios';
-import { Bell, Check, X, Trash2, CheckCheck, Filter, Search } from 'lucide-react';
+import { Bell, Check, X, Trash2, CheckCheck, Search } from 'lucide-react';
 
-const ClientNotifications = () => {
+const StaffNotifications = () => {
   const { user } = useAuth();
   const [notifications, setNotifications] = useState([]);
   const [filteredNotifications, setFilteredNotifications] = useState([]);
@@ -29,7 +29,6 @@ const ClientNotifications = () => {
     return cookieValue;
   };
 
-
   const fetchNotifications = async () => {
     try {
       setLoading(true);
@@ -49,6 +48,33 @@ const ClientNotifications = () => {
 
   useEffect(() => {
     fetchNotifications();
+
+    // WebSocket for instant updates
+    const wsScheme = window.location.protocol === 'https:' ? 'wss' : 'ws';
+    const notifWsUrl = `${wsScheme}://${window.location.hostname}:8000/ws/notifications/`;
+
+    const notifWs = new WebSocket(notifWsUrl);
+
+    notifWs.onopen = () => {
+      console.log('✅ Staff Notifications: WebSocket connected');
+    };
+
+    notifWs.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      if (data.type === 'notification') {
+        fetchNotifications(); // Update instantly
+      }
+    };
+
+    notifWs.onerror = (error) => {
+      console.error('❌ Staff Notifications: WebSocket error:', error);
+    };
+
+    return () => {
+      if (notifWs.readyState === WebSocket.OPEN) {
+        notifWs.close();
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -153,6 +179,7 @@ const ClientNotifications = () => {
       setUnreadCount(0);
     } catch (error) {
       console.error('Error clearing all:', error);
+      alert('Failed to clear notifications. Please try again.');
     }
   };
 
@@ -184,7 +211,7 @@ const ClientNotifications = () => {
     <div className="p-6 max-w-7xl mx-auto">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Notifications</h1>
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">Staff Notifications</h1>
         <p className="text-gray-600">Manage all your notifications in one place</p>
       </div>
 
@@ -265,26 +292,6 @@ const ClientNotifications = () => {
               Unread
             </button>
             <button
-              onClick={() => setFilterType('report')}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                filterType === 'report'
-                  ? 'bg-purple-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              Reports
-            </button>
-            <button
-              onClick={() => setFilterType('subscription')}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                filterType === 'subscription'
-                  ? 'bg-green-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              Subscriptions
-            </button>
-            <button
               onClick={() => setFilterType('message')}
               className={`px-4 py-2 rounded-lg font-medium transition-colors ${
                 filterType === 'message'
@@ -293,6 +300,26 @@ const ClientNotifications = () => {
               }`}
             >
               Messages
+            </button>
+            <button
+              onClick={() => setFilterType('system')}
+              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                filterType === 'system'
+                  ? 'bg-gray-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              System
+            </button>
+            <button
+              onClick={() => setFilterType('announcement')}
+              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                filterType === 'announcement'
+                  ? 'bg-pink-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              Announcements
             </button>
           </div>
         </div>
@@ -384,4 +411,4 @@ const ClientNotifications = () => {
   );
 };
 
-export default ClientNotifications;
+export default StaffNotifications;

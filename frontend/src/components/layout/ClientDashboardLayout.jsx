@@ -26,7 +26,7 @@ const ClientDashboardLayout = ({ children, pageTitle }) => {
   const [error, setError] = useState(null);
   const menuRef = useRef(null);
   const notificationRef = useRef(null);
-  const chatUnreadCount = useChatUnreadCount();
+  const { unreadCount: chatUnreadCount, clearCount: clearChatBadge } = useChatUnreadCount();
 
   const navLinks = [
     { name: 'Dashboard', path: '/client/dashboard', icon: LayoutDashboard, color: 'text-blue-500' },
@@ -101,16 +101,53 @@ const ClientDashboardLayout = ({ children, pageTitle }) => {
     }
   };
 
-  // Fetch notifications on component mount and set up polling
+  // Fetch notifications on component mount and set up WebSocket + polling
   useEffect(() => {
     fetchNotifications();
 
-    // Poll for new notifications every 30 seconds
-    const interval = setInterval(() => {
-      fetchNotifications();
-    }, 30000);
+    // Connect to notification WebSocket for INSTANT updates
+    const wsScheme = window.location.protocol === 'https:' ? 'wss' : 'ws';
+    const notifWsUrl = `${wsScheme}://${window.location.hostname}:8000/ws/notifications/`;
 
-    return () => clearInterval(interval);
+    console.log('🔔 Notification Bell: Connecting to WebSocket');
+    const notifWs = new WebSocket(notifWsUrl);
+
+    notifWs.onopen = () => {
+      console.log('✅ Notification Bell: WebSocket connected');
+    };
+
+    notifWs.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      console.log('🔔 Notification Bell: Received:', data);
+
+      // Refresh notification bell when any notification arrives
+      if (data.type === 'notification') {
+        console.log('📨 Notification Bell: Updating instantly!');
+        fetchNotifications();
+
+        // Also refresh chat badge if it's a chat message notification
+        if (data.notification && data.notification.notification_type === 'message') {
+          console.log('💬 Notification Bell: Triggering chat badge refresh');
+          // The hook will handle this via its own WebSocket connection
+        }
+      }
+    };
+
+    notifWs.onerror = (error) => {
+      console.error('❌ Notification Bell: WebSocket error:', error);
+    };
+
+    notifWs.onclose = () => {
+      console.log('🔴 Notification Bell: WebSocket disconnected');
+    };
+
+    // No polling needed - WebSocket handles everything instantly!
+
+    return () => {
+      if (notifWs.readyState === WebSocket.OPEN) {
+        notifWs.close();
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -289,6 +326,8 @@ const ClientDashboardLayout = ({ children, pageTitle }) => {
   };
 
   const clearAll = async () => {
+    if (!window.confirm('Are you sure you want to clear all notifications?')) return;
+
     try {
       const csrfToken = getCSRFToken();
 
@@ -305,9 +344,11 @@ const ClientDashboardLayout = ({ children, pageTitle }) => {
       // Update local state
       setNotifications([]);
       setUnreadCount(0);
+      fetchNotifications(); // Refresh to confirm
     } catch (error) {
       console.error('Error clearing all notifications:', error);
       console.error('Error response:', error.response);
+      alert('Failed to clear notifications. Please try again.');
     }
   };
 
@@ -391,7 +432,13 @@ const ClientDashboardLayout = ({ children, pageTitle }) => {
               return (
                 <button
                   key={link.name}
-                  onClick={() => navigate(link.path)}
+                  onClick={() => {
+                    navigate(link.path);
+                    // Clear chat badge immediately when clicking Chat
+                    if (isChatLink) {
+                      clearChatBadge();
+                    }
+                  }}
                   className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all group relative ${
                     active
                       ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg'
