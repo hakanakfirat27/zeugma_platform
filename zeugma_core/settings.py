@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     'dashboard',
     'notifications',
     'chat',
+    'channels',
     'rest_framework',
     'corsheaders',
     'django_filters',
@@ -226,3 +227,15 @@ CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = 'UTC'
+
+
+ASGI_APPLICATION = 'zeugma_core.asgi.application'
+
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels.layers.InMemoryChannelLayer'
+    },
+}
+
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')

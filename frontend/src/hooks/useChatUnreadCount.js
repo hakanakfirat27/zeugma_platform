@@ -1,5 +1,3 @@
-// frontend/src/hooks/useChatUnreadCount.js
-
 import { useState, useEffect } from 'react';
 import api from '../utils/api';
 
@@ -8,10 +6,17 @@ export const useChatUnreadCount = () => {
 
   const fetchUnreadCount = async () => {
     try {
-      const response = await api.get('/api/chat/unread_count/');
+      // --- MODIFIED URL HERE ---
+      const response = await api.get('/api/chat/rooms/unread_count/'); // Changed from '/api/chat/unread_count/'
       setUnreadCount(response.data.unread_count);
     } catch (error) {
-      console.error('Error fetching unread chat count:', error);
+      // Avoid logging 404s if the endpoint simply doesn't exist for a user type
+      if (error.response?.status !== 404) {
+         console.error('Error fetching unread chat count:', error);
+      } else {
+         // Handle 404 gracefully, maybe user doesn't have chat access
+         setUnreadCount(0);
+      }
     }
   };
 

@@ -1,3 +1,5 @@
+// frontend/src/components/layout/ClientDashboardLayout.jsx
+
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -380,16 +382,17 @@ const ClientDashboardLayout = ({ children, pageTitle }) => {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 p-4 overflow-y-auto">
+<nav className="flex-1 p-4 overflow-y-auto">
           <div className="space-y-1">
             {navLinks.map((link) => {
               const Icon = link.icon;
               const active = isActive(link.path);
+              const isChatLink = link.name === 'Chat';
               return (
                 <button
                   key={link.name}
                   onClick={() => navigate(link.path)}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all group ${
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all group relative ${
                     active
                       ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg'
                       : 'text-slate-300 hover:bg-slate-800 hover:text-white'
@@ -399,6 +402,19 @@ const ClientDashboardLayout = ({ children, pageTitle }) => {
                   {(isSidebarOpen) && (
                     <span className="font-medium transition-opacity duration-200">{link.name}</span>
                   )}
+                   {/* --- 3. Add Badge (CORRECTED) --- */}
+                   {isChatLink && chatUnreadCount > 0 && (
+                      <span className={`absolute min-w-[20px] h-5 px-1.5 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-200 ${
+                        active ? 'bg-white text-purple-600' : 'bg-red-500 text-white'
+                      } ${
+                        isSidebarOpen
+                          ? 'right-4 top-1/2 -translate-y-1/2' // Centered when open
+                          : 'scale-75 top-1 right-1' // Top-right corner when collapsed
+                      }`}>
+                        {chatUnreadCount > 99 ? '99+' : chatUnreadCount}
+                      </span>
+                    )}
+                    {/* --- End Badge --- */}
                   {active && (isSidebarOpen) && (
                     <ChevronRight className="w-4 h-4 ml-auto" />
                   )}
@@ -612,7 +628,6 @@ const ClientDashboardLayout = ({ children, pageTitle }) => {
                     </div>
 
                     {/* Footer */}
-                    {/* Footer */}
                     {notifications.length > 0 && (
                       <div className="p-3 border-t border-gray-200 bg-gray-50">
                         <button
@@ -659,7 +674,7 @@ const ClientDashboardLayout = ({ children, pageTitle }) => {
 
                   {/* Dropdown Menu */}
                   {showAvatarMenu && (
-                    <div className="absolute right-0 mt-2 w-72 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                    <div className="absolute right-0 mt-2 w-72 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200 text-gray-900">
                       {/* User Info Header */}
                       <div className="bg-gradient-to-br from-purple-500 to-blue-600 p-4">
                         <div className="flex items-center gap-3">

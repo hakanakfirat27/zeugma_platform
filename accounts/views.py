@@ -505,6 +505,17 @@ def user_profile_view(request):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+@api_view(['GET'])
+@ensure_csrf_cookie
+@permission_classes([AllowAny])
+def csrf_view(request):
+    """
+    Return CSRF token for client
+    """
+    return Response({
+        'detail': 'CSRF cookie set'
+    })
+
 @api_view(['POST'])
 @ensure_csrf_cookie
 @permission_classes([AllowAny])

@@ -1,168 +1,222 @@
+# chat/views.py
+
 from rest_framework import viewsets, status
-from rest_framework.decorators import action
+from rest_framework.decorators import action, api_view, permission_classes, parser_classes
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from django.db.models import Q
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
+from django.db.models import Q, Count
+from .models import ChatRoom, ChatMessage, TypingStatus
+from .serializers import (
+    ChatRoomSerializer,
+    ChatMessageSerializer,
+    ChatMessageCreateSerializer,
+    TypingStatusSerializer
+)
 from django.utils import timezone
-from .models import ChatMessage, ChatRoom
-from .serializers import ChatMessageSerializer, ChatRoomSerializer, UserSerializer
-from accounts.models import User
+from accounts.models import UserRole  # Import UserRole
 
 
-class ChatViewSet(viewsets.ModelViewSet):
+class ChatRoomViewSet(viewsets.ModelViewSet):
+    """ViewSet for chat rooms"""
+    serializer_class = ChatRoomSerializer
     permission_classes = [IsAuthenticated]
-    serializer_class = ChatMessageSerializer
 
     def get_queryset(self):
         user = self.request.user
-        return ChatMessage.objects.filter(
-            Q(sender=user) | Q(receiver=user)
-        ).select_related('sender', 'receiver')
-
-    @action(detail=False, methods=['get'])
-    def conversations(self, request):
-        user = request.user
-
-        if user.role in ['SUPERADMIN', 'STAFF_ADMIN']:
-            rooms = ChatRoom.objects.filter(admin=user).select_related('client', 'admin')
+        if user.role in [UserRole.SUPERADMIN, UserRole.STAFF_ADMIN]:
+            queryset = ChatRoom.objects.all()
         else:
-            rooms = ChatRoom.objects.filter(client=user).select_related('client', 'admin')
+            queryset = ChatRoom.objects.filter(client=user)
 
-        serializer = ChatRoomSerializer(rooms, many=True, context={'request': request})
-        return Response(serializer.data)
+        is_active = self.request.query_params.get('is_active')
+        if is_active is not None:
+            queryset = queryset.filter(is_active=is_active.lower() == 'true')
 
-    @action(detail=False, methods=['get'])
-    def get_messages(self, request):
-        other_user_id = request.query_params.get('user_id')
+        return queryset.select_related('client', 'assigned_staff').prefetch_related('messages')
 
-        if not other_user_id:
-            return Response({'error': 'user_id parameter is required'},
-                            status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            other_user = User.objects.get(id=other_user_id)
-        except User.DoesNotExist:
-            return Response({'error': 'User not found'},
-                            status=status.HTTP_404_NOT_FOUND)
-
-        user = request.user
-        messages = ChatMessage.objects.filter(
-            Q(sender=user, receiver=other_user) |
-            Q(sender=other_user, receiver=user)
-        ).select_related('sender', 'receiver').order_by('created_at')
-
-        # Mark as read
-        ChatMessage.objects.filter(
-            sender=other_user, receiver=user, is_read=False
-        ).update(is_read=True)
-
-        self._update_room_unread_count(user, other_user)
-
-        serializer = self.get_serializer(messages, many=True)
-        return Response(serializer.data)
-
-    @action(detail=False, methods=['post'])
-    def send_message(self, request):
-        receiver_id = request.data.get('receiver_id')
-        message_text = request.data.get('message')
-
-        if not receiver_id or not message_text:
-            return Response({'error': 'receiver_id and message are required'},
-                            status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            receiver = User.objects.get(id=receiver_id)
-        except User.DoesNotExist:
-            return Response({'error': 'Receiver not found'},
-                            status=status.HTTP_404_NOT_FOUND)
-
-        sender = request.user
-
-        if sender.role == 'CLIENT' and receiver.role not in ['SUPERADMIN', 'STAFF_ADMIN']:
-            return Response({'error': 'Clients can only send messages to administrators'},
-                            status=status.HTTP_403_FORBIDDEN)
-
-        message = ChatMessage.objects.create(
-            sender=sender, receiver=receiver, message=message_text
-        )
-
-        self._update_or_create_room(sender, receiver, message_text)
-
-        # Create notification
-        try:
-            from notifications.models import Notification
-            Notification.objects.create(
-                user=receiver,
-                notification_type='message',
-                title=f'New message from {sender.full_name or sender.username}',
-                message=message_text[:100],
-                related_message_id=message.id
+    def create(self, request, *args, **kwargs):
+        """Create a new chat room"""
+        if request.user.role == UserRole.CLIENT:
+            room, created = ChatRoom.objects.get_or_create(
+                client=request.user,
+                room_type='SUPPORT',
+                defaults={'subject': request.data.get('subject', 'Support Request')}
             )
-        except:
-            pass
+            if not room.is_active:
+                room.is_active = True
+                room.subject = request.data.get('subject', 'Support Request')
+                room.save()
+            status_code = status.HTTP_201_CREATED if created else status.HTTP_200_OK
+            serializer = self.get_serializer(room)
+            return Response(serializer.data, status=status_code)
 
-        serializer = self.get_serializer(message)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        # For staff creating a room
+        client_id = request.data.get('client_id')
+        if not client_id:
+            return Response(
+                {"error": "client_id is required for staff to create a room."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            from accounts.models import User
+            client = User.objects.get(id=client_id, role=UserRole.CLIENT)
+        except User.DoesNotExist:
+            return Response(
+                {"error": "Client not found."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        room, created = ChatRoom.objects.get_or_create(
+            client=client,
+            room_type='SUPPORT',
+            defaults={'subject': request.data.get('subject', 'Support Chat')}
+        )
+        if not room.is_active:
+            room.is_active = True
+            room.save()
+
+        status_code = status.HTTP_201_CREATED if created else status.HTTP_200_OK
+        serializer = self.get_serializer(room)
+        return Response(serializer.data, status=status_code)
+
+    @action(detail=True, methods=['post'])
+    def assign_staff(self, request, pk=None):
+        """Assign staff member to a room"""
+        if request.user.role not in [UserRole.SUPERADMIN, UserRole.STAFF_ADMIN]:
+            return Response(
+                {'error': 'Permission denied'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        room = self.get_object()
+        staff_id = request.data.get('staff_id')
+        if staff_id:
+            from accounts.models import User
+            try:
+                staff = User.objects.get(id=staff_id, role__in=[UserRole.SUPERADMIN, UserRole.STAFF_ADMIN])
+                room.assigned_staff = staff
+                room.save()
+                return Response({'status': 'Staff assigned successfully'})
+            except User.DoesNotExist:
+                return Response(
+                    {'error': 'Staff member not found'},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+        return Response({'error': 'staff_id required'}, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=True, methods=['post'])
+    def close(self, request, pk=None):
+        """Close/deactivate a chat room"""
+        room = self.get_object()
+        room.is_active = False
+        room.save()
+        return Response({'status': 'Room closed successfully'})
 
     @action(detail=False, methods=['get'])
-    def search_users(self, request):
-        user = request.user
+    def stats(self, request):
+        """Get chat statistics for staff"""
+        if request.user.role not in [UserRole.SUPERADMIN, UserRole.STAFF_ADMIN]:
+            return Response(
+                {'error': 'Permission denied'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        total_rooms = ChatRoom.objects.count()
+        active_rooms = ChatRoom.objects.filter(is_active=True).count()
+        unassigned_rooms = ChatRoom.objects.filter(assigned_staff__isnull=True, is_active=True).count()
+        return Response({
+            'total_rooms': total_rooms,
+            'active_rooms': active_rooms,
+            'unassigned_rooms': unassigned_rooms,
+        })
 
-        if user.role not in ['SUPERADMIN', 'STAFF_ADMIN']:
-            return Response({'error': 'Only administrators can search users'},
-                            status=status.HTTP_403_FORBIDDEN)
-
-        query = request.query_params.get('q', '')
-
-        # If no query, return empty list
-        if not query:
-            return Response([])
-
-        users = User.objects.filter(
-            Q(username__icontains=query) |
-            Q(email__icontains=query) |
-            Q(first_name__icontains=query) |
-            Q(last_name__icontains=query)
-        ).exclude(id=user.id)[:10]
-
-        serializer = UserSerializer(users, many=True)
-        return Response(serializer.data)
-
+    # --- *** THIS IS THE CORRECTED ACTION *** ---
     @action(detail=False, methods=['get'])
     def unread_count(self, request):
+        """Get total unread message count for current user"""
         user = request.user
-        count = ChatMessage.objects.filter(receiver=user, is_read=False).count()
-        return Response({'unread_count': count})
 
-    def _update_or_create_room(self, sender, receiver, message_text):
-        if sender.role == 'CLIENT':
-            client, admin = sender, receiver
-        else:
-            client, admin = receiver, sender
+        if not user.is_authenticated:
+            return Response({'unread_count': 0})
 
-        room, created = ChatRoom.objects.get_or_create(client=client, admin=admin)
-        room.last_message = message_text
-        room.last_message_time = timezone.now()
+        if user.role in [UserRole.SUPERADMIN, UserRole.STAFF_ADMIN]:
+            # Staff: Count all unread messages sent by CLIENTS
+            unread = ChatMessage.objects.filter(
+                is_read=False,
+                sender__role=UserRole.CLIENT
+            ).count()
+        else:  # Client
+            # Client: Count unread messages in their rooms sent by STAFF
+            unread = ChatMessage.objects.filter(
+                room__client=user,
+                is_read=False,
+                sender__role__in=[UserRole.SUPERADMIN, UserRole.STAFF_ADMIN]
+            ).count()
 
-        if sender == client:
-            room.unread_count_admin += 1
-        else:
-            room.unread_count_client += 1
+        return Response({'unread_count': unread})
+    # --- *** END OF CORRECTED ACTION *** ---
 
-        room.save()
 
-    def _update_room_unread_count(self, user, other_user):
-        if user.role == 'CLIENT':
-            try:
-                room = ChatRoom.objects.get(client=user, admin=other_user)
-                room.unread_count_client = 0
-                room.save()
-            except ChatRoom.DoesNotExist:
-                pass
-        else:
-            try:
-                room = ChatRoom.objects.get(client=other_user, admin=user)
-                room.unread_count_admin = 0
-                room.save()
-            except ChatRoom.DoesNotExist:
-                pass
+class ChatMessageViewSet(viewsets.ModelViewSet):
+    """ViewSet for chat messages"""
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+
+    def get_serializer_class(self):
+        if self.action == 'create':
+            return ChatMessageCreateSerializer
+        return ChatMessageSerializer
+
+    def get_queryset(self):
+        user = self.request.user
+        room_id = self.request.query_params.get('room_id')
+        queryset = ChatMessage.objects.filter(is_deleted=False)
+        if room_id:
+            queryset = queryset.filter(room__room_id=room_id)
+        if user.role not in [UserRole.SUPERADMIN, UserRole.STAFF_ADMIN]:
+            queryset = queryset.filter(room__client=user)
+        return queryset.select_related('sender', 'room').order_by('created_at')
+
+    def create(self, request, *args, **kwargs):
+        if 'file' in request.data:
+            self.parser_classes = [MultiPartParser, FormParser]
+        serializer = self.get_serializer(data=request.data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        message = serializer.save()
+        read_serializer = ChatMessageSerializer(message, context={'request': request})
+        return Response(read_serializer.data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['post'])
+    def mark_read(self, request, pk=None):
+        message = self.get_object()
+        if message.room.client == request.user or message.room.assigned_staff == request.user:
+            if message.sender != request.user:
+                message.mark_as_read()
+                return Response({'status': 'Message marked as read'})
+        return Response({'error': 'Cannot mark own message or unauthorized'}, status=status.HTTP_403_FORBIDDEN)
+
+    @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated])
+    def mark_room_read(self, request):
+        room_id = request.data.get('room_id')
+        if not room_id:
+            return Response(
+                {'error': 'room_id required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        try:
+            if request.user.role in [UserRole.SUPERADMIN, UserRole.STAFF_ADMIN]:
+                room = ChatRoom.objects.get(room_id=room_id)
+            else:
+                room = ChatRoom.objects.get(room_id=room_id, client=request.user)
+        except ChatRoom.DoesNotExist:
+            return Response({'error': 'Room not found or access denied'}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_403_FORBIDDEN)
+
+        messages = ChatMessage.objects.filter(
+            room=room,
+            is_read=False
+        ).exclude(sender=request.user)
+
+        updated_count = messages.update(is_read=True, read_at=timezone.now())
+        return Response({'status': f'{updated_count} messages marked as read'})

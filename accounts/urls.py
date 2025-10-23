@@ -9,6 +9,7 @@ urlpatterns = [
 
     # User profile endpoint
     path('user/', views.user_profile_view, name='user-profile'),
+    path('csrf/', views.csrf_view, name='csrf'),
 
     # NEW: Get admin users for chat
     path('admins/', views.get_admin_users, name='get-admins'),
