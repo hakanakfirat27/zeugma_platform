@@ -172,28 +172,51 @@ class SubscriptionSerializer(serializers.ModelSerializer):
     """Serializer for subscriptions"""
     client_name = serializers.SerializerMethodField()
     client_email = serializers.SerializerMethodField()
+    client_id = serializers.SerializerMethodField()
     report_title = serializers.SerializerMethodField()
+    report_id = serializers.SerializerMethodField()
     is_active = serializers.ReadOnlyField()
     days_remaining = serializers.ReadOnlyField()
 
     class Meta:
         model = Subscription
         fields = [
-            'subscription_id', 'client', 'client_name', 'client_email',
-            'report', 'report_title', 'plan', 'status',
+            'subscription_id', 'client', 'client_id', 'client_name', 'client_email',
+            'report', 'report_id', 'report_title', 'plan', 'status',
             'start_date', 'end_date', 'amount_paid',
             'is_active', 'days_remaining',
             'created_at', 'updated_at', 'notes'
         ]
         read_only_fields = ['subscription_id', 'created_at', 'updated_at']
 
+    def get_client_id(self, obj):
+        """Get client ID, handle None case"""
+        if obj.client is None:
+            return None
+        return obj.client.id
+
     def get_client_name(self, obj):
+        """Get client name, handle None case"""
+        if obj.client is None:
+            return "Deleted Client"
         return obj.client.get_full_name() or obj.client.username
 
     def get_client_email(self, obj):
+        """Get client email, handle None case"""
+        if obj.client is None:
+            return "N/A"
         return obj.client.email
 
+    def get_report_id(self, obj):
+        """Get report ID, handle None case"""
+        if obj.report is None:
+            return None
+        return str(obj.report.report_id)  # Convert UUID to string
+
     def get_report_title(self, obj):
+        """Get report title, handle None case"""
+        if obj.report is None:
+            return "Deleted Report"
         return obj.report.title
 
 
@@ -217,27 +240,30 @@ class SubscriptionCreateSerializer(serializers.ModelSerializer):
     def validate(self, data):
         """Validate subscription data"""
         # Check if report is active
-        if not data['report'].is_active:
+        if 'report' in data and not data['report'].is_active:
             raise serializers.ValidationError({"report": "Cannot subscribe to an inactive report."})
 
         # Check date range
-        if data['end_date'] <= data['start_date']:
+        if 'end_date' in data and 'start_date' in data and data['end_date'] <= data['start_date']:
             raise serializers.ValidationError({"end_date": "End date must be after start date."})
 
-        # Check for overlapping subscriptions
-        overlapping = Subscription.objects.filter(
-            client=data['client'],
-            report=data['report'],
-            status='ACTIVE'
-        ).filter(
-            start_date__lte=data['end_date'],
-            end_date__gte=data['start_date']
-        ).exists()
+        # Check for overlapping subscriptions (only on create)
+        if not self.instance:  # Only run this check when creating (instance is None)
+            overlapping = Subscription.objects.filter(
+                client=data['client'],
+                report=data['report'],
+                status='ACTIVE'
+            ).filter(
+                start_date__lte=data['end_date'],
+                end_date__gte=data['start_date']
+            ).exists()
 
-        if overlapping:
-            raise serializers.ValidationError({
-                "report": "Client already has an active subscription for this report in the given period."
-            })
+            if overlapping:
+                # --- FIX 4: Update validation error message ---
+                raise serializers.ValidationError(
+                    "This report has already been assigned to the user for an overlapping period."
+                )
+                # ---------------------------------------------
 
         return data
 
@@ -274,5 +300,3 @@ class DashboardWidgetSerializer(serializers.ModelSerializer):
             'updated_at',
         ]
         read_only_fields = ['created_at', 'updated_at']
-
-

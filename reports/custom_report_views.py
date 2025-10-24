@@ -314,6 +314,14 @@ class SubscriptionListCreateAPIView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
     pagination_class = CustomPagination
 
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    filterset_fields = ['status']
+    search_fields = ['client__username', 'client__email', 'report__title', 'plan']
+    ordering_fields = [
+        'client__username', 'report__title', 'plan', 'status',
+        'start_date', 'end_date', 'created_at'
+    ]
+
     def get_serializer_class(self):
         if self.request.method == 'POST':
             return SubscriptionCreateSerializer
@@ -327,10 +335,7 @@ class SubscriptionListCreateAPIView(generics.ListCreateAPIView):
         if user.role == UserRole.CLIENT:
             queryset = queryset.filter(client=user)
 
-        # Filter by status
-        status_filter = self.request.query_params.get('status', '')
-        if status_filter:
-            queryset = queryset.filter(status=status_filter)
+        # Filter by status is now handled by DjangoFilterBackend
 
         # Filter by report
         report_id = self.request.query_params.get('report_id', '')
@@ -403,6 +408,15 @@ class SubscriptionDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = SubscriptionSerializer
     lookup_field = 'subscription_id'
 
+    def get_serializer_class(self):
+        """
+        Use SubscriptionCreateSerializer for updates (PUT/PATCH)
+        and SubscriptionSerializer for retrieval (GET).
+        """
+        if self.request.method == 'PUT' or self.request.method == 'PATCH':
+            return SubscriptionCreateSerializer
+        return SubscriptionSerializer
+
     def get_queryset(self):
         user = self.request.user
         queryset = Subscription.objects.select_related('client', 'report')
@@ -420,7 +434,22 @@ class SubscriptionDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
                 {"error": "Only staff can update subscriptions."},
                 status=status.HTTP_403_FORBIDDEN
             )
-        return super().update(request, *args, **kwargs)
+
+        # --- FIX 1: Partial update (PATCH) is allowed, use full update (PUT) logic ---
+        # We need to provide the instance to the serializer
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+
+        if getattr(instance, '_prefetched_objects_cache', None):
+            # If 'prefetch_related' has been used, we need to
+            # forcibly invalidate the prefetch cache on the instance.
+            instance._prefetched_objects_cache = {}
+
+        # Return the detailed view, not the update view
+        return Response(SubscriptionSerializer(instance).data)
 
     def destroy(self, request, *args, **kwargs):
         # Only staff can delete
@@ -587,6 +616,8 @@ class SubscriptionStatsAPIView(APIView):
             end_date__lte=today + timezone.timedelta(days=30)
         ).count()
 
+        total_clients = Subscription.objects.values("client").distinct().count()
+
         # Monthly revenue (active subscriptions)
         from django.db.models import Sum
         from decimal import Decimal
@@ -641,5 +672,99 @@ class SubscriptionStatsAPIView(APIView):
             'active_subscriptions': active_subscriptions,
             'expiring_soon': expiring_soon,
             'monthly_revenue': float(total_monthly_revenue),
+            'total_clients': total_clients,
             'top_reports': top_reports_data
         })
+
+
+class ClientSearchAPIView(generics.ListAPIView):
+    """
+    Server-side search endpoint for clients.
+    Used in subscription creation modal for searching through large client lists.
+
+    Query params:
+    - q: search term (searches name, email, company, username)
+
+    Example: /api/clients/search/?q=john
+    """
+    serializer_class = ClientSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        # Only staff can search clients
+        if self.request.user.role not in [UserRole.SUPERADMIN, UserRole.STAFF_ADMIN]:
+            return User.objects.none()
+
+        # Get search term from query parameters
+        search_term = self.request.query_params.get('q', '').strip()
+
+        # Base queryset - only clients
+        queryset = User.objects.filter(role=UserRole.CLIENT)
+
+        # Apply search filter if search term provided
+        if search_term:
+            queryset = queryset.filter(
+                Q(full_name__icontains=search_term) |
+                Q(email__icontains=search_term) |
+                Q(company_name__icontains=search_term) |
+                Q(username__icontains=search_term)
+            )
+
+        # Order by name for consistent results
+        queryset = queryset.order_by('full_name', 'username')
+
+        # Limit to 20 results for performance
+        return queryset[:20]
+
+
+class ReportSearchAPIView(generics.ListAPIView):
+    """
+    Server-side search endpoint for reports.
+    Used in subscription creation modal for searching through large report lists.
+
+    Query params:
+    - q: search term (searches title, description)
+
+    Example: /api/reports/search/?q=annual
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        # Only staff can search reports
+        if self.request.user.role not in [UserRole.SUPERADMIN, UserRole.STAFF_ADMIN]:
+            return CustomReport.objects.none()
+
+        # Get search term from query parameters
+        search_term = self.request.query_params.get('q', '').strip()
+
+        # Base queryset - only active reports
+        queryset = CustomReport.objects.filter(is_active=True)
+
+        # Apply search filter if search term provided
+        if search_term:
+            queryset = queryset.filter(
+                Q(title__icontains=search_term) |
+                Q(description__icontains=search_term)
+            )
+
+        # Order by title
+        queryset = queryset.order_by('title')
+
+        # Limit to 20 results for performance
+        return queryset[:20]
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+
+        # Format the response
+        data = []
+        for report in queryset:
+            data.append({
+                'report_id': str(report.report_id),
+                'title': report.title,
+                'description': report.description,
+                'record_count': report.record_count,
+                'is_active': report.is_active,
+            })
+
+        return Response(data)

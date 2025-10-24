@@ -4,6 +4,7 @@ from django.conf import settings
 from django.utils import timezone
 from django.contrib.auth import get_user_model
 from decimal import Decimal
+from dateutil.relativedelta import relativedelta
 
 User = get_user_model()
 
@@ -665,20 +666,34 @@ class Subscription(models.Model):
         return (self.end_date - today).days
 
     def renew(self, plan=None):
-        """Renew the subscription"""
-        from dateutil.relativedelta import relativedelta
+        """
+        Renew the subscription.
+        If renewed before expiry, extend from end_date.
+        If renewed after expiry, start from today.
+        """
+        today = timezone.now().date()
 
         if plan:
             self.plan = plan
 
-        self.start_date = self.end_date + timezone.timedelta(days=1)
+        # Determine the base date for extension
+        # If subscription is active (end_date in future), extend from end_date.
+        # If expired (end_date in past), start from today.
+        base_date = self.end_date
+        if not base_date or base_date < today:
+            base_date = today
 
+        # Set new end date
         if self.plan == SubscriptionPlan.MONTHLY:
-            self.end_date = self.start_date + relativedelta(months=1)
-            self.amount_paid = self.report.monthly_price
-        else:
-            self.end_date = self.start_date + relativedelta(years=1)
-            self.amount_paid = self.report.annual_price
+            self.end_date = base_date + relativedelta(months=1)
+            self.amount_paid = self.report.monthly_price if self.report else Decimal('0.00')
+        else:  # ANNUAL
+            self.end_date = base_date + relativedelta(years=1)
+            self.amount_paid = self.report.annual_price if self.report else Decimal('0.00')
+
+        # If subscription was expired, set start date to today
+        if not self.start_date or base_date == today:
+            self.start_date = today
 
         self.status = SubscriptionStatus.ACTIVE
         self.save()

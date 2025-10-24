@@ -1,4 +1,3 @@
-
 from django.urls import path, include
 from . import views
 from rest_framework.routers import DefaultRouter
@@ -24,7 +23,9 @@ from .custom_report_views import (
     renew_subscription,
     cancel_subscription,
     ClientListAPIView,
-    SubscriptionStatsAPIView
+    SubscriptionStatsAPIView,
+    ClientSearchAPIView,  # ADD THIS LINE
+    ReportSearchAPIView,  # ADD THIS LINE
 )
 
 # Create a router for ViewSets
@@ -64,6 +65,10 @@ urlpatterns = [
     path('my-subscriptions/', MySubscriptionsAPIView.as_view(), name='api-my-subscriptions'),
     path('my-active-reports/', MyActiveReportsAPIView.as_view(), name='api-my-active-reports'),
     path('subscription-stats/', SubscriptionStatsAPIView.as_view(), name='api-subscription-stats'),
+
+    # Server-side Search URLs (for subscription modal)
+    path('clients/search/', ClientSearchAPIView.as_view(), name='client-search'),
+    path('reports/search/', ReportSearchAPIView.as_view(), name='report-search'),
 
     # Client Management URLs
     path('clients/', ClientListAPIView.as_view(), name='api-client-list'),
