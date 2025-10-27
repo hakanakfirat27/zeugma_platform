@@ -5,6 +5,7 @@ from django.utils import timezone
 from django.contrib.auth import get_user_model
 from decimal import Decimal
 from dateutil.relativedelta import relativedelta
+import uuid
 
 User = get_user_model()
 
@@ -800,3 +801,61 @@ class UserWidgetPreference(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - {self.widget.title}"
+
+
+class SavedSearch(models.Model):
+    """
+    Model to store saved filter combinations for clients.
+    Allows clients to save and quickly reuse their frequently used searches.
+    """
+
+    # Primary key - unique identifier
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False
+    )
+
+    # Link to the user who created this saved search
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='saved_searches'
+    )
+
+    # Link to the report this saved search belongs to
+    report = models.ForeignKey(
+        'CustomReport',
+        on_delete=models.CASCADE,
+        related_name='saved_searches'
+    )
+
+    # Name of the saved search
+    name = models.CharField(max_length=200)
+
+    # Optional description
+    description = models.TextField(blank=True, null=True)
+
+    # Store filter parameters as JSON
+    filter_params = models.JSONField(default=dict)
+
+    # Whether this is the default search
+    is_default = models.BooleanField(default=False)
+
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'saved_searches'
+        ordering = ['-created_at']
+        unique_together = ['user', 'report', 'name']
+        verbose_name = 'Saved Search'
+        verbose_name_plural = 'Saved Searches'
+        indexes = [
+            models.Index(fields=['user', 'report']),
+            models.Index(fields=['is_default']),
+        ]
+
+    def __str__(self):
+        return f"{self.user.username} - {self.name}"

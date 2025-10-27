@@ -4,7 +4,8 @@ from .models import (
     DashboardWidget,
     CustomReport,
     Subscription,
-    SubscriptionPlan
+    SubscriptionPlan,
+    SavedSearch,
 )
 from accounts.models import User
 from .fields import (
@@ -300,3 +301,87 @@ class DashboardWidgetSerializer(serializers.ModelSerializer):
             'updated_at',
         ]
         read_only_fields = ['created_at', 'updated_at']
+
+
+class SavedSearchSerializer(serializers.ModelSerializer):
+    """
+    Serializer for SavedSearch model.
+    This handles converting SavedSearch objects to JSON for the API.
+    """
+
+    # Read-only fields that are automatically generated
+    id = serializers.UUIDField(read_only=True)
+    created_at = serializers.DateTimeField(read_only=True)
+    updated_at = serializers.DateTimeField(read_only=True)
+
+    # Display the report title instead of just the ID
+    report_title = serializers.CharField(source='report.title', read_only=True)
+
+    class Meta:
+        model = SavedSearch
+        fields = [
+            'id',
+            'name',
+            'description',
+            'filter_params',
+            'is_default',
+            'report_title',
+            'created_at',
+            'updated_at'
+        ]
+
+        # These fields are required when creating a saved search
+        extra_kwargs = {
+            'name': {'required': True},
+            'filter_params': {'required': True}
+        }
+
+    def validate_name(self, value):
+        """Validate that the name is not empty and not too long."""
+        if not value or not value.strip():
+            raise serializers.ValidationError("Name cannot be empty")
+
+        if len(value) > 200:
+            raise serializers.ValidationError("Name is too long (max 200 characters)")
+
+        return value.strip()
+
+    def validate_filter_params(self, value):
+        """Validate that filter_params is a dictionary."""
+        if not isinstance(value, dict):
+            raise serializers.ValidationError("filter_params must be a dictionary")
+
+        return value
+
+
+class SavedSearchCreateSerializer(serializers.Serializer):
+    """
+    Serializer specifically for creating new saved searches.
+    This includes the report_id field.
+    """
+
+    name = serializers.CharField(max_length=200, required=True)
+    description = serializers.CharField(required=False, allow_blank=True)
+    report_id = serializers.UUIDField(required=True)
+    filter_params = serializers.JSONField(required=True)
+    is_default = serializers.BooleanField(default=False, required=False)
+
+    def validate_name(self, value):
+        """Validate name is not empty"""
+        if not value or not value.strip():
+            raise serializers.ValidationError("Name cannot be empty")
+        return value.strip()
+
+    def validate_filter_params(self, value):
+        """Validate filter_params is a dict"""
+        if not isinstance(value, dict):
+            raise serializers.ValidationError("filter_params must be an object")
+        return value
+
+    def validate_report_id(self, value):
+        """Validate that the report exists"""
+        try:
+            CustomReport.objects.get(report_id=value)
+        except CustomReport.DoesNotExist:
+            raise serializers.ValidationError("Report not found")
+        return value

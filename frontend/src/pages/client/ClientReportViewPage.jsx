@@ -16,6 +16,8 @@ import RecordDetailModal from '../../components/database/RecordDetailModal';
 import Pagination from '../../components/database/Pagination';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import FilterSidebar from '../../components/database/FilterSidebar';
+import SavedSearchManager from '../../components/client/SavedSearchManager';
+import { getSavedSearches } from '../../services/savedSearchService';
 import api from '../../utils/api';
 import {
   useClientReportData,
@@ -43,6 +45,7 @@ const ClientReportViewPage = () => {
   const [selectedRecord, setSelectedRecord] = useState(null);
   const [showFilters, setShowFilters] = useState(false);
   const [exportLoading, setExportLoading] = useState(false);
+  const [defaultSearchLoaded, setDefaultSearchLoaded] = useState(false);
 
   // REACT QUERY HOOKS
   const { data: reportAccess, isLoading: accessLoading } = useClientReportAccess(reportId);
@@ -91,6 +94,42 @@ const ClientReportViewPage = () => {
         day: 'numeric'
       })
     : 'N/A';
+
+  useEffect(() => {
+    const loadDefaultSearch = async () => {
+      // Only load once when component mounts
+      if (defaultSearchLoaded || !reportId) return;
+
+      try {
+        const response = await getSavedSearches(reportId);
+        const savedSearches = response.results || [];
+
+        // Find the default search
+        const defaultSearch = savedSearches.find(search => search.is_default);
+
+        if (defaultSearch) {
+          console.log('Loading default search:', defaultSearch.name);
+
+          // Apply the default search filters
+          setFilters(defaultSearch.filter_params);
+
+          // Load records with default filters
+          await loadRecords(1, defaultSearch.filter_params);
+
+          // Show a subtle notification (optional)
+          // You can remove this if you don't want notification
+          console.log(`Default search "${defaultSearch.name}" loaded`);
+        }
+
+        setDefaultSearchLoaded(true);
+      } catch (error) {
+        console.error('Error loading default search:', error);
+        setDefaultSearchLoaded(true);
+      }
+    };
+
+    loadDefaultSearch();
+  }, [reportId]); // Run when reportId changes
 
   // SECURITY: Copy & Screenshot Protection
   useEffect(() => {
@@ -244,6 +283,17 @@ const ClientReportViewPage = () => {
     }));
   }, [stats?.categories]);
 
+  const handleLoadSavedSearch = (filterParams) => {
+    // Apply the saved filters
+    setFilters(filterParams);
+
+    // Reload data with new filters
+    loadRecords(1, filterParams);
+
+    // You might also want to show a success message
+    console.log('Loaded saved search with filters:', filterParams);
+  };
+
   // LOADING STATE
   if (accessLoading) {
     return (
@@ -353,7 +403,14 @@ const ClientReportViewPage = () => {
             </button>
           </div>
         </div>
-
+        {/* ADD THIS: Saved Search Manager */}
+        <div className="mb-6">
+          <SavedSearchManager
+            reportId={reportId}
+            currentFilters={filters}
+            onLoadSearch={handleLoadSavedSearch}
+          />
+        </div>
         {/* Search Bar */}
         <div className="bg-white rounded-2xl shadow-sm p-5 mb-6 border border-gray-100">
           <div className="flex items-center gap-4 flex-wrap">

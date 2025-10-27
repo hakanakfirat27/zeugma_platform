@@ -67,6 +67,7 @@ urlpatterns = [
     path('subscription-stats/', SubscriptionStatsAPIView.as_view(), name='api-subscription-stats'),
 
     # Server-side Search URLs (for subscription modal)
+    path('client/', include('reports.client_api_urls')),
     path('clients/search/', ClientSearchAPIView.as_view(), name='client-search'),
     path('reports/search/', ReportSearchAPIView.as_view(), name='report-search'),
 
