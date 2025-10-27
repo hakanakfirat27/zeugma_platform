@@ -859,3 +859,60 @@ class SavedSearch(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - {self.name}"
+
+
+class ExportTemplate(models.Model):
+    """
+    Model to store export templates for clients.
+    Allows clients to save which columns they want to export.
+    """
+
+    # Primary key
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False
+    )
+
+    # Link to user
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='export_templates'
+    )
+
+    # Link to report
+    report = models.ForeignKey(
+        'CustomReport',
+        on_delete=models.CASCADE,
+        related_name='export_templates'
+    )
+
+    # Template details
+    name = models.CharField(max_length=200)
+    description = models.TextField(blank=True, null=True)
+
+    # Store selected columns as JSON array
+    # Example: ["company_name", "country", "address_1", "email"]
+    selected_columns = models.JSONField(default=list)
+
+    # Whether this is the default template
+    is_default = models.BooleanField(default=False)
+
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'export_templates'
+        ordering = ['-created_at']
+        unique_together = ['user', 'report', 'name']
+        verbose_name = 'Export Template'
+        verbose_name_plural = 'Export Templates'
+        indexes = [
+            models.Index(fields=['user', 'report']),
+            models.Index(fields=['is_default']),
+        ]
+
+    def __str__(self):
+        return f"{self.user.username} - {self.name}"

@@ -14,8 +14,22 @@ from .serializers import SuperdatabaseRecordSerializer
 from .pagination import CustomPagination
 from .filters import SuperdatabaseRecordFilter
 import csv
-import datetime
 
+import datetime
+from .fields import (
+    COMMON_FIELDS,
+    CONTACT_FIELDS,
+    INJECTION_FIELDS,
+    BLOW_FIELDS,
+    ROTO_FIELDS,
+    PE_FILM_FIELDS,
+    SHEET_FIELDS,
+    PIPE_FIELDS,
+    TUBE_HOSE_FIELDS,
+    PROFILE_FIELDS,
+    CABLE_FIELDS,
+    COMPOUNDER_FIELDS
+)
 
 class ClientSubscriptionsAPIView(APIView):
     """
@@ -487,3 +501,207 @@ class ClientReportExportAPIView(APIView):
         writer.writerow(['Total records', queryset.count()])
 
         return response
+
+
+class ClientReportColumnsAPIView(APIView):
+    """
+    Get available columns for a specific report.
+    Returns columns based on the CURRENT filter criteria (what user has filtered).
+    Uses the existing fields.py definitions for consistency.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        """Get available columns for export based on current filters"""
+
+        if request.user.role != UserRole.CLIENT:
+            return Response(
+                {"error": "Only clients can access this endpoint"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        report_id = request.query_params.get('report_id')
+
+        if not report_id:
+            return Response(
+                {"error": "report_id is required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            report = CustomReport.objects.get(report_id=report_id)
+        except CustomReport.DoesNotExist:
+            return Response(
+                {"error": "Report not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Verify access
+        today = timezone.now().date()
+        has_subscription = Subscription.objects.filter(
+            client=request.user,
+            report=report,
+            status='ACTIVE',
+            start_date__lte=today,
+            end_date__gte=today
+        ).exists()
+
+        if not has_subscription:
+            return Response(
+                {"error": "You don't have access to this report"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # IMPORTANT: Get categories from CURRENT USER FILTERS (not report filters)
+        categories_param = request.query_params.get('categories', '')
+
+        if categories_param:
+            # User has filtered specific categories
+            categories = [c.strip() for c in categories_param.split(',') if c.strip()]
+        else:
+            # No category filter applied - use all categories from report
+            filter_criteria = report.filter_criteria or {}
+
+            if 'categories' in filter_criteria:
+                if isinstance(filter_criteria['categories'], list):
+                    categories = filter_criteria['categories']
+                elif isinstance(filter_criteria['categories'], str):
+                    categories = [filter_criteria['categories']]
+                else:
+                    categories = []
+            else:
+                # Get all categories from actual data
+                queryset = SuperdatabaseRecord.objects.all()
+
+                # Apply report filters
+                filter_q = Q()
+                for field, value in filter_criteria.items():
+                    if field == 'categories':
+                        continue
+                    if value is not None:
+                        if isinstance(value, list):
+                            if len(value) > 0:
+                                filter_q &= Q(**{f"{field}__in": value})
+                        else:
+                            filter_q &= Q(**{field: value})
+
+                if filter_q:
+                    queryset = queryset.filter(filter_q)
+
+                categories = list(queryset.values_list('category', flat=True).distinct())
+
+        # Get model field labels
+        field_labels = {
+            field.name: field.verbose_name
+            for field in SuperdatabaseRecord._meta.fields
+        }
+
+        # Map categories to their field lists
+        CATEGORY_FIELDS_MAP = {
+            'INJECTION': INJECTION_FIELDS,
+            'BLOW': BLOW_FIELDS,
+            'ROTO': ROTO_FIELDS,
+            'PE_FILM': PE_FILM_FIELDS,
+            'SHEET': SHEET_FIELDS,
+            'PIPE': PIPE_FIELDS,
+            'TUBE_HOSE': TUBE_HOSE_FIELDS,
+            'PROFILE': PROFILE_FIELDS,
+            'CABLE': CABLE_FIELDS,
+            'COMPOUNDER': COMPOUNDER_FIELDS,
+        }
+
+        # Map categories to human-readable names
+        CATEGORY_DISPLAY_NAMES = {
+            'INJECTION': 'Injection Molding',
+            'BLOW': 'Blow Molding',
+            'ROTO': 'Rotomolding',
+            'PE_FILM': 'PE Film',
+            'SHEET': 'Sheet',
+            'PIPE': 'Pipe',
+            'TUBE_HOSE': 'Tube & Hose',
+            'PROFILE': 'Profile',
+            'CABLE': 'Cable',
+            'COMPOUNDER': 'Compounder',
+        }
+
+        # Collect all field keys that will be needed (to avoid duplicates)
+        all_field_keys = set()
+
+        # Add common fields first
+        for field_key in COMMON_FIELDS:
+            all_field_keys.add(field_key)
+
+        # Add contact fields
+        for field_key in CONTACT_FIELDS:
+            all_field_keys.add(field_key)
+
+        # Add category-specific fields
+        for cat in categories:
+            if cat in CATEGORY_FIELDS_MAP:
+                for field_key in CATEGORY_FIELDS_MAP[cat]:
+                    all_field_keys.add(field_key)
+
+        # Now build the column list with proper categorization
+        # We'll organize by: Common -> Contact -> Category-specific
+        available_columns = []
+
+        # 1. Add Common fields (only once)
+        for field_key in COMMON_FIELDS:
+            if field_key in all_field_keys:
+                available_columns.append({
+                    'key': field_key,
+                    'label': field_labels.get(field_key, field_key.replace('_', ' ').title()),
+                    'category': 'Common'
+                })
+
+        # 2. Add Contact fields (only once)
+        for field_key in CONTACT_FIELDS:
+            if field_key in all_field_keys:
+                available_columns.append({
+                    'key': field_key,
+                    'label': field_labels.get(field_key, field_key.replace('_', ' ').title()),
+                    'category': 'Contact'
+                })
+
+        # 3. Add category-specific fields (grouped by category)
+        added_keys = {col['key'] for col in available_columns}  # Track what we've added
+
+        for cat in categories:
+            if cat in CATEGORY_FIELDS_MAP:
+                category_display = CATEGORY_DISPLAY_NAMES.get(cat, cat)
+
+                for field_key in CATEGORY_FIELDS_MAP[cat]:
+                    # Skip if already added (from common/contact fields)
+                    if field_key in added_keys:
+                        continue
+
+                    available_columns.append({
+                        'key': field_key,
+                        'label': field_labels.get(field_key, field_key.replace('_', ' ').title()),
+                        'category': category_display
+                    })
+                    added_keys.add(field_key)
+
+        # Define smart default columns (most commonly used)
+        default_columns = [
+            'company_name',
+            'country',
+            'address_1',
+            'region',
+            'phone_number',
+            'company_email',
+            'website'
+        ]
+
+        # Filter default columns to only include ones that exist in available columns
+        available_keys = {col['key'] for col in available_columns}
+        default_columns = [col for col in default_columns if col in available_keys]
+
+        return Response({
+            'available_columns': available_columns,
+            'default_columns': default_columns,
+            'report_title': report.title,
+            'report_categories': categories,
+            'total_fields': len(available_columns)
+        })

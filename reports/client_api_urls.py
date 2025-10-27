@@ -10,12 +10,17 @@ from .client_views import (
     ClientReportStatsAPIView,
     ClientFilterOptionsAPIView,
     ClientReportExportAPIView,
+    ClientReportColumnsAPIView,
 )
 from .saved_search_views import (
     SavedSearchListCreateAPIView,
     SavedSearchDetailAPIView
 )
-
+from .export_template_views import (
+    ExportTemplateListCreateAPIView,
+    ExportTemplateDetailAPIView,
+    ExportToExcelAPIView
+)
 urlpatterns = [
     # Get all active subscriptions for the client
     path('subscriptions/', ClientSubscriptionsAPIView.as_view(), name='client-subscriptions'),
@@ -33,4 +38,9 @@ urlpatterns = [
 
     path('saved-searches/', SavedSearchListCreateAPIView.as_view(), name='client-saved-searches'),
     path('saved-searches/<uuid:search_id>/', SavedSearchDetailAPIView.as_view(), name='client-saved-search-detail'),
+
+    path('export-templates/', ExportTemplateListCreateAPIView.as_view(), name='export-templates'),
+    path('export-templates/<uuid:template_id>/', ExportTemplateDetailAPIView.as_view(), name='export-template-detail'),
+    path('export-excel/', ExportToExcelAPIView.as_view(), name='export-excel'),
+    path('report-columns/', ClientReportColumnsAPIView.as_view(), name='client-report-columns'),
 ]

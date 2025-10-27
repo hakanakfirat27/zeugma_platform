@@ -8,7 +8,8 @@ import {
   Plus,
   X,
   Check,
-  AlertCircle
+  AlertCircle,
+  Search as SearchIcon
 } from 'lucide-react';
 import {
   getSavedSearches,
@@ -17,15 +18,6 @@ import {
   deleteSavedSearch
 } from '../../services/savedSearchService';
 
-/**
- * SavedSearchManager Component
- * Manages saved searches for a report - create, load, update, delete
- *
- * Props:
- * - reportId: UUID of the current report
- * - currentFilters: Current filter state
- * - onLoadSearch: Callback when a saved search is loaded
- */
 const SavedSearchManager = ({ reportId, currentFilters, onLoadSearch }) => {
   const navigate = useNavigate();
 
@@ -84,6 +76,8 @@ const SavedSearchManager = ({ reportId, currentFilters, onLoadSearch }) => {
       setLoading(true);
       setError('');
 
+      console.log('💾 Saving search with filters:', currentFilters);
+
       // Create the saved search
       await createSavedSearch({
         name: formData.name.trim(),
@@ -120,6 +114,9 @@ const SavedSearchManager = ({ reportId, currentFilters, onLoadSearch }) => {
    * Load a saved search and apply its filters
    */
   const handleLoadSearch = (savedSearch) => {
+    console.log('📂 Loading saved search:', savedSearch.name);
+    console.log('📂 Filter params:', savedSearch.filter_params);
+
     setShowManageModal(false);
 
     if (onLoadSearch) {

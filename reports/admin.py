@@ -1,7 +1,13 @@
 # reports/admin.py
 
 from django.contrib import admin
-from .models import SuperdatabaseRecord, CustomReport, Subscription
+from .models import (
+    SuperdatabaseRecord,
+    CustomReport,
+    Subscription,
+    SavedSearch,
+    ExportTemplate  # ADD THIS
+)
 # Import our organized field lists from the new fields.py file
 from .fields import (
     COMMON_FIELDS, CONTACT_FIELDS, INJECTION_FIELDS, BLOW_FIELDS, ROTO_FIELDS,
@@ -66,3 +72,23 @@ class SubscriptionAdmin(admin.ModelAdmin):
     search_fields = ['client__username', 'client__email', 'report__title']
     readonly_fields = ['subscription_id', 'created_at', 'updated_at']
 
+
+@admin.register(ExportTemplate)
+class ExportTemplateAdmin(admin.ModelAdmin):
+    list_display = ['name', 'user', 'report', 'is_default', 'created_at']
+    list_filter = ['is_default', 'created_at']
+    search_fields = ['name', 'user__username', 'report__title']
+    readonly_fields = ['created_at', 'updated_at']
+
+    fieldsets = (
+        ('Basic Information', {
+            'fields': ('name', 'description', 'user', 'report')
+        }),
+        ('Settings', {
+            'fields': ('selected_columns', 'is_default')
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )

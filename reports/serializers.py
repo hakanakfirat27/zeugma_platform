@@ -6,6 +6,7 @@ from .models import (
     Subscription,
     SubscriptionPlan,
     SavedSearch,
+    ExportTemplate,
 )
 from accounts.models import User
 from .fields import (
@@ -304,18 +305,7 @@ class DashboardWidgetSerializer(serializers.ModelSerializer):
 
 
 class SavedSearchSerializer(serializers.ModelSerializer):
-    """
-    Serializer for SavedSearch model.
-    This handles converting SavedSearch objects to JSON for the API.
-    """
-
-    # Read-only fields that are automatically generated
-    id = serializers.UUIDField(read_only=True)
-    created_at = serializers.DateTimeField(read_only=True)
-    updated_at = serializers.DateTimeField(read_only=True)
-
-    # Display the report title instead of just the ID
-    report_title = serializers.CharField(source='report.title', read_only=True)
+    """Serializer for SavedSearch model"""
 
     class Meta:
         model = SavedSearch
@@ -323,35 +313,60 @@ class SavedSearchSerializer(serializers.ModelSerializer):
             'id',
             'name',
             'description',
+            'report',
+            'user',
             'filter_params',
             'is_default',
-            'report_title',
             'created_at',
             'updated_at'
         ]
-
-        # These fields are required when creating a saved search
-        extra_kwargs = {
-            'name': {'required': True},
-            'filter_params': {'required': True}
-        }
-
-    def validate_name(self, value):
-        """Validate that the name is not empty and not too long."""
-        if not value or not value.strip():
-            raise serializers.ValidationError("Name cannot be empty")
-
-        if len(value) > 200:
-            raise serializers.ValidationError("Name is too long (max 200 characters)")
-
-        return value.strip()
+        read_only_fields = ['id', 'user', 'created_at', 'updated_at']
 
     def validate_filter_params(self, value):
-        """Validate that filter_params is a dictionary."""
+        """
+        Validate filter_params to ensure proper format
+        Make sure countries and categories are arrays
+        """
         if not isinstance(value, dict):
             raise serializers.ValidationError("filter_params must be a dictionary")
 
+        # Ensure countries is an array
+        if 'countries' in value:
+            if isinstance(value['countries'], str):
+                # Convert comma-separated string to array
+                value['countries'] = [c.strip() for c in value['countries'].split(',') if c.strip()]
+            elif not isinstance(value['countries'], list):
+                value['countries'] = [value['countries']]
+
+        # Ensure categories is an array
+        if 'categories' in value:
+            if isinstance(value['categories'], str):
+                # Convert comma-separated string to array
+                value['categories'] = [c.strip() for c in value['categories'].split(',') if c.strip()]
+            elif not isinstance(value['categories'], list):
+                value['categories'] = [value['categories']]
+
         return value
+
+    def to_representation(self, instance):
+        """
+        Customize output to ensure arrays are properly formatted
+        """
+        data = super().to_representation(instance)
+
+        # Ensure filter_params has proper structure
+        if data.get('filter_params'):
+            filter_params = data['filter_params']
+
+            # Ensure countries is always an array
+            if 'countries' in filter_params and not isinstance(filter_params['countries'], list):
+                filter_params['countries'] = [filter_params['countries']]
+
+            # Ensure categories is always an array
+            if 'categories' in filter_params and not isinstance(filter_params['categories'], list):
+                filter_params['categories'] = [filter_params['categories']]
+
+        return data
 
 
 class SavedSearchCreateSerializer(serializers.Serializer):
@@ -380,6 +395,79 @@ class SavedSearchCreateSerializer(serializers.Serializer):
 
     def validate_report_id(self, value):
         """Validate that the report exists"""
+        try:
+            CustomReport.objects.get(report_id=value)
+        except CustomReport.DoesNotExist:
+            raise serializers.ValidationError("Report not found")
+        return value
+
+
+class ExportTemplateSerializer(serializers.ModelSerializer):
+    """Serializer for ExportTemplate model"""
+
+    id = serializers.UUIDField(read_only=True)
+    created_at = serializers.DateTimeField(read_only=True)
+    updated_at = serializers.DateTimeField(read_only=True)
+    report_title = serializers.CharField(source='report.title', read_only=True)
+
+    class Meta:
+        model = ExportTemplate
+        fields = [
+            'id',
+            'name',
+            'description',
+            'selected_columns',
+            'is_default',
+            'report_title',
+            'created_at',
+            'updated_at'
+        ]
+        extra_kwargs = {
+            'name': {'required': True},
+            'selected_columns': {'required': True}
+        }
+
+    def validate_name(self, value):
+        """Validate name is not empty"""
+        if not value or not value.strip():
+            raise serializers.ValidationError("Name cannot be empty")
+        return value.strip()
+
+    def validate_selected_columns(self, value):
+        """Validate selected_columns is a list"""
+        if not isinstance(value, list):
+            raise serializers.ValidationError("selected_columns must be a list")
+        if len(value) == 0:
+            raise serializers.ValidationError("Please select at least one column")
+        return value
+
+
+class ExportTemplateCreateSerializer(serializers.Serializer):
+    """Serializer for creating export templates"""
+
+    name = serializers.CharField(max_length=200, required=True)
+    description = serializers.CharField(required=False, allow_blank=True)
+    report_id = serializers.UUIDField(required=True)
+    selected_columns = serializers.ListField(
+        child=serializers.CharField(),
+        required=True
+    )
+    is_default = serializers.BooleanField(default=False, required=False)
+
+    def validate_name(self, value):
+        """Validate name"""
+        if not value or not value.strip():
+            raise serializers.ValidationError("Name cannot be empty")
+        return value.strip()
+
+    def validate_selected_columns(self, value):
+        """Validate columns"""
+        if not isinstance(value, list) or len(value) == 0:
+            raise serializers.ValidationError("Please select at least one column")
+        return value
+
+    def validate_report_id(self, value):
+        """Validate report exists"""
         try:
             CustomReport.objects.get(report_id=value)
         except CustomReport.DoesNotExist:
