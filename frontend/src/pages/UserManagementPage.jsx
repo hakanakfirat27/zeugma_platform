@@ -1,17 +1,19 @@
 // frontend/src/pages/UserManagementPage.jsx
-// MODIFIED: Merged header by removing secondary header and adding props to DashboardLayout
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import UsernameInput from '../components/UsernameInput';
 import EmailInput from '../components/EmailInput';
+import ExpandableRow from '../contexts/ExpandableRow';
 
 import {
   ArrowLeft, Users, Plus, Search, X, Edit, Trash2, Eye,
   ChevronDown, CheckCircle, XCircle, Download,
   AlertCircle, UserPlus, Save, Mail, User, Shield,
-  Phone, Building, ChevronsUpDown
+  Phone, Building, ChevronsUpDown, Calendar, Wifi,
+  Settings, GripVertical, ChevronRight, ChevronUp,
+  Columns, Maximize2, Check, Activity
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
@@ -21,6 +23,8 @@ import Pagination from '../components/database/Pagination';
 import { ToastContainer } from '../components/Toast';
 import DeleteConfirmationModal from '../components/DeleteConfirmationModal';
 import { useToast } from '../hooks/useToast';
+import useUserStatus from '../hooks/useUserStatus';
+import UserLoginHistoryModal from '../components/userActivity/UserLoginHistoryModal';
 import api from '../utils/api';
 
 // --- Helper Functions & Components ---
@@ -37,6 +41,17 @@ const fetchUsers = async ({ queryKey }) => {
 
   const { data } = await api.get(`/api/auth/users/?${params.toString()}`);
   return data;
+};
+
+const fetchDashboardStats = async () => {
+  const { data } = await api.get('/api/dashboard-stats/');
+  return data;
+};
+
+// 🆕 NEW: Fetch all online users
+const fetchOnlineUsers = async () => {
+  const { data } = await api.get('/api/auth/users/?page_size=1000'); // Get all users
+  return data.results.filter(user => user.is_online); // Filter only online users
 };
 
 const ROLES = [
@@ -60,6 +75,22 @@ const RoleBadge = ({ role }) => {
     </span>
   );
 };
+
+// Default column configuration
+const DEFAULT_COLUMNS = [
+  { id: 'user', label: 'User', field: 'first_name', visible: true, width: 300, sortable: true, resizable: true },
+  { id: 'username', label: 'Username', field: 'username', visible: true, width: 150, sortable: true, resizable: true },
+  { id: 'email', label: 'Email', field: 'email', visible: false, width: 200, sortable: true, resizable: true },
+  { id: 'phone', label: 'Phone', field: 'phone_number', visible: false, width: 150, sortable: false, resizable: true },
+  { id: 'company', label: 'Company', field: 'company_name', visible: true, width: 200, sortable: true, resizable: true },
+  { id: 'role', label: 'Role', field: 'role', visible: true, width: 150, sortable: true, resizable: true },
+  { id: 'status', label: 'Status', field: 'is_active', visible: false, width: 120, sortable: true, resizable: true },
+  { id: 'online', label: 'Online Status', field: 'is_online', visible: true, width: 150, sortable: false, resizable: true },
+  { id: 'dateJoined', label: 'Date Joined', field: 'date_joined', visible: true, width: 150, sortable: true, resizable: true },
+];
+
+// localStorage key
+const COLUMNS_STORAGE_KEY = 'userManagementColumns';
 
 const StatusBadge = ({ isActive }) => {
   return isActive ? (
@@ -88,35 +119,656 @@ const OnlineStatusBadge = ({ isOnline }) => {
   );
 };
 
+// 🆕 NEW: UserAvatar component for online users modal
+const UserAvatar = ({ user, size = 'md' }) => {
+  const sizeClasses = {
+    sm: 'w-8 h-8 text-xs',
+    md: 'w-10 h-10 text-sm',
+    lg: 'w-12 h-12 text-base',
+  };
+
+  const bgColors = {
+    SUPERADMIN: 'bg-red-500',
+    STAFF_ADMIN: 'bg-purple-500',
+    CLIENT: 'bg-green-500',
+    GUEST: 'bg-gray-500',
+  };
+
+  return (
+    <div className={`${sizeClasses[size]} ${bgColors[user.role] || bgColors.GUEST} rounded-full flex items-center justify-center text-white font-semibold`}>
+      {user.initials}
+    </div>
+  );
+};
+
+// 🆕 MODIFIED: StatCard with optional onClick
+const StatCard = ({ label, value, subtitle, icon, color = 'gray', isLoading, onClick }) => {
+  const IconComponent = icon;
+
+  const colorClasses = {
+    green: {
+      icon: 'text-green-500',
+      subtitle: 'text-green-600',
+      bg: 'bg-green-100',
+    },
+    teal: {
+      icon: 'text-teal-500',
+      subtitle: 'text-teal-600',
+      bg: 'bg-teal-100',
+    },
+    purple: {
+      icon: 'text-purple-500',
+      subtitle: 'text-purple-600',
+      bg: 'bg-purple-100',
+    },
+    blue: {
+      icon: 'text-blue-500',
+      subtitle: 'text-blue-600',
+      bg: 'bg-blue-100',
+    },
+    gray: {
+      icon: 'text-gray-500',
+      subtitle: 'text-gray-500',
+      bg: 'bg-gray-100',
+    },
+  };
+
+  const colors = colorClasses[color] || colorClasses.gray;
+
+  // 🆕 NEW: Add cursor and hover effects if clickable
+  const clickableClasses = onClick
+    ? 'cursor-pointer hover:shadow-md hover:border-blue-300 transition-all duration-200'
+    : '';
+
+  return (
+    <div
+      className={`bg-white rounded-xl shadow-sm border border-gray-200 p-5 flex justify-between items-start ${clickableClasses}`}
+      onClick={onClick}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={onClick ? (e) => e.key === 'Enter' && onClick() : undefined}
+    >
+      {/* Left side: Text content */}
+      <div className="flex flex-col">
+        <p className="text-sm font-medium text-gray-600">{label}</p>
+        {isLoading ? (
+          <>
+            <div className="h-8 w-12 bg-gray-200 rounded animate-pulse mt-1"></div>
+            <div className="h-4 w-24 bg-gray-200 rounded animate-pulse mt-2"></div>
+          </>
+        ) : (
+          <>
+            <p className="text-3xl font-bold text-gray-900 mt-1">{value}</p>
+            <p className={`text-xs font-medium mt-2 ${colors.subtitle}`}>
+              {subtitle}
+            </p>
+          </>
+        )}
+      </div>
+      {/* Right side: Icon */}
+      <div className={`p-3 rounded-lg ${colors.bg}`}>
+        <IconComponent className={`w-6 h-6 ${colors.icon}`} />
+      </div>
+    </div>
+  );
+};
+
+
+// 🆕 MODIFIED: OnlineUsersModal component - Now accepts onUserClick prop
+const OnlineUsersModal = ({ isOpen, onClose, onlineUsers, isLoading, onUserClick }) => {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedRole, setSelectedRole] = useState('ALL');
+  const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
+  const [sortBy, setSortBy] = useState('name'); // 'name', 'role', 'company'
+
+  if (!isOpen) return null;
+
+  // Filter and sort users
+  const filteredUsers = onlineUsers
+    .filter(user => {
+      const matchesSearch =
+        user.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        user.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        user.company_name?.toLowerCase().includes(searchQuery.toLowerCase());
+
+      const matchesRole = selectedRole === 'ALL' || user.role === selectedRole;
+
+      return matchesSearch && matchesRole;
+    })
+    .sort((a, b) => {
+      if (sortBy === 'name') {
+        const nameA = a.full_name || a.username;
+        const nameB = b.full_name || b.username;
+        return nameA.localeCompare(nameB);
+      } else if (sortBy === 'role') {
+        return a.role.localeCompare(b.role);
+      } else if (sortBy === 'company') {
+        const compA = a.company_name || '';
+        const compB = b.company_name || '';
+        return compA.localeCompare(compB);
+      }
+      return 0;
+    });
+
+  // Calculate stats by role
+  const roleStats = onlineUsers.reduce((acc, user) => {
+    acc[user.role] = (acc[user.role] || 0) + 1;
+    return acc;
+  }, {});
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div
+        className="fixed inset-0 bg-black bg-opacity-50 z-40 transition-opacity"
+        onClick={onClose}
+      />
+
+      {/* Modal */}
+      <div className="fixed inset-0 z-50 overflow-y-auto">
+        <div className="flex min-h-full items-center justify-center p-4">
+          <div className="relative bg-white rounded-xl shadow-2xl max-w-5xl w-full max-h-[85vh] flex flex-col">
+            {/* Header */}
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg">
+                    <Wifi className="w-6 h-6 text-white" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold text-gray-900">Online Users</h2>
+                    <p className="text-sm text-gray-500 mt-0.5">
+                      {isLoading ? 'Loading...' : (
+                        <>
+                          <span className="font-semibold text-blue-600">{filteredUsers.length}</span>
+                          {filteredUsers.length !== onlineUsers.length && (
+                            <span className="text-gray-400"> of {onlineUsers.length}</span>
+                          )}
+                          {' '}{filteredUsers.length === 1 ? 'user' : 'users'}
+                          {searchQuery || selectedRole !== 'ALL' ? ' (filtered)' : ' currently online'}
+                        </>
+                      )}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={onClose}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
+
+              {/* Quick Stats */}
+              {!isLoading && onlineUsers.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-4">
+                  {ROLES.map(({ value, label }) => {
+                    const count = roleStats[value] || 0;
+                    if (count === 0 && selectedRole !== value) return null;
+
+                    const roleColors = {
+                      SUPERADMIN: 'bg-red-50 text-red-700 border-red-200',
+                      STAFF_ADMIN: 'bg-purple-50 text-purple-700 border-purple-200',
+                      CLIENT: 'bg-green-50 text-green-700 border-green-200',
+                      GUEST: 'bg-gray-50 text-gray-700 border-gray-200',
+                    };
+
+                    return (
+                      <div
+                        key={value}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-medium border ${roleColors[value]}`}
+                      >
+                        {label}: <span className="font-bold">{count}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Search and Filters */}
+              <div className="flex flex-col sm:flex-row gap-3">
+                {/* Search */}
+                <div className="flex-1 relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Search by name, email, or company..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                  />
+                  {searchQuery && (
+                    <button
+                      onClick={() => setSearchQuery('')}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-100 rounded"
+                    >
+                      <X className="w-3 h-3 text-gray-400" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Role Filter */}
+                <select
+                  value={selectedRole}
+                  onChange={(e) => setSelectedRole(e.target.value)}
+                  className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-sm font-medium"
+                >
+                  <option value="ALL">All Roles</option>
+                  {ROLES.map(({ value, label }) => (
+                    <option key={value} value={value}>
+                      {label} {roleStats[value] ? `(${roleStats[value]})` : ''}
+                    </option>
+                  ))}
+                </select>
+
+                {/* Sort */}
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
+                  className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-sm font-medium"
+                >
+                  <option value="name">Sort by Name</option>
+                  <option value="role">Sort by Role</option>
+                  <option value="company">Sort by Company</option>
+                </select>
+
+                {/* View Toggle */}
+                <div className="flex border border-gray-300 rounded-lg overflow-hidden">
+                  <button
+                    onClick={() => setViewMode('grid')}
+                    className={`px-3 py-2 text-sm font-medium transition-colors ${
+                      viewMode === 'grid'
+                        ? 'bg-blue-50 text-blue-700'
+                        : 'bg-white text-gray-600 hover:bg-gray-50'
+                    }`}
+                  >
+                    Grid
+                  </button>
+                  <button
+                    onClick={() => setViewMode('list')}
+                    className={`px-3 py-2 text-sm font-medium transition-colors border-l border-gray-300 ${
+                      viewMode === 'list'
+                        ? 'bg-blue-50 text-blue-700'
+                        : 'bg-white text-gray-600 hover:bg-gray-50'
+                    }`}
+                  >
+                    List
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {isLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <LoadingSpinner />
+                </div>
+              ) : filteredUsers.length === 0 ? (
+                <div className="text-center py-12">
+                  <div className="inline-flex items-center justify-center w-16 h-16 bg-gray-100 rounded-full mb-4">
+                    <Users className="w-8 h-8 text-gray-400" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                    {searchQuery || selectedRole !== 'ALL' ? 'No matching users found' : 'No users online'}
+                  </h3>
+                  <p className="text-gray-500">
+                    {searchQuery || selectedRole !== 'ALL'
+                      ? 'Try adjusting your search or filters'
+                      : 'Check back later to see who\'s online'
+                    }
+                  </p>
+                </div>
+              ) : viewMode === 'grid' ? (
+                /* Grid View - Compact cards */
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                  {filteredUsers.map((user) => (
+                    <div
+                      key={user.id}
+                      onClick={() => onUserClick && onUserClick(user)}
+                      className="relative bg-gradient-to-br from-gray-50 to-white border border-gray-200 rounded-lg p-4 hover:shadow-md hover:border-blue-300 transition-all cursor-pointer group"
+                    >
+                      {/* Online indicator */}
+                      <div className="absolute top-2 right-2 w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse ring-2 ring-emerald-100"></div>
+
+                      {/* Avatar */}
+                      <div className="flex justify-center mb-3">
+                        <UserAvatar user={user} size="lg" />
+                      </div>
+
+                      {/* User Info */}
+                      <div className="text-center">
+                        <h3 className="font-semibold text-gray-900 text-sm truncate mb-1 group-hover:text-blue-600 transition-colors" title={user.full_name || user.username}>
+                          {user.full_name || user.username}
+                        </h3>
+                        <p className="text-xs text-gray-500 truncate mb-2" title={user.email}>
+                          {user.email}
+                        </p>
+
+                        {/* Role Badge - Smaller */}
+                        <div className="flex justify-center mb-2">
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${
+                            {
+                              SUPERADMIN: 'bg-red-50 text-red-700 border-red-200',
+                              STAFF_ADMIN: 'bg-purple-50 text-purple-700 border-purple-200',
+                              CLIENT: 'bg-green-50 text-green-700 border-green-200',
+                              GUEST: 'bg-gray-50 text-gray-700 border-gray-200',
+                            }[user.role]
+                          }`}>
+                            <Shield className="w-2.5 h-2.5" />
+                            {user.role.replace('_', ' ')}
+                          </span>
+                        </div>
+
+                        {/* Company */}
+                        {user.company_name && (
+                          <p className="text-xs text-gray-600 truncate flex items-center justify-center gap-1" title={user.company_name}>
+                            <Building className="w-3 h-3 flex-shrink-0" />
+                            <span className="truncate">{user.company_name}</span>
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                /* List View - More detailed */
+                <div className="space-y-2">
+                  {filteredUsers.map((user) => (
+                    <div
+                      key={user.id}
+                      onClick={() => onUserClick && onUserClick(user)}
+                      className="flex items-center gap-4 p-3 bg-gradient-to-r from-gray-50 to-white border border-gray-200 rounded-lg hover:shadow-md hover:border-blue-300 transition-all cursor-pointer group"
+                    >
+                      {/* Avatar */}
+                      <div className="relative">
+                        <UserAvatar user={user} size="md" />
+                        <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 rounded-full border-2 border-white animate-pulse"></div>
+                      </div>
+
+                      {/* User Info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className="font-semibold text-gray-900 truncate text-sm group-hover:text-blue-600 transition-colors">
+                            {user.full_name || user.username}
+                          </h3>
+                        </div>
+                        <p className="text-xs text-gray-600 truncate">
+                          {user.email}
+                        </p>
+                      </div>
+
+                      {/* Role and Company */}
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border ${
+                          {
+                            SUPERADMIN: 'bg-red-50 text-red-700 border-red-200',
+                            STAFF_ADMIN: 'bg-purple-50 text-purple-700 border-purple-200',
+                            CLIENT: 'bg-green-50 text-green-700 border-green-200',
+                            GUEST: 'bg-gray-50 text-gray-700 border-gray-200',
+                          }[user.role]
+                        }`}>
+                          <Shield className="w-3 h-3" />
+                          {user.role.replace('_', ' ')}
+                        </span>
+
+                        {user.company_name && (
+                          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-gray-50 text-gray-700 border border-gray-200 max-w-[120px]">
+                            <Building className="w-3 h-3 flex-shrink-0" />
+                            <span className="truncate">{user.company_name}</span>
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-between gap-3 px-6 py-4 border-t border-gray-200 bg-gray-50">
+              <div className="text-sm text-gray-600">
+                Showing <span className="font-semibold text-gray-900">{filteredUsers.length}</span> of <span className="font-semibold text-gray-900">{onlineUsers.length}</span> online users
+              </div>
+              <button
+                onClick={onClose}
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+};
+
 // Sortable Table Header Component
-const SortableHeader = ({ label, field, currentSort, onSort }) => {
-  const isActive = currentSort.startsWith(field) || currentSort.startsWith(`-${field}`);
-  const isDesc = currentSort === `-${field}`;
+const ResizableHeader = ({ column, currentSort, onSort, onResize }) => {
+  const [isMouseDown, setIsMouseDown] = useState(false);
+  const startX = useRef(0);
+  const startWidth = useRef(0);
+
+  const handleMouseDown = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsMouseDown(true);
+    startX.current = e.clientX;
+    startWidth.current = column.width;
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  };
+
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      if (isMouseDown) {
+        const diff = e.clientX - startX.current;
+        const newWidth = Math.max(100, startWidth.current + diff);
+        onResize(column.id, newWidth);
+      }
+    };
+
+    const handleMouseUp = () => {
+      setIsMouseDown(false);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+
+    if (isMouseDown) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isMouseDown, column.id, onResize]);
+
+  const isActive = currentSort.startsWith(column.field) || currentSort.startsWith(`-${column.field}`);
+  const isDesc = currentSort === `-${column.field}`;
 
   return (
     <th
-      className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors select-none group"
-      onClick={() => onSort(field)}
+      className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider bg-gray-50 select-none relative group"
+      style={{ width: column.width, minWidth: column.width, maxWidth: column.width }}
     >
-      <div className="flex items-center gap-2">
-        <span>{label}</span>
-        <div className="flex flex-col">
-          <ChevronDown
-            className={`w-3 h-3 -mb-1 transition-colors ${
-              isActive && !isDesc ? 'text-indigo-600' : 'text-gray-400 group-hover:text-gray-500'
-            }`}
-            style={{ transform: 'rotate(180deg)' }}
-          />
-          <ChevronDown
-            className={`w-3 h-3 transition-colors ${
-              isActive && isDesc ? 'text-indigo-600' : 'text-gray-400 group-hover:text-gray-500'
-            }`}
-          />
-        </div>
+      <div
+        className="flex items-center gap-2 cursor-pointer"
+        onClick={() => column.sortable && onSort(column.field)}
+      >
+        <span>{column.label}</span>
+        {column.sortable && (
+          <div className="flex flex-col">
+            {isActive ? (
+              isDesc ? <ChevronDown className="w-4 h-4 text-indigo-600" /> : <ChevronUp className="w-4 h-4 text-indigo-600" />
+            ) : (
+              <ChevronsUpDown className="w-4 h-4 text-gray-400" />
+            )}
+          </div>
+        )}
       </div>
+
+      {/* Resize handle */}
+      {column.resizable && (
+        <div
+          className="absolute top-0 right-0 h-full w-1 cursor-col-resize hover:bg-indigo-400 group-hover:bg-indigo-200"
+          onMouseDown={handleMouseDown}
+        />
+      )}
     </th>
   );
 };
+
+// Column Settings Modal Component
+const ColumnSettingsModal = ({ isOpen, onClose, columns, onColumnsChange, onReset }) => {
+  const [localColumns, setLocalColumns] = useState(columns);
+  const [draggedIndex, setDraggedIndex] = useState(null);
+
+  useEffect(() => {
+    setLocalColumns(columns);
+  }, [columns]);
+
+  if (!isOpen) return null;
+
+  const handleToggleColumn = (columnId) => {
+    setLocalColumns(localColumns.map(col =>
+      col.id === columnId ? { ...col, visible: !col.visible } : col
+    ));
+  };
+
+  const handleDragStart = (index) => {
+    setDraggedIndex(index);
+  };
+
+  const handleDragEnter = (index) => {
+    if (draggedIndex === null || draggedIndex === index) return;
+
+    const newColumns = [...localColumns];
+    const draggedItem = newColumns[draggedIndex];
+    newColumns.splice(draggedIndex, 1);
+    newColumns.splice(index, 0, draggedItem);
+
+    setLocalColumns(newColumns);
+    setDraggedIndex(index);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedIndex(null);
+  };
+
+  const handleSave = () => {
+    onColumnsChange(localColumns);
+    onClose();
+  };
+
+  const handleReset = () => {
+    onReset();
+    onClose();
+  };
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div
+        className="fixed inset-0 bg-black bg-opacity-50 z-40 transition-opacity"
+        onClick={onClose}
+      />
+
+      {/* Modal */}
+      <div className="fixed inset-0 z-50 overflow-y-auto">
+        <div className="flex min-h-full items-center justify-center p-4">
+          <div className="relative bg-white rounded-xl shadow-2xl max-w-md w-full">
+            {/* Header */}
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-indigo-100 rounded-lg">
+                    <Columns className="w-5 h-5 text-indigo-600" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-bold text-gray-900">Column Settings</h2>
+                    <p className="text-sm text-gray-500 mt-0.5">Customize table columns</p>
+                  </div>
+                </div>
+                <button
+                  onClick={onClose}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 max-h-[60vh] overflow-y-auto">
+              <div className="space-y-2">
+                {localColumns.map((column, index) => (
+                  <div
+                    key={column.id}
+                    draggable
+                    onDragStart={() => handleDragStart(index)}
+                    onDragEnter={() => handleDragEnter(index)}
+                    onDragEnd={handleDragEnd}
+                    onDragOver={(e) => e.preventDefault()}
+                    className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-move transition-colors group"
+                  >
+                    <GripVertical className="w-5 h-5 text-gray-400 group-hover:text-gray-600" />
+                    <input
+                      type="checkbox"
+                      checked={column.visible}
+                      onChange={() => handleToggleColumn(column.id)}
+                      className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500 cursor-pointer"
+                    />
+                    <span className={`flex-1 text-sm font-medium ${column.visible ? 'text-gray-900' : 'text-gray-400'}`}>
+                      {column.label}
+                    </span>
+                    {column.visible && <Check className="w-4 h-4 text-green-600" />}
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-sm text-blue-900 font-medium">💡 Tip</p>
+                <p className="text-sm text-blue-700 mt-1">
+                  Drag columns to reorder them. Uncheck to hide columns from the table.
+                </p>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-6 border-t border-gray-200 bg-gray-50 flex justify-between gap-3">
+              <button
+                onClick={handleReset}
+                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-100 font-medium text-sm text-gray-700 transition-colors"
+              >
+                Reset to Default
+              </button>
+              <div className="flex gap-3">
+                <button
+                  onClick={onClose}
+                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-100 font-medium text-sm text-gray-700 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSave}
+                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium text-sm transition-colors flex items-center gap-2"
+                >
+                  <Save className="w-4 h-4" />
+                  Save Changes
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+};
+
 
 // --- Main Page Component ---
 
@@ -130,22 +782,126 @@ const UserManagementPage = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isOnlineUsersModalOpen, setIsOnlineUsersModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
   const [viewingUser, setViewingUser] = useState(null);
   const [deletingUser, setDeletingUser] = useState(null);
 
+  // 🆕 NEW: State for login history modal
+  const [isLoginHistoryModalOpen, setIsLoginHistoryModalOpen] = useState(false);
+  const [selectedUserForHistory, setSelectedUserForHistory] = useState(null);
+
   const { toasts, removeToast, success, error: showError } = useToast();
   const queryClient = useQueryClient();
 
+  const [columns, setColumns] = useState(() => {
+    const saved = localStorage.getItem(COLUMNS_STORAGE_KEY);
+    return saved ? JSON.parse(saved) : DEFAULT_COLUMNS;
+  });
+  const [isColumnSettingsOpen, setIsColumnSettingsOpen] = useState(false);
+  const [expandedRows, setExpandedRows] = useState(new Set());
+  const [inlineEditingRow, setInlineEditingRow] = useState(null);
+  const [editedData, setEditedData] = useState({});
+
+  // Enable real-time user status updates via WebSocket
+  useUserStatus();
+
+  useEffect(() => {
+    localStorage.setItem(COLUMNS_STORAGE_KEY, JSON.stringify(columns));
+  }, [columns]);
+
+// Column management handlers
+const handleColumnsChange = (newColumns) => {
+  setColumns(newColumns);
+};
+
+const handleResetColumns = () => {
+  setColumns(DEFAULT_COLUMNS);
+  localStorage.removeItem(COLUMNS_STORAGE_KEY);
+};
+
+const handleColumnResize = (columnId, newWidth) => {
+  setColumns(columns.map(col =>
+    col.id === columnId ? { ...col, width: newWidth } : col
+  ));
+};
+
+// Row expansion handlers
+const handleToggleExpand = (userId) => {
+  const newExpanded = new Set(expandedRows);
+  if (newExpanded.has(userId)) {
+    newExpanded.delete(userId);
+  } else {
+    newExpanded.add(userId);
+  }
+  setExpandedRows(newExpanded);
+};
+
+// Inline editing handlers
+const handleInlineEdit = (user) => {
+  setInlineEditingRow(user.id);
+  setEditedData({
+    first_name: user.first_name || '',
+    last_name: user.last_name || '',
+    username: user.username,
+    email: user.email,
+    phone_number: user.phone_number || '',
+    company_name: user.company_name || '',
+    role: user.role,
+    is_active: user.is_active,
+  });
+};
+
+const handleInlineEditSave = () => {
+  if (inlineEditingRow) {
+    mutation.mutate({ id: inlineEditingRow, ...editedData });
+    setInlineEditingRow(null);
+    setEditedData({});
+  }
+};
+
+const handleInlineEditCancel = () => {
+  setInlineEditingRow(null);
+  setEditedData({});
+};
+
+const handleEditedDataChange = (field, value) => {
+  setEditedData({ ...editedData, [field]: value });
+};
+
+  // Existing query for the user list
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ['users', { page, pageSize, search, role: roleFilter, ordering }],
     queryFn: fetchUsers,
     keepPreviousData: true,
   });
 
+  // --- NEW: Query for dashboard stats ---
+  const {
+    data: statsData,
+    isLoading: isStatsLoading,
+    isError: isStatsError,
+  } = useQuery({
+    queryKey: ['dashboardStats'],
+    queryFn: fetchDashboardStats,
+    staleTime: 1000 * 60 * 5,
+  });
+
+    // 🆕 NEW: Query for online users (only fetched when modal is open)
+    const {
+      data: onlineUsersData,
+      isLoading: isOnlineUsersLoading,
+    } = useQuery({
+      queryKey: ['onlineUsers'],
+      queryFn: fetchOnlineUsers,
+      enabled: isOnlineUsersModalOpen,
+      refetchInterval: 5000,
+    });
+
   const users = data?.results || [];
   const totalCount = data?.count || 0;
   const totalPages = pageSize > 0 ? Math.ceil(totalCount / pageSize) : 0;
+  const onlineUsersCount = users.filter(user => user.is_online).length;
 
     const mutation = useMutation({
       mutationFn: (userData) => {
@@ -162,6 +918,8 @@ const UserManagementPage = () => {
       },
       onSuccess: (data, variables) => {
         queryClient.invalidateQueries(['users']);
+        queryClient.invalidateQueries(['dashboardStats']);
+        queryClient.invalidateQueries(['onlineUsers']);
         setIsModalOpen(false);
         setEditingUser(null);
 
@@ -181,6 +939,8 @@ const UserManagementPage = () => {
     mutationFn: (userId) => api.delete(`/api/auth/users/${userId}/`),
     onSuccess: () => {
       queryClient.invalidateQueries(['users']);
+      queryClient.invalidateQueries(['dashboardStats']);
+      queryClient.invalidateQueries(['onlineUsers']);
       setIsDeleteModalOpen(false);
       setDeletingUser(null);
       success('User deleted successfully!');
@@ -267,13 +1027,27 @@ const UserManagementPage = () => {
     XLSX.writeFile(wb, filename);
   };
 
+  // Format date
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
+  };
+
+  // 🆕 NEW: Handler to open login history modal from online users modal
+  const handleUserClickFromOnlineModal = (user) => {
+    setSelectedUserForHistory(user);
+    setIsLoginHistoryModalOpen(true);
+  };
+
   // --- NEW: Define the header subtitle ---
   const pageSubtitle = (
-    <p className="text-sm text-white-500">Add, edit, and manage all platform users.</p> // Color for white header
+    <p className="text-sm text-white-500">Add, edit, and manage all platform users.</p>
   );
 
   return (
-    // --- MODIFIED: Pass pageTitle and pageSubtitleBottom ---
     <DashboardLayout
         pageTitle="User Management"
         pageSubtitleBottom={pageSubtitle}
@@ -281,10 +1055,59 @@ const UserManagementPage = () => {
       {/* Toast Notifications */}
       <ToastContainer toasts={toasts} removeToast={removeToast} />
 
-      {/* --- REMOVED: The secondary gradient header div --- */}
-
       {/* Main Content */}
       <div className="p-8">
+
+        {/* --- MODIFIED: Stats Cards Grid (Redesigned) --- */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+          <StatCard
+            icon={Users}
+            label="Total Clients"
+            value={statsData?.total_clients ?? 0}
+            subtitle={
+              statsData?.new_clients > 0
+                ? `+${statsData.new_clients} new users`
+                : (statsData ? 'All clients' : ' ')
+            }
+            color="green"
+            isLoading={isStatsLoading}
+          />
+          <StatCard
+            icon={Users}
+            label="Staff Members"
+            value={statsData?.total_staff ?? 0}
+            subtitle="Active staff accounts"
+            color="purple"
+            isLoading={isStatsLoading}
+          />
+          <StatCard
+            icon={Calendar}
+            label="Guest Users"
+            value={statsData?.total_guests ?? 0}
+            subtitle="Guest accounts"
+            color="teal"
+            isLoading={isStatsLoading}
+          />
+          {/* 🆕 NEW: Online Users Card - Clickable */}
+          <StatCard
+            icon={Wifi}
+            label="Online Users"
+            value={onlineUsersCount}
+            subtitle="Click to view details"
+            color="blue"
+            isLoading={isLoading}
+            onClick={() => setIsOnlineUsersModalOpen(true)}
+          />
+        </div>
+
+        {/* Show error message if stats fail to load */}
+        {isStatsError && (
+            <div className="bg-red-50 border border-red-200 text-red-800 p-4 rounded-lg mb-6">
+              <p>Could not load user statistics. Please try again later.</p>
+           </div>
+        )}
+
+
         <div className="bg-white rounded-xl shadow-sm border border-gray-200">
           {/* Toolbar */}
           <div className="p-4 border-b border-gray-200">
@@ -335,144 +1158,132 @@ const UserManagementPage = () => {
 
               {/* Action Buttons */}
               <div className="flex gap-3 w-full lg:w-auto">
+                {/* 🆕 NEW: Navigate to User Activity Button */}
+                <button
+                  onClick={() => navigate('/user-activity')}
+                  className="flex-1 lg:flex-none px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition flex items-center justify-center gap-2 shadow-md text-sm"
+                >
+                  <Activity className="w-5 h-5" />
+                  User Activity
+                </button>
                 <button
                   onClick={handleExportToExcel}
-                  className="flex-1 lg:flex-none px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition flex items-center justify-center gap-2 shadow-md text-sm" // Added text-sm
+                  className="flex-1 lg:flex-none px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition flex items-center justify-center gap-2 shadow-md text-sm"
                 >
                   <Download className="w-5 h-5" />
                   Export to Excel
                 </button>
                 <button
                   onClick={() => handleOpenModal()}
-                  className="flex-1 lg:flex-none px-5 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition flex items-center justify-center gap-2 shadow-md text-sm" // Added text-sm
+                  className="flex-1 lg:flex-none px-5 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition flex items-center justify-center gap-2 shadow-md text-sm"
                 >
                   <UserPlus className="w-5 h-5" />
                   Add User
+                </button>
+                <button
+                  onClick={() => setIsColumnSettingsOpen(true)}
+                  className="flex items-center gap-2 px-4 py-2.5 border border-gray-300 text-gray-700 bg-white rounded-lg hover:bg-gray-50 font-medium text-sm transition-colors"
+                >
+                  <Settings className="w-4 h-4" />
+                  Columns
                 </button>
               </div>
             </div>
           </div>
 
           {/* Table */}
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <SortableHeader label="User" field="first_name" currentSort={ordering} onSort={handleSort} />
-                  <SortableHeader label="Username" field="username" currentSort={ordering} onSort={handleSort} />
-                  <SortableHeader label="Company" field="company_name" currentSort={ordering} onSort={handleSort} />
-                  <SortableHeader label="Role" field="role" currentSort={ordering} onSort={handleSort} />
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                    Online Status
-                  </th>
-                  <SortableHeader label="Date Joined" field="date_joined" currentSort={ordering} onSort={handleSort} />
-                  <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {isLoading ? (
+            <div className="overflow-x-auto" style={{ maxHeight: 'calc(100vh - 400px)' }}>
+              <table className="min-w-full divide-y divide-gray-200">
+                {/* Sticky Header */}
+                <thead className="bg-gray-50 sticky top-0 z-10 shadow-sm">
                   <tr>
-                    <td colSpan="7" className="text-center py-12"><LoadingSpinner /></td>
+                    {/* Expand/Collapse column */}
+                    <th className="px-6 py-4 w-12 bg-gray-50"></th>
+
+                    {/* Dynamic columns based on visibility */}
+                    {columns.filter(col => col.visible).map((column) => (
+                      <ResizableHeader
+                        key={column.id}
+                        column={column}
+                        currentSort={ordering}
+                        onSort={handleSort}
+                        onResize={handleColumnResize}
+                      />
+                    ))}
+
+                    {/* Actions column */}
+                    <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider bg-gray-50 sticky right-0">
+                      Actions
+                    </th>
                   </tr>
-                ) : isError ? (
-                  <tr>
-                    <td colSpan="7" className="text-center py-12 text-red-600">{error.message}</td>
-                  </tr>
-                ) : users.length === 0 ? (
-                  <tr>
-                    <td colSpan="7" className="text-center py-12 text-gray-500">No users found.</td>
-                  </tr>
-                ) : (
-                  users.map((user, index) => (
-                    <tr
-                      key={user.id}
-                      className={`hover:bg-indigo-50 transition-colors ${
-                        index % 2 === 0 ? 'bg-white' : 'bg-gray-50'
-                      }`}
-                    >
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center font-bold text-indigo-600">
-                            {user.initials}
-                          </div>
-                          <div>
-                            <p className="text-sm font-semibold text-gray-900">{user.full_name}</p>
-                            <p className="text-xs text-gray-500">{user.email}</p>
-                            {user.phone_number && (
-                              <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
-                                <Phone className="w-3 h-3" />
-                                {user.phone_number}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 font-mono">{user.username}</td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {user.company_name ? (
-                          <div className="flex items-center gap-1.5 text-sm text-gray-700">
-                            <Building className="w-4 h-4 text-gray-400" />
-                            {user.company_name}
-                          </div>
-                        ) : (
-                          <span className="text-sm text-gray-400 italic">No company</span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap"><RoleBadge role={user.role} /></td>
-                      <td className="px-6 py-4 whitespace-nowrap"><OnlineStatusBadge isOnline={user.is_online} /></td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                        {new Date(user.date_joined).toLocaleDateString()}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <button
-                            onClick={() => handleViewUser(user)}
-                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
-                            title="View user"
-                          >
-                            <Eye className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleOpenModal(user)}
-                            className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
-                            title="Edit user"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(user)}
-                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                            title="Delete user"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
+                </thead>
+
+                {/* Table body */}
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {isLoading ? (
+                    <tr>
+                      <td colSpan={columns.filter(col => col.visible).length + 2} className="text-center py-12">
+                        <LoadingSpinner />
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                  ) : isError ? (
+                    <tr>
+                      <td colSpan={columns.filter(col => col.visible).length + 2} className="text-center py-12 text-red-600">
+                        {error.message}
+                      </td>
+                    </tr>
+                  ) : users.length === 0 ? (
+                    <tr>
+                      <td colSpan={columns.filter(col => col.visible).length + 2} className="text-center py-12 text-gray-500">
+                        No users found.
+                      </td>
+                    </tr>
+                  ) : (
+                    users.map((user, index) => (
+                      <ExpandableRow
+                        key={user.id}
+                        user={user}
+                        index={index}
+                        columns={columns}
+                        isExpanded={expandedRows.has(user.id)}
+                        onToggleExpand={handleToggleExpand}
+                        onEdit={handleOpenModal}
+                        onView={handleViewUser}
+                        onDelete={handleDelete}
+                        isInlineEdit={inlineEditingRow === user.id}
+                        onInlineEdit={handleInlineEdit}
+                        onInlineEditSave={handleInlineEditSave}
+                        onInlineEditCancel={handleInlineEditCancel}
+                        editedData={editedData}
+                        onEditedDataChange={handleEditedDataChange}
+                        RoleBadge={RoleBadge}
+                        StatusBadge={StatusBadge}
+                        OnlineStatusBadge={OnlineStatusBadge}
+                        formatDate={formatDate}
+                      />
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
 
-          {/* Pagination Component */}
-          {!isLoading && !isError && totalCount > 0 && (
-            <Pagination
-              currentPage={page}
-              totalPages={totalPages}
-              totalCount={totalCount}
-              pageSize={pageSize}
-              onPageChange={handlePageChange}
-              onPageSizeChange={handlePageSizeChange}
-              showFirstLast={true}
-            />
+          {/* Pagination */}
+          {!isLoading && !isError && users.length > 0 && (
+            <div className="p-4 border-t border-gray-200">
+              <Pagination
+                currentPage={page}
+                totalPages={totalPages}
+                totalCount={totalCount}
+                pageSize={pageSize}
+                onPageChange={handlePageChange}
+                onPageSizeChange={handlePageSizeChange}
+              />
+            </div>
           )}
         </div>
       </div>
 
-      {/* Edit/Create Modal */}
+      {/* Modals */}
       {isModalOpen && (
         <UserFormModal
           user={editingUser}
@@ -480,15 +1291,14 @@ const UserManagementPage = () => {
             setIsModalOpen(false);
             setEditingUser(null);
           }}
-          onSubmit={mutation.mutate}
+          onSubmit={(userData) => mutation.mutate(userData)}
           isLoading={mutation.isLoading}
           error={mutation.error}
         />
       )}
 
-      {/* View Modal */}
-      {isViewModalOpen && (
-        <UserViewModal
+      {isViewModalOpen && viewingUser && (
+        <ViewUserModal
           user={viewingUser}
           onClose={() => {
             setIsViewModalOpen(false);
@@ -501,126 +1311,132 @@ const UserManagementPage = () => {
         />
       )}
 
-      {/* Delete Confirmation Modal */}
-      <DeleteConfirmationModal
-        isOpen={isDeleteModalOpen}
-        onClose={() => {
-          setIsDeleteModalOpen(false);
-          setDeletingUser(null);
-        }}
-        onConfirm={confirmDelete}
-        title="Delete User"
-        message="Are you sure you want to delete this user?"
-        itemName={deletingUser ? `${deletingUser.full_name || deletingUser.username} (${deletingUser.email})` : ''}
-        isDeleting={deleteMutation.isLoading}
-      />
+      {isDeleteModalOpen && (
+        <DeleteConfirmationModal
+          isOpen={isDeleteModalOpen}
+          onClose={() => {
+            setIsDeleteModalOpen(false);
+            setDeletingUser(null);
+          }}
+          onConfirm={confirmDelete}
+          title="Delete User"
+          message={`Are you sure you want to delete ${deletingUser?.full_name || deletingUser?.username}? This action cannot be undone.`}
+          isLoading={deleteMutation.isLoading}
+        />
+      )}
+
+      {/* 🆕 MODIFIED: Online Users Modal with onUserClick prop */}
+      {isOnlineUsersModalOpen && (
+        <OnlineUsersModal
+          isOpen={isOnlineUsersModalOpen}
+          onClose={() => setIsOnlineUsersModalOpen(false)}
+          onlineUsers={onlineUsersData || []}
+          isLoading={isOnlineUsersLoading}
+          onUserClick={handleUserClickFromOnlineModal}
+        />
+      )}
+
+      {/* 🆕 NEW: Login History Modal */}
+      {isLoginHistoryModalOpen && selectedUserForHistory && (
+        <UserLoginHistoryModal
+          user={selectedUserForHistory}
+          onClose={() => {
+            setIsLoginHistoryModalOpen(false);
+            setSelectedUserForHistory(null);
+          }}
+        />
+      )}
+
+      {/* Column Settings Modal */}
+      {isColumnSettingsOpen && (
+        <ColumnSettingsModal
+          isOpen={isColumnSettingsOpen}
+          onClose={() => setIsColumnSettingsOpen(false)}
+          columns={columns}
+          onColumnsChange={handleColumnsChange}
+          onReset={handleResetColumns}
+        />
+      )}
     </DashboardLayout>
   );
 };
 
-// --- User View Modal Component ---
-const UserViewModal = ({ user, onClose, onEdit }) => {
+// View User Modal Component
+const ViewUserModal = ({ user, onClose, onEdit }) => {
   if (!user) return null;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
-        {/* Header */}
-        <div className="px-6 py-5 border-b border-gray-200 bg-gradient-to-r from-indigo-600 to-purple-600">
+        <div className="p-6 border-b">
           <div className="flex justify-between items-center">
-            <div className="flex items-center gap-4">
-              <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center font-bold text-indigo-600 text-2xl">
-                {user.initials}
-              </div>
-              <div>
-                <h2 className="text-xl font-bold text-white">{user.full_name}</h2>
-                <p className="text-indigo-100 text-sm">@{user.username}</p>
-              </div>
-            </div>
-            <button
-              onClick={onClose}
-              className="p-2 text-white hover:bg-white/20 rounded-lg transition-all"
-            >
+            <h2 className="text-xl font-bold text-gray-900">User Details</h2>
+            <button onClick={onClose} className="p-2 text-gray-500 hover:text-gray-800 transition-colors">
               <X className="w-5 h-5" />
             </button>
           </div>
         </div>
 
-        {/* Body */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
-          {/* Status Badges */}
-          <div className="flex gap-3">
-            <RoleBadge role={user.role} />
-            <StatusBadge isActive={user.is_active} />
-            <OnlineStatusBadge isOnline={user.is_online} />
-          </div>
-
-          {/* Contact Information */}
-          <div>
-            <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-3">
-              Contact Information
-            </h3>
-            <div className="space-y-3 bg-gray-50 rounded-lg p-4">
-              <div className="flex items-center gap-3">
-                <Mail className="w-5 h-5 text-gray-400" />
-                <div>
-                  <p className="text-xs text-gray-500">Email</p>
-                  <p className="text-sm font-medium text-gray-900">{user.email}</p>
-                </div>
-              </div>
-              {user.phone_number && (
-                <div className="flex items-center gap-3">
-                  <Phone className="w-5 h-5 text-gray-400" />
-                  <div>
-                    <p className="text-xs text-gray-500">Phone</p>
-                    <p className="text-sm font-medium text-gray-900">{user.phone_number}</p>
-                  </div>
-                </div>
-              )}
-              {user.company_name && (
-                <div className="flex items-center gap-3">
-                  <Building className="w-5 h-5 text-gray-400" />
-                  <div>
-                    <p className="text-xs text-gray-500">Company</p>
-                    <p className="text-sm font-medium text-gray-900">{user.company_name}</p>
-                  </div>
-                </div>
-              )}
+          <div className="grid grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-600 mb-1">Username</label>
+              <p className="text-gray-900 font-medium">{user.username}</p>
             </div>
-          </div>
-
-          {/* Account Details */}
-          <div>
-            <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-3">
-              Account Details
-            </h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-gray-50 rounded-lg p-4">
-                <p className="text-xs text-gray-500 mb-1">Date Joined</p>
-                <p className="text-sm font-medium text-gray-900">
-                  {new Date(user.date_joined).toLocaleDateString()}
-                </p>
+            <div>
+              <label className="block text-sm font-medium text-gray-600 mb-1">Email</label>
+              <p className="text-gray-900 font-medium">{user.email}</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-600 mb-1">First Name</label>
+              <p className="text-gray-900 font-medium">{user.first_name || '-'}</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-600 mb-1">Last Name</label>
+              <p className="text-gray-900 font-medium">{user.last_name || '-'}</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-600 mb-1">Phone Number</label>
+              <p className="text-gray-900 font-medium">{user.phone_number || '-'}</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-600 mb-1">Company</label>
+              <p className="text-gray-900 font-medium">{user.company_name || '-'}</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-600 mb-1">Role</label>
+              <div className="mt-1">
+                <RoleBadge role={user.role} />
               </div>
-              <div className="bg-gray-50 rounded-lg p-4">
-                <p className="text-xs text-gray-500 mb-1">Last Login</p>
-                <p className="text-sm font-medium text-gray-900">
-                  {user.last_login ? new Date(user.last_login).toLocaleDateString() : 'Never'}
-                </p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-600 mb-1">Status</label>
+              <div className="mt-1">
+                <StatusBadge isActive={user.is_active} />
               </div>
-              <div className="bg-gray-50 rounded-lg p-4">
-                <p className="text-xs text-gray-500 mb-1">Username</p>
-                <p className="text-sm font-medium text-gray-900 font-mono">{user.username}</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-600 mb-1">Online Status</label>
+              <div className="mt-1">
+                <OnlineStatusBadge isOnline={user.is_online} />
               </div>
-              <div className="bg-gray-50 rounded-lg p-4">
-                <p className="text-xs text-gray-500 mb-1">User ID</p>
-                <p className="text-sm font-medium text-gray-900 font-mono">#{user.id}</p>
-              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-600 mb-1">Date Joined</label>
+              <p className="text-gray-900 font-medium">
+                {new Date(user.date_joined).toLocaleDateString()}
+              </p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-600 mb-1">Last Login</label>
+              <p className="text-gray-900 font-medium">
+                {user.last_login ? new Date(user.last_login).toLocaleString() : 'Never'}
+              </p>
             </div>
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex justify-end gap-3">
+        <div className="p-6 border-t bg-gray-50 flex justify-end gap-3">
           <button
             onClick={onClose}
             className="px-5 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-100 font-medium text-sm transition-colors"
@@ -629,7 +1445,7 @@ const UserViewModal = ({ user, onClose, onEdit }) => {
           </button>
           <button
             onClick={onEdit}
-            className="px-5 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium text-sm transition-colors flex items-center gap-2"
+            className="px-5 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium text-sm flex items-center gap-2 transition-colors"
           >
             <Edit className="w-4 h-4" />
             Edit User
@@ -640,7 +1456,7 @@ const UserViewModal = ({ user, onClose, onEdit }) => {
   );
 };
 
-// --- User Form Modal Component ---
+// User Form Modal Component
 const UserFormModal = ({ user, onClose, onSubmit, isLoading, error }) => {
   const [formData, setFormData] = useState({
     username: user?.username || '',
@@ -649,17 +1465,37 @@ const UserFormModal = ({ user, onClose, onSubmit, isLoading, error }) => {
     last_name: user?.last_name || '',
     phone_number: user?.phone_number || '',
     company_name: user?.company_name || '',
-    role: user?.role || 'GUEST',
-    is_active: user ? user.is_active : true,
+    role: user?.role || 'CLIENT',
+    is_active: user?.is_active !== undefined ? user.is_active : true,
   });
+
+  // New state to track validation status
+  const [usernameValid, setUsernameValid] = useState(!!user);
+  const [emailValid, setEmailValid] = useState(!!user);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
+    setFormData({
+      ...formData,
+      [name]: type === 'checkbox' ? checked : value
+    });
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
+
+    // ✅ VALIDATION: Check if email is available (if EmailInput validation failed)
+    if (!user && !emailValid) {
+      showError('Please use a valid and available email address');
+      return;
+    }
+
+    // ✅ VALIDATION: Check if username is available (if UsernameInput validation failed)
+    if (!user && !usernameValid) {
+      showError('Please use a valid and available username');
+      return;
+    }
+
     const payload = { ...formData };
     if (user) {
       payload.id = user.id;
@@ -668,6 +1504,10 @@ const UserFormModal = ({ user, onClose, onSubmit, isLoading, error }) => {
   };
 
   const apiError = error?.response?.data;
+
+  // Enable submit button when required fields (username and email) are filled
+  // Validation will still happen on submit via handleSubmit function
+  const canSubmit = formData.username.trim() && formData.email.trim();
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
@@ -708,6 +1548,7 @@ const UserFormModal = ({ user, onClose, onSubmit, isLoading, error }) => {
             email={formData.email}
             disabled={!!user} // Disable if editing
             required={true}
+            onValidationChange={setUsernameValid}
           />
 
           {/* Email - with availability checker */}
@@ -715,6 +1556,7 @@ const UserFormModal = ({ user, onClose, onSubmit, isLoading, error }) => {
             value={formData.email}
             onChange={handleChange}
             existingUserId={user?.id}
+            onValidationChange={setEmailValid}
           />
 
           {/* First Name & Last Name */}
@@ -816,21 +1658,23 @@ const UserFormModal = ({ user, onClose, onSubmit, isLoading, error }) => {
 
         <div className="p-6 border-t bg-gray-50 flex justify-end gap-3">
           <button
-            onClick={onClose}
             type="button"
+            onClick={onClose}
             className="px-5 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-100 font-medium text-sm transition-colors"
+            disabled={isLoading}
           >
             Cancel
           </button>
           <button
+            type="button"
             onClick={handleSubmit}
-            disabled={isLoading}
+            disabled={isLoading || !canSubmit}
             className="px-5 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium text-sm disabled:opacity-50 flex items-center gap-2 transition-colors"
           >
             {isLoading ? (
               <>
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                Saving...
+              <LoadingSpinner />
+              {user ? 'Updating...' : 'Creating...'}
               </>
             ) : (
               <>

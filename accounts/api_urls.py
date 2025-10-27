@@ -30,4 +30,8 @@ urlpatterns = [
     path('2fa/verify-login/', views.verify_2fa_login, name='verify-2fa-login'),
 
     path('change-password/', views.change_password, name='change-password'),
+
+    # User Activity endpoints
+    path('activity/stats/', views.user_activity_stats, name='user-activity-stats'),
+    path('activity/user/<int:user_id>/history/', views.user_login_history, name='user-login-history'),
 ]

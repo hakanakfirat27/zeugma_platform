@@ -1,3 +1,4 @@
+from .models import User, LoginHistory
 from django.contrib.auth import authenticate, login as auth_login, logout as auth_logout
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.core.mail import send_mail
@@ -13,20 +14,41 @@ from rest_framework.filters import SearchFilter, OrderingFilter
 from django_filters.rest_framework import DjangoFilterBackend
 from django.contrib.auth import get_user_model
 from django.utils import timezone
-from django.db.models import Q
+from django.db.models import Count, Q
 from .serializers import UserSerializer, UserManagementSerializer
 from .pagination import CustomPagination
 import json
 import re
 from datetime import timedelta
+import datetime
 import pyotp
 import qrcode
 import io
 import base64
-import datetime
-
 
 User = get_user_model()
+
+def broadcast_user_status(user_id, username, is_online):
+    """
+    Broadcast user online/offline status via WebSocket
+    """
+    try:
+        from channels.layers import get_channel_layer
+        from asgiref.sync import async_to_sync
+
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            "user_status",
+            {
+                "type": "user_status_update",
+                "user_id": user_id,
+                "username": username,
+                "is_online": is_online
+            }
+        )
+        print(f"✅ Broadcasted status: User {username} is {'ONLINE' if is_online else 'OFFLINE'}")
+    except Exception as e:
+        print(f"⚠️ Failed to broadcast user status: {e}")
 
 
 def generate_username_suggestions(first_name='', last_name='', email=''):
@@ -370,7 +392,7 @@ class UserViewSet(viewsets.ModelViewSet):
 @ensure_csrf_cookie
 def login_view(request):
     """
-    Login view with Email 2FA support
+    Login view with Email 2FA support and real-time status updates
     """
     data = request.data
     username_or_email = data.get('username', '').strip()
@@ -378,6 +400,9 @@ def login_view(request):
 
     # Try to determine if input is email or username
     user = None
+
+    # Add this variable to track user even if auth fails
+    attempted_user = None
 
     if '@' in username_or_email:
         try:
@@ -387,6 +412,12 @@ def login_view(request):
             user = None
     else:
         user = authenticate(request, username=username_or_email, password=password)
+        # Try to get user object for failed login recording
+        if user is None:
+            try:
+                attempted_user = User.objects.get(username__iexact=username_or_email)
+            except User.DoesNotExist:
+                pass
 
     if user is None and '@' not in username_or_email:
         try:
@@ -443,6 +474,18 @@ Zeugma Platform Team
             auth_login(request, user)
             user.update_last_activity()
 
+            # 🆕 SET USER ONLINE
+            user.is_online = True
+            user.save(update_fields=['is_online'])
+
+            # 🆕 BROADCAST STATUS
+            broadcast_user_status(user.id, user.username, True)
+
+            user.record_login(
+                ip_address=request.META.get('REMOTE_ADDR'),
+                user_agent=request.META.get('HTTP_USER_AGENT')
+            )
+
             return Response({
                 'requires_2fa_setup': True,
                 'user': UserSerializer(user).data,
@@ -453,6 +496,19 @@ Zeugma Platform Team
         auth_logout(request)
         auth_login(request, user)
         user.update_last_activity()
+
+        # 🆕 SET USER ONLINE
+        user.is_online = True
+        user.save(update_fields=['is_online'])
+
+        # 🆕 BROADCAST STATUS
+        broadcast_user_status(user.id, user.username, True)
+
+        user.record_login(
+            ip_address=request.META.get('REMOTE_ADDR'),
+            user_agent=request.META.get('HTTP_USER_AGENT')
+        )
+
         serializer = UserSerializer(user)
 
         return Response({
@@ -460,6 +516,14 @@ Zeugma Platform Team
             'message': 'Login successful'
         })
     else:
+        # ❌ RECORD FAILED LOGIN ATTEMPT
+        if attempted_user:  # You'll need to track this variable
+            LoginHistory.objects.create(
+                user=attempted_user,
+                ip_address=request.META.get('REMOTE_ADDR'),
+                user_agent=request.META.get('HTTP_USER_AGENT'),
+                success=False
+            )
         return Response({
             'error': 'Invalid credentials. Please check your username/email and password.'
         }, status=status.HTTP_400_BAD_REQUEST)
@@ -467,6 +531,19 @@ Zeugma Platform Team
 
 @api_view(['POST'])
 def logout_view(request):
+    """
+    Logout view with real-time status updates
+    """
+    user = request.user
+
+    if user.is_authenticated:
+        # 🆕 SET USER OFFLINE
+        user.is_online = False
+        user.save(update_fields=['is_online'])
+
+        # 🆕 BROADCAST STATUS
+        broadcast_user_status(user.id, user.username, False)
+
     auth_logout(request)
     return Response({'message': 'Logged out successfully'})
 
@@ -515,6 +592,7 @@ def csrf_view(request):
     return Response({
         'detail': 'CSRF cookie set'
     })
+
 
 @api_view(['POST'])
 @ensure_csrf_cookie
@@ -728,7 +806,7 @@ def disable_2fa(request):
 @permission_classes([AllowAny])
 def verify_2fa_login(request):
     """
-    Verify 2FA code during login
+    Verify 2FA code during login with real-time status updates
     """
     username = request.data.get('username', '')
     code = request.data.get('code', '')
@@ -760,12 +838,31 @@ def verify_2fa_login(request):
         auth_login(request, user)
         user.update_last_activity()
 
+        # 🆕 SET USER ONLINE
+        user.is_online = True
+        user.save(update_fields=['is_online'])
+
+        # 🆕 BROADCAST STATUS
+        broadcast_user_status(user.id, user.username, True)
+
+        user.record_login(
+            ip_address=request.META.get('REMOTE_ADDR'),
+            user_agent=request.META.get('HTTP_USER_AGENT')
+        )
+
         return Response({
             'success': True,
             'user': UserSerializer(user).data,
             'message': 'Login successful'
         })
     else:
+        # ❌ RECORD FAILED 2FA ATTEMPT
+        LoginHistory.objects.create(
+            user=user,
+            ip_address=request.META.get('REMOTE_ADDR'),
+            user_agent=request.META.get('HTTP_USER_AGENT'),
+            success=False
+        )
         return Response(
             {'success': False, 'message': 'Invalid or expired code'},
             status=status.HTTP_400_BAD_REQUEST
@@ -893,6 +990,7 @@ def verify_enable_2fa(request):
         user.two_factor_enabled = True
         user.is_2fa_setup_required = False
         user.clear_2fa_code()
+        user.save()
 
         return Response({
             'success': True,
@@ -939,6 +1037,9 @@ def send_2fa_code(request):
 
     # Generate and send code
     code = user.generate_2fa_code()
+
+    # Get current year for the email template
+    current_year = datetime.datetime.now().year
 
     subject = 'Your Login Verification Code'
     message = f"""
@@ -1030,3 +1131,148 @@ def get_admin_users(request):
     } for user in admin_users]
 
     return Response(users_data)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def user_activity_stats(request):
+    """
+    Get comprehensive user activity statistics
+    """
+    # Only staff can view activity stats
+    if not request.user.is_staff:
+        return Response({'error': 'Permission denied'}, status=403)
+
+    now = timezone.now()
+    thirty_days_ago = now - timedelta(days=30)
+    seven_days_ago = now - timedelta(days=7)
+
+    # Get most active users (by login count)
+    most_active_users = User.objects.filter(
+        is_active=True
+    ).order_by('-login_count')[:10].values(
+        'id',
+        'username',
+        'first_name',
+        'last_name',
+        'email',
+        'role',
+        'login_count',
+        'last_login',
+        'last_login_ip',
+        #'initials'
+    )
+
+    # Add full_name and initials to each user
+    for user in most_active_users:
+        first_name = user['first_name'] or ''
+        last_name = user['last_name'] or ''
+        if first_name and last_name:
+            user['full_name'] = f"{first_name} {last_name}"
+            user['initials'] = f"{first_name[0]}{last_name[0]}".upper()
+        elif first_name:
+            user['full_name'] = first_name
+            user['initials'] = first_name[0].upper()
+        elif last_name:
+            user['full_name'] = last_name
+            user['initials'] = last_name[0].upper()
+        else:
+            user['full_name'] = user['username']
+            user['initials'] = user['username'][0].upper() if user['username'] else '?'
+
+    # Get login trends (last 30 days)
+    login_history_30d = LoginHistory.objects.filter(
+        login_time__gte=thirty_days_ago,
+        success=True
+    ).extra(select={'date': 'DATE(login_time)'}).values('date').annotate(
+        count=Count('id')
+    ).order_by('date')
+
+    # Get login trends (last 7 days)
+    login_history_7d = LoginHistory.objects.filter(
+        login_time__gte=seven_days_ago,
+        success=True
+    ).extra(select={'date': 'DATE(login_time)'}).values('date').annotate(
+        count=Count('id')
+    ).order_by('date')
+
+    # Get total stats
+    total_users = User.objects.filter(is_active=True).count()
+    total_logins_30d = LoginHistory.objects.filter(
+        login_time__gte=thirty_days_ago,
+        success=True
+    ).count()
+
+    total_logins_7d = LoginHistory.objects.filter(
+        login_time__gte=seven_days_ago,
+        success=True
+    ).count()
+
+    # Get unique active users in last 30 days
+    active_users_30d = LoginHistory.objects.filter(
+        login_time__gte=thirty_days_ago,
+        success=True
+    ).values('user').distinct().count()
+
+    return Response({
+        'most_active_users': list(most_active_users),
+        'login_trends_30d': list(login_history_30d),
+        'login_trends_7d': list(login_history_7d),
+        'total_users': total_users,
+        'total_logins_30d': total_logins_30d,
+        'total_logins_7d': total_logins_7d,
+        'active_users_30d': active_users_30d,
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def user_login_history(request, user_id):
+    """
+    Get login history for a specific user
+    """
+    # Only staff or the user themselves can view login history
+    if not request.user.is_staff and request.user.id != user_id:
+        return Response({'error': 'Permission denied'}, status=403)
+
+    try:
+        user = User.objects.get(id=user_id)
+    except User.DoesNotExist:
+        return Response({'error': 'User not found'}, status=404)
+
+    # Get pagination parameters
+    page = int(request.GET.get('page', 1))
+    page_size = int(request.GET.get('page_size', 20))
+
+    # Get login history
+    login_history = LoginHistory.objects.filter(
+        user=user
+    ).order_by('-login_time')
+
+    # Paginate
+    start = (page - 1) * page_size
+    end = start + page_size
+    total_count = login_history.count()
+
+    history_data = login_history[start:end].values(
+        'id',
+        'login_time',
+        'ip_address',
+        'user_agent',
+        'success'
+    )
+
+    return Response({
+        'count': total_count,
+        'next': page + 1 if end < total_count else None,
+        'previous': page - 1 if page > 1 else None,
+        'results': list(history_data),
+        'user': {
+            'id': user.id,
+            'username': user.username,
+            'full_name': user.full_name,
+            'login_count': user.login_count,
+            'last_login': user.last_login,
+            'last_login_ip': user.last_login_ip,
+        }
+    })

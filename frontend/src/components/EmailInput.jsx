@@ -1,3 +1,5 @@
+// Updated EmailInput.jsx with validation callback support
+
 import { useState, useEffect } from 'react';
 import { CheckCircle, XCircle, Loader2, Mail } from 'lucide-react';
 import api from '../utils/api';
@@ -6,7 +8,8 @@ const EmailInput = ({
   value,
   onChange,
   required = true,
-  existingUserId = null
+  existingUserId = null,
+  onValidationChange // ✅ ADD: Callback to notify parent of validation state
 }) => {
   const [validation, setValidation] = useState({
     isValid: false,
@@ -25,21 +28,31 @@ const EmailInput = ({
   // Check email availability
   const checkEmail = async (email) => {
     if (!email) {
-      setValidation({
+      const newValidation = {
         isValid: false,
         message: '',
         isChecking: false
-      });
+      };
+      setValidation(newValidation);
+      // ✅ Notify parent
+      if (onValidationChange) {
+        onValidationChange(false);
+      }
       return;
     }
 
     // Check format first
     if (!isValidEmailFormat(email)) {
-      setValidation({
+      const newValidation = {
         isValid: false,
         message: 'Please enter a valid email address',
         isChecking: false
-      });
+      };
+      setValidation(newValidation);
+      // ✅ Notify parent
+      if (onValidationChange) {
+        onValidationChange(false);
+      }
       return;
     }
 
@@ -54,24 +67,42 @@ const EmailInput = ({
         user_id: existingUserId
       });
 
-      setValidation({
+      const newValidation = {
         isValid: response.data.available,
         message: response.data.message,
         isChecking: false
-      });
+      };
+      setValidation(newValidation);
+
+      // ✅ Notify parent
+      if (onValidationChange) {
+        onValidationChange(response.data.available);
+      }
     } catch (err) {
       console.error('Email check error:', err);
-      setValidation({
+      const newValidation = {
         isValid: false,
         message: err.response?.data?.message || 'Could not verify email availability',
         isChecking: false
-      });
+      };
+      setValidation(newValidation);
+
+      // ✅ Notify parent
+      if (onValidationChange) {
+        onValidationChange(false);
+      }
     }
   };
 
   // Handle input change with debouncing
   useEffect(() => {
-    if (!value) return;
+    if (!value) {
+      // ✅ Notify parent when value is empty
+      if (onValidationChange) {
+        onValidationChange(false);
+      }
+      return;
+    }
 
     if (checkTimer) clearTimeout(checkTimer);
 

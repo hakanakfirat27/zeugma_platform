@@ -12,6 +12,59 @@ import DashboardLayout from '../../components/layout/DashboardLayout';
 import api from '../../utils/api';
 import LoadingSpinner from '../../components/LoadingSpinner';
 
+// --- NEW: Stat Card Component (Adapted for this page) ---
+const StatCard = ({ label, value, subtitle, icon, color = 'gray' }) => {
+  const IconComponent = icon;
+
+  // Define color themes for the card
+  const colorClasses = {
+    green: {
+      icon: 'text-green-500',
+      subtitle: 'text-green-600',
+      bg: 'bg-green-100',
+    },
+    red: { // Added red for disabled
+      icon: 'text-red-500',
+      subtitle: 'text-red-600',
+      bg: 'bg-red-100',
+    },
+    indigo: { // Using indigo for total
+      icon: 'text-indigo-500',
+      subtitle: 'text-indigo-600',
+      bg: 'bg-indigo-100',
+    },
+    gray: {
+      icon: 'text-gray-500',
+      subtitle: 'text-gray-500',
+      bg: 'bg-gray-100',
+    },
+  };
+
+  const colors = colorClasses[color] || colorClasses.gray;
+
+  // No isLoading prop is needed here, as the main page `loading`
+  // state already handles this before the component is rendered.
+
+  return (
+    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 flex justify-between items-start">
+      {/* Left side: Text content */}
+      <div className="flex flex-col">
+        <p className="text-sm font-medium text-gray-600">{label}</p>
+        <p className="text-3xl font-bold text-gray-900 mt-1">{value}</p>
+        <p className={`text-xs font-medium mt-2 ${colors.subtitle}`}>
+          {subtitle}
+        </p>
+      </div>
+      {/* Right side: Icon */}
+      <div className={`p-3 rounded-lg ${colors.bg}`}>
+        <IconComponent className={`w-6 h-6 ${colors.icon}`} />
+      </div>
+    </div>
+  );
+};
+// --- END: Stat Card Component ---
+
+
 const WidgetManagement = () => {
   const navigate = useNavigate();
   const [widgets, setWidgets] = useState([]);
@@ -26,6 +79,7 @@ const WidgetManagement = () => {
   }, []);
 
   const fetchWidgets = async () => {
+    // ... (Existing code - no changes)
     try {
       setLoading(true);
       const response = await api.get('/api/widgets/');
@@ -40,6 +94,7 @@ const WidgetManagement = () => {
   };
 
   const toggleWidget = async (widgetId) => {
+    // ... (Existing code - no changes)
     try {
       const response = await api.post(`/api/widgets/${widgetId}/toggle_enabled/`);
 
@@ -56,6 +111,7 @@ const WidgetManagement = () => {
   };
 
   const bulkToggle = async (enable) => {
+    // ... (Existing code - no changes)
     const filteredIds = getFilteredWidgets().map(w => w.id);
 
     try {
@@ -80,16 +136,19 @@ const WidgetManagement = () => {
   };
 
   const showSuccess = (message) => {
+    // ... (Existing code - no changes)
     setSuccessMessage(message);
     setTimeout(() => setSuccessMessage(''), 3000);
   };
 
   const getFilteredWidgets = () => {
+    // ... (Existing code - no changes)
     if (filter === 'ALL') return widgets;
     return widgets.filter(w => w.category === filter);
   };
 
   const getCategoryIcon = (category) => {
+    // ... (Existing code - no changes)
     const icons = {
       'OVERVIEW': BarChart3,
       'ANALYTICS': TrendingUp,
@@ -102,6 +161,7 @@ const WidgetManagement = () => {
   };
 
   const categories = [
+    // ... (Existing code - no changes)
     { key: 'ALL', label: 'All Widgets' },
     { key: 'OVERVIEW', label: 'Overview' },
     { key: 'ANALYTICS', label: 'Analytics' },
@@ -111,6 +171,7 @@ const WidgetManagement = () => {
   ];
 
   if (loading) {
+    // ... (Existing code - no changes)
     return (
       <DashboardLayout>
         <div className="flex items-center justify-center h-screen">
@@ -152,6 +213,7 @@ const WidgetManagement = () => {
       <div className="flex-1 overflow-auto p-8">
         {/* Success Message */}
         {successMessage && (
+          // ... (Existing code - no changes)
           <div className="mb-6 bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg flex items-center gap-2">
             <Check className="w-5 h-5" />
             {successMessage}
@@ -160,34 +222,49 @@ const WidgetManagement = () => {
 
         {/* Error Message */}
         {error && (
+          // ... (Existing code - no changes)
           <div className="mb-6 bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg flex items-center gap-2">
             <X className="w-5 h-5" />
             {error}
           </div>
         )}
 
-        {/* Stats & Actions */}
-        <div className="mb-6 flex items-center justify-between">
-          <div className="flex items-center gap-6">
-            <div>
-              <p className="text-sm text-gray-600">Total Widgets</p>
-              <p className="text-2xl font-bold text-gray-900">{filteredWidgets.length}</p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-600">Enabled</p>
-              <p className="text-2xl font-bold text-green-600">{enabledCount}</p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-600">Disabled</p>
-              <p className="text-2xl font-bold text-red-400">{filteredWidgets.length - enabledCount}</p>
-            </div>
-          </div>
+        {/* --- MODIFIED: Stats Grid --- */}
+        {/* The parent flex-row div was removed to stack these blocks */}
+        <div className="w-full grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+            <StatCard
+              icon={Settings}
+              label="Total Widgets"
+              value={filteredWidgets.length}
+              // The subtitle dynamically changes based on the filter
+              subtitle={filter === 'ALL' ? 'All widgets in system' : `In '${filter}' category`}
+              color="indigo"
+            />
+            <StatCard
+              icon={Eye}
+              label="Enabled"
+              value={enabledCount}
+              subtitle="Visible on dashboard"
+              color="green"
+            />
+            <StatCard
+              icon={EyeOff}
+              label="Disabled"
+              value={filteredWidgets.length - enabledCount}
+              subtitle="Hidden from dashboard"
+              color="red"
+            />
+        </div>
+        {/* --- END MODIFIED STATS GRID --- */}
 
-          <div className="flex gap-3">
+
+        {/* --- MODIFIED: Action Buttons --- */}
+        {/* Moved here to be on their own line, above the category filter */}
+        <div className="flex gap-3 mb-6">
             <button
               onClick={() => bulkToggle(true)}
               disabled={saving}
-              className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50"
+              className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
             >
               <Eye className="w-4 h-4" />
               Enable All
@@ -195,16 +272,18 @@ const WidgetManagement = () => {
             <button
               onClick={() => bulkToggle(false)}
               disabled={saving}
-              className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50"
+              className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
             >
               <EyeOff className="w-4 h-4" />
               Disable All
             </button>
-          </div>
         </div>
+        {/* --- END MODIFIED ACTION BUTTONS --- */}
+
 
         {/* Category Filter */}
         <div className="mb-6 flex gap-2 overflow-x-auto pb-2">
+          {/* ... (Existing code - no changes) ... */}
           {categories.map(cat => (
             <button
               key={cat.key}
@@ -227,6 +306,7 @@ const WidgetManagement = () => {
 
         {/* Widgets Grid */}
         <div className="grid gap-4">
+          {/* ... (Existing code - no changes) ... */}
           {filteredWidgets.map(widget => (
             <div
               key={widget.id}
@@ -294,6 +374,7 @@ const WidgetManagement = () => {
 
         {/* Empty State */}
         {filteredWidgets.length === 0 && (
+          // ... (Existing code - no changes)
           <div className="text-center py-12">
             <Settings className="w-16 h-16 text-gray-400 mx-auto mb-4" />
             <p className="text-gray-600">No widgets found in this category</p>

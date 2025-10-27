@@ -26,6 +26,7 @@ class User(AbstractUser):
 
     phone_number = models.CharField(max_length=20, blank=True, null=True)
     company_name = models.CharField(max_length=255, blank=True, null=True)
+    is_online = models.BooleanField(default=False)
     last_activity = models.DateTimeField(null=True, blank=True)
 
     # 2FA Fields
@@ -33,6 +34,10 @@ class User(AbstractUser):
     is_2fa_setup_required = models.BooleanField(default=True)  # Force 2FA on first login
     two_factor_code = models.CharField(max_length=6, blank=True, null=True)
     two_factor_code_created_at = models.DateTimeField(null=True, blank=True)
+
+    # Login Tracking Fields
+    login_count = models.IntegerField(default=0, help_text='Total number of successful logins')
+    last_login_ip = models.GenericIPAddressField(null=True, blank=True, help_text='IP address of last login')
 
     def save(self, *args, **kwargs):
         """
@@ -79,15 +84,6 @@ class User(AbstractUser):
             return self.username[0].upper()
         return "?"
 
-    @property
-    def is_online(self):
-        """Check if user was active in the last 5 minutes."""
-        if not self.last_activity:
-            return False
-        from django.utils import timezone
-        from datetime import timedelta
-        return timezone.now() - self.last_activity < timedelta(minutes=5)
-
     def update_last_activity(self):
         """Update the last activity timestamp."""
         from django.utils import timezone
@@ -124,5 +120,40 @@ class User(AbstractUser):
         self.two_factor_code_created_at = None
         self.save()
 
+    def record_login(self, ip_address=None, user_agent=None):
+        """Record a successful login"""
+        self.login_count += 1
+        self.last_login_ip = ip_address
+        self.save(update_fields=['login_count', 'last_login_ip'])
+
+        # Create login history entry
+        LoginHistory.objects.create(
+            user=self,
+            ip_address=ip_address,
+            user_agent=user_agent,
+            success=True
+        )
+
     def __str__(self):
         return f"{self.username} ({self.get_role_display()})"
+
+
+class LoginHistory(models.Model):
+    """Track individual login events for analytics"""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='login_history')
+    login_time = models.DateTimeField(default=timezone.now)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.TextField(blank=True, null=True)
+    success = models.BooleanField(default=True)
+
+    class Meta:
+        verbose_name = 'Login History'
+        verbose_name_plural = 'Login Histories'
+        ordering = ['-login_time']
+        indexes = [
+            models.Index(fields=['-login_time']),
+            models.Index(fields=['user', '-login_time']),
+        ]
+
+    def __str__(self):
+        return f"{self.user.username} - {self.login_time.strftime('%Y-%m-%d %H:%M')}"

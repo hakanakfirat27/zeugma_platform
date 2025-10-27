@@ -10,7 +10,8 @@ const UsernameInput = ({
   email = '',
   disabled = false,
   required = true,
-  existingUserId = null
+  existingUserId = null,
+  onValidationChange // Callback to notify parent of validation state
 }) => {
   const [validation, setValidation] = useState({
     isValid: false,
@@ -30,6 +31,10 @@ const UsernameInput = ({
         isChecking: false,
         suggestions: []
       });
+      // Notify parent
+      if (onValidationChange) {
+        onValidationChange(false);
+      }
       return;
     }
 
@@ -52,6 +57,11 @@ const UsernameInput = ({
         isChecking: false,
         suggestions: response.data.suggestions || []
       });
+
+      // Notify parent
+      if (onValidationChange) {
+        onValidationChange(response.data.available);
+      }
     } catch (err) {
       console.error('Username check error:', err);
       setValidation({
@@ -60,6 +70,11 @@ const UsernameInput = ({
         isChecking: false,
         suggestions: []
       });
+
+      // Notify parent
+      if (onValidationChange) {
+        onValidationChange(false);
+      }
     }
   };
 
@@ -89,7 +104,13 @@ const UsernameInput = ({
 
   // Handle input change with debouncing
   useEffect(() => {
-    if (!value || disabled) return;
+    if (!value || disabled) {
+      // Notify parent when value is empty
+      if (onValidationChange) {
+        onValidationChange(false);
+      }
+      return;
+    }
 
     if (checkTimer) clearTimeout(checkTimer);
 

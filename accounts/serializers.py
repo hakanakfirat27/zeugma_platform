@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import make_password
+from .models import LoginHistory
 
 User = get_user_model()
 
@@ -11,7 +12,6 @@ class UserSerializer(serializers.ModelSerializer):
     """
     full_name = serializers.CharField(read_only=True)
     initials = serializers.CharField(read_only=True)
-    is_online = serializers.BooleanField(read_only=True)
 
     class Meta:
         model = User
@@ -34,9 +34,10 @@ class UserSerializer(serializers.ModelSerializer):
             # 2FA fields
             'two_factor_enabled',
             'is_2fa_setup_required',
+            'login_count',
+            'last_login_ip',
         ]
         read_only_fields = fields
-
 
 # --- NEW SERIALIZER FOR USER MANAGEMENT ---
 # This serializer is used by staff to create and update users.
@@ -168,3 +169,13 @@ class UserManagementSerializer(serializers.ModelSerializer):
 
         instance.save()
         return instance
+
+
+class LoginHistorySerializer(serializers.ModelSerializer):
+    """Serializer for login history"""
+    user_display = serializers.CharField(source='user.username', read_only=True)
+
+    class Meta:
+        model = LoginHistory
+        fields = ['id', 'user', 'user_display', 'login_time', 'ip_address', 'user_agent', 'success']
+        read_only_fields = ['id', 'login_time']

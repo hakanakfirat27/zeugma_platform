@@ -374,7 +374,7 @@ const SubscriptionDetailModal = ({ subscription, onClose, onEdit, onRenew, onCan
                   <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
                     <Calendar className="w-5 h-5 text-green-600" />
                   </div>
-                  <h3 className="text-lg font-semibold text-gray-900">Duration</h3>
+                  <h3 className="text-lg font-semibold text-gray-900">Period</h3>
                 </div>
                 <div className="space-y-3">
                   <div>
@@ -392,25 +392,6 @@ const SubscriptionDetailModal = ({ subscription, onClose, onEdit, onRenew, onCan
                 </div>
               </div>
 
-              {/* Pricing */}
-              <div className="bg-white rounded-lg border border-gray-200 p-6">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center">
-                    <DollarSign className="w-5 h-5 text-amber-600" />
-                  </div>
-                  <h3 className="text-lg font-semibold text-gray-900">Pricing</h3>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-1">
-                    Amount Paid
-                  </label>
-                  <p className="text-2xl font-bold text-gray-900">
-                    ${subscription.amount_paid !== null && subscription.amount_paid !== undefined
-                      ? Number(subscription.amount_paid).toFixed(2)
-                      : '0.00'}
-                  </p>
-                </div>
-              </div>
             </div>
 
             {/* Additional Information */}
@@ -1320,10 +1301,10 @@ const SubscriptionFormModal = ({ subscription, onClose, onSuccess, onError }) =>
             renderOption={(option) => (
               <div className="flex items-start gap-3">
                 <div className="mt-1">
-                  <User className="w-5 h-5 text-gray-400" />
+                  <User className="w-5 h-5 text-red-400" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="font-medium text-gray-900 truncate">{option.label}</div>
+                  <div className="font-medium text-gray-900 text-sm truncate">{option.label}</div>
                   <div className="text-sm text-gray-500 truncate">{option.email}</div>
                   {option.company && (
                     <div className="text-xs text-gray-400 truncate">{option.company}</div>
@@ -1347,10 +1328,10 @@ const SubscriptionFormModal = ({ subscription, onClose, onSuccess, onError }) =>
             renderOption={(option) => (
               <div className="flex items-start gap-3">
                 <div className="mt-1">
-                  <FileText className="w-5 h-5 text-gray-400" />
+                  <FileText className="w-5 h-5 text-purple-400" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="font-medium text-gray-900 truncate">{option.label}</div>
+                  <div className="font-medium text-gray-900 text-sm truncate">{option.label}</div>
                   <div className="text-sm text-gray-500">
                     {option.recordCount} records
                   </div>

@@ -15,12 +15,14 @@ django_asgi_app = get_asgi_application()
 
 # Import BOTH consumers
 from chat import consumers as chat_consumers
-from notifications import consumers as notification_consumers # <-- 1. IMPORT THIS
+from notifications import consumers as notification_consumers
+from accounts import consumers as accounts_consumers
 
 websocket_urlpatterns = [
     re_path(r'ws/chat/(?P<room_id>[^/]+)/$', chat_consumers.ChatConsumer.as_asgi()),
     # --- 2. ADD THE NOTIFICATION ROUTE ---
     re_path(r'ws/notifications/$', notification_consumers.NotificationConsumer.as_asgi()),
+    re_path(r'ws/user-status/$', accounts_consumers.UserStatusConsumer.as_asgi()),
 ]
 
 application = ProtocolTypeRouter({

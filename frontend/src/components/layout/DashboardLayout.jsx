@@ -5,7 +5,7 @@ import axios from 'axios';
 import {
   LayoutDashboard, Database, FileText, CreditCard, Users, Settings, MessageSquare,
   LogOut, Menu, Maximize, Minimize, ChevronRight, ArrowRight, User, Shield, ChevronDown,
-  Bell, Check, X, Trash2, CheckCheck
+  Bell, Check, X, Trash2, CheckCheck, Activity
 } from 'lucide-react';
 import useChatUnreadCount from '../../hooks/useChatUnreadCount';
 

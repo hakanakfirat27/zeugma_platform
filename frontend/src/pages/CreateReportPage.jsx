@@ -5,6 +5,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation, useParams } from 'react-router-dom';
 import DashboardLayout from '../components/layout/DashboardLayout';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { ToastContainer } from '../components/Toast';
+import { useToast } from '../hooks/useToast';
 import api from '../utils/api';
 import { CATEGORIES } from '../constants/categories';
 import { ArrowLeft, X, Search, ChevronRight, CheckCircle2, Filter, BarChart3, Globe, Layers } from 'lucide-react';
@@ -14,6 +16,7 @@ const CreateReportPage = () => {
   const location = useLocation();
   const { reportId } = useParams(); // Get reportId from URL for edit mode
   const isEditMode = !!reportId; // Check if we're in edit mode
+  const { toasts, success, error: showError, warning, removeToast } = useToast();
 
   const [loading, setLoading] = useState(isEditMode); // Start loading if edit mode
   const [currentStep, setCurrentStep] = useState(1);
@@ -108,7 +111,7 @@ const CreateReportPage = () => {
 
     } catch (error) {
       console.error('Error loading report:', error);
-      alert('Failed to load report');
+      showError('Failed to load report');
       navigate('/custom-reports');
     } finally {
       setLoading(false);
@@ -341,11 +344,11 @@ const CreateReportPage = () => {
     e.preventDefault();
     if (currentStep !== 3) return;
     if (!formData.title.trim()) {
-      alert('Please enter a report title');
+      warning('Please enter a report title');
       return;
     }
     if (!formData.description.trim()) {
-      alert('Please enter a report description');
+      warning('Please enter a report description');
       return;
     }
     try {
@@ -366,20 +369,31 @@ const CreateReportPage = () => {
 
       console.log('豆 Full submit data:', submitData);
 
-      if (isEditMode) {
-        // UPDATE existing report
-        await api.put(`/api/custom-reports/${reportId}/`, submitData);
-        alert('Report updated successfully!');
-      } else {
-        // CREATE new report
-        await api.post('/api/custom-reports/', submitData);
-        alert('Report created successfully!');
-      }
+    if (isEditMode) {
+      await api.put(`/api/custom-reports/${reportId}/`, submitData);
 
-      navigate(`/custom-reports`);
+      // ✅ Navigate immediately with toast message in state
+      navigate('/custom-reports', {
+        state: {
+          toastMessage: 'Report updated successfully!',
+          toastType: 'success'
+        }
+      });
+    } else {
+      await api.post('/api/custom-reports/', submitData);
+
+      // ✅ Navigate immediately with toast message in state
+      navigate('/custom-reports', {
+        state: {
+          toastMessage: 'Report created successfully!',
+          toastType: 'success'
+        }
+      });
+    }
+
     } catch (error) {
       console.error('Error saving report:', error);
-      alert(`Failed to ${isEditMode ? 'update' : 'create'} report`);
+      showError(`Failed to ${isEditMode ? 'update' : 'create'} report`);
     } finally {
       setLoading(false);
     }
@@ -416,6 +430,7 @@ const CreateReportPage = () => {
       pageTitle={pageTitle}
       pageSubtitleBottom={pageSubtitle}
     >
+      <ToastContainer toasts={toasts} removeToast={removeToast} />
       {/* --- REMOVED: The secondary gradient header div --- */}
 
       <div className="flex-1 overflow-auto bg-gradient-to-br from-gray-50 to-gray-100">
@@ -523,11 +538,11 @@ const CreateReportPage = () => {
                         type="button"
                         onClick={() => {
                           if (!formData.title.trim()) {
-                            alert('Please enter a report title');
+                            warning('Please enter a report title');
                             return;
                           }
                           if (!formData.description.trim()) {
-                            alert('Please enter a report description');
+                            warning('Please enter a report description');
                             return;
                           }
                           setCurrentStep(2);

@@ -8,7 +8,6 @@ import HomePage from './pages/HomePage';
 import LoginPage from './pages/auth/LoginPage';
 import SignupPage from './pages/auth/SignupPage';
 import StaffDashboard from './pages/dashboards/StaffDashboard';
-{/*import ClientDashboard from './pages/dashboards/ClientDashboard';*/}
 import GuestDashboard from './pages/dashboards/GuestDashboard';
 import SuperdatabasePage from './pages/SuperdatabasePage';
 import WidgetManagement from './pages/dashboards/WidgetManagement';
@@ -36,6 +35,8 @@ import ClientReportVisualizationPage from './pages/client/ClientReportVisualizat
 import MyProfilePage from './pages/MyProfilePage';
 import StaffChatPage from './pages/StaffChatPage';
 import StaffNotifications from './pages/StaffNotifications';
+import UserActivityDashboard from './components/userActivity/UserActivityDashboard';
+import UserActivityPage from './pages/UserActivityPage';
 
 
 function App() {
@@ -61,6 +62,8 @@ function App() {
         <Route path="/update-profile" element={<ProfileUpdatePage />} />
         <Route path="/profile-settings" element={<ProtectedRoute><ProfileSettingsPage /></ProtectedRoute>} />
         <Route path="/my-profile" element={<ProtectedRoute><MyProfilePage /></ProtectedRoute>} />
+        <Route path="/dashboard/user-activity" element={<ProtectedRoute><DashboardLayout><UserActivityDashboard /></DashboardLayout></ProtectedRoute>} />
+        <Route path="/user-activity" element={<UserActivityPage />} />
 
         {/* Custom Reports Routes */}
         <Route path="/custom-reports" element={<ProtectedRoute><CustomReportsPage /></ProtectedRoute>} />
