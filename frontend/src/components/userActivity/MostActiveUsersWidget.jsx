@@ -92,7 +92,7 @@ const MostActiveUsersWidget = ({ onUserClick }) => {
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h3 className="text-lg font-semibold text-gray-900">Most Active Users</h3>
+          <h3 className="text-base font-semibold text-gray-900">Most Active Users</h3>
           <p className="text-sm text-gray-500 mt-1">Top users by login frequency</p>
         </div>
         <TrendingUp className="w-5 h-5 text-indigo-600" />
@@ -109,7 +109,7 @@ const MostActiveUsersWidget = ({ onUserClick }) => {
               className="flex items-center gap-4 p-3 rounded-lg border border-gray-200 hover:bg-gray-50 hover:border-indigo-300 transition-all cursor-pointer"
             >
               {/* Rank Badge */}
-              <div className="flex-shrink-0">
+              <div className="flex-shrink-0 text-base">
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${
                   index === 0 ? 'bg-yellow-100 text-yellow-700' :
                   index === 1 ? 'bg-gray-100 text-gray-700' :

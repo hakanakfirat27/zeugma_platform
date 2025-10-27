@@ -21,10 +21,13 @@ import json
 import re
 from datetime import timedelta
 import datetime
+from django_ratelimit.decorators import ratelimit
 import pyotp
 import qrcode
 import io
 import base64
+from django.core.mail import EmailMultiAlternatives
+
 
 User = get_user_model()
 
@@ -392,11 +395,12 @@ class UserViewSet(viewsets.ModelViewSet):
 @ensure_csrf_cookie
 def login_view(request):
     """
-    Login view with Email 2FA support and real-time status updates
+    Login view with Email 2FA support, Remember Me, and real-time status updates
     """
     data = request.data
     username_or_email = data.get('username', '').strip()
     password = data.get('password', '')
+    remember_me = data.get('remember_me', False)  # NEW: Get remember_me flag
 
     # Try to determine if input is email or username
     user = None
@@ -433,27 +437,98 @@ def login_view(request):
             code = user.generate_2fa_code()
 
             subject = 'Your Login Verification Code'
-            message = f"""
-Hello {user.first_name or user.username},
+            current_year = datetime.datetime.now().year
 
-Your verification code is: {code}
+            # Plain text version (fallback)
+            text_message = f"""
+            Hello {user.first_name or user.username},
 
-This code will expire in 10 minutes.
+            Your verification code is: {code}
 
-If you didn't try to log in, please secure your account immediately.
+            This code will expire in 10 minutes.
 
-Best regards,
-Zeugma Platform Team
-            """
+            If you didn't try to log in, please secure your account immediately.
+
+            Best regards,
+            Zeugma Platform Team
+                        """
+
+            # Professional HTML version
+            html_message = f"""
+            <!DOCTYPE html>
+            <html lang="en">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Your Login Verification Code</title>
+            </head>
+            <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f5f5;">
+                <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f5f5; padding: 40px 20px;">
+                    <tr>
+                        <td align="center">
+                            <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); max-width: 600px;">
+                                <!-- Header -->
+                                <tr>
+                                    <td style="padding: 40px 40px 30px 40px;">
+                                        <h1 style="margin: 0; font-size: 28px; font-weight: 600; color: #1a1a1a; line-height: 1.3;">
+                                            Your Login Verification Code
+                                        </h1>
+                                    </td>
+                                </tr>
+
+                                <!-- Content -->
+                                <tr>
+                                    <td style="padding: 0 40px 30px 40px;">
+                                        <p style="margin: 0 0 20px 0; font-size: 16px; line-height: 1.6; color: #4a4a4a;">
+                                            Hello {user.first_name or user.username},
+                                        </p>
+
+                                        <p style="margin: 0 0 30px 0; font-size: 16px; line-height: 1.6; color: #4a4a4a;">
+                                            We received a login attempt for your Zeugma Platform account. Use the verification code below to complete your login:
+                                        </p>
+
+                                        <!-- Verification Code Box -->
+                                        <div style="background-color: #f8f9fa; border: 2px dashed #d1d5db; border-radius: 8px; padding: 24px; text-align: center; margin: 30px 0;">
+                                            <div style="font-size: 36px; font-weight: bold; color: #1a1a1a; letter-spacing: 8px; font-family: 'Courier New', monospace;">
+                                                {code}
+                                            </div>
+                                        </div>
+
+                                        <p style="margin: 30px 0 20px 0; font-size: 14px; line-height: 1.6; color: #6b7280;">
+                                            This code will expire in <strong>10 minutes</strong>.
+                                        </p>
+
+                                        <p style="margin: 0 0 10px 0; font-size: 14px; line-height: 1.6; color: #6b7280;">
+                                            If you didn't try to log in, please secure your account immediately or contact support.
+                                        </p>
+                                    </td>
+                                </tr>
+
+                                <!-- Footer -->
+                                <tr>
+                                    <td style="padding: 30px 40px 40px 40px; border-top: 1px solid #e5e7eb;">
+                                        <p style="margin: 0; font-size: 12px; line-height: 1.5; color: #9ca3af; text-align: center;">
+                                            © {current_year} Zeugma Platform. All rights reserved.
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                </table>
+            </body>
+            </html>
+                        """
 
             try:
-                send_mail(
+                email = EmailMultiAlternatives(
                     subject,
-                    message,
+                    text_message,
                     settings.DEFAULT_FROM_EMAIL,
-                    [user.email],
-                    fail_silently=False,
+                    [user.email]
                 )
+                email.attach_alternative(html_message, "text/html")
+                email.send(fail_silently=False)
             except Exception as e:
                 return Response({
                     'error': 'Failed to send verification code. Please try again.'
@@ -472,13 +547,22 @@ Zeugma Platform Team
             # Login but flag that 2FA setup is required
             auth_logout(request)
             auth_login(request, user)
+
+            # NEW: Set session expiry based on remember_me
+            if remember_me:
+                # Remember for 30 days
+                request.session.set_expiry(2592000)  # 30 days in seconds
+            else:
+                # Session expires when browser closes
+                request.session.set_expiry(0)
+
             user.update_last_activity()
 
-            # 🆕 SET USER ONLINE
+            # SET USER ONLINE
             user.is_online = True
             user.save(update_fields=['is_online'])
 
-            # 🆕 BROADCAST STATUS
+            # BROADCAST STATUS
             broadcast_user_status(user.id, user.username, True)
 
             user.record_login(
@@ -495,13 +579,22 @@ Zeugma Platform Team
         # Regular login without 2FA
         auth_logout(request)
         auth_login(request, user)
+
+        # NEW: Set session expiry based on remember_me
+        if remember_me:
+            # Remember for 30 days
+            request.session.set_expiry(2592000)  # 30 days in seconds
+        else:
+            # Session expires when browser closes
+            request.session.set_expiry(0)
+
         user.update_last_activity()
 
-        # 🆕 SET USER ONLINE
+        # SET USER ONLINE
         user.is_online = True
         user.save(update_fields=['is_online'])
 
-        # 🆕 BROADCAST STATUS
+        # BROADCAST STATUS
         broadcast_user_status(user.id, user.username, True)
 
         user.record_login(
@@ -516,8 +609,8 @@ Zeugma Platform Team
             'message': 'Login successful'
         })
     else:
-        # ❌ RECORD FAILED LOGIN ATTEMPT
-        if attempted_user:  # You'll need to track this variable
+        # RECORD FAILED LOGIN ATTEMPT
+        if attempted_user:
             LoginHistory.objects.create(
                 user=attempted_user,
                 ip_address=request.META.get('REMOTE_ADDR'),
@@ -803,13 +896,14 @@ def disable_2fa(request):
 
 
 @api_view(['POST'])
-@permission_classes([AllowAny])
+@ensure_csrf_cookie
 def verify_2fa_login(request):
     """
-    Verify 2FA code during login with real-time status updates
+    Verify 2FA code during login with Remember Me and real-time status updates
     """
     username = request.data.get('username', '')
     code = request.data.get('code', '')
+    remember_me = request.data.get('remember_me', False)  # NEW: Get remember_me flag
 
     if not username or not code:
         return Response(
@@ -836,13 +930,22 @@ def verify_2fa_login(request):
 
         # Login user
         auth_login(request, user)
+
+        # NEW: Set session expiry based on remember_me
+        if remember_me:
+            # Remember for 30 days
+            request.session.set_expiry(2592000)  # 30 days in seconds
+        else:
+            # Session expires when browser closes
+            request.session.set_expiry(0)
+
         user.update_last_activity()
 
-        # 🆕 SET USER ONLINE
+        # SET USER ONLINE
         user.is_online = True
         user.save(update_fields=['is_online'])
 
-        # 🆕 BROADCAST STATUS
+        # BROADCAST STATUS
         broadcast_user_status(user.id, user.username, True)
 
         user.record_login(
@@ -856,7 +959,7 @@ def verify_2fa_login(request):
             'message': 'Login successful'
         })
     else:
-        # ❌ RECORD FAILED 2FA ATTEMPT
+        # RECORD FAILED 2FA ATTEMPT
         LoginHistory.objects.create(
             user=user,
             ip_address=request.META.get('REMOTE_ADDR'),
@@ -935,29 +1038,104 @@ def enable_email_2fa(request):
 
     # Send email
     subject = 'Enable Two-Factor Authentication'
-    message = f"""
-Hello {user.first_name or user.username},
+    current_year = datetime.datetime.now().year
 
-You have requested to enable Two-Factor Authentication for your account.
+    # Plain text version (fallback)
+    text_message = f"""
+    Hello {user.first_name or user.username},
 
-Your verification code is: {code}
+    You have requested to enable Two-Factor Authentication for your account.
 
-This code will expire in 10 minutes.
+    Your verification code is: {code}
 
-If you didn't request this, please ignore this email.
+    This code will expire in 10 minutes.
 
-Best regards,
-Zeugma Platform Team
-    """
+    If you didn't request this, please ignore this email.
+
+    Best regards,
+    Zeugma Platform Team
+        """
+
+    # Professional HTML version
+    html_message = f"""
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Enable Two-Factor Authentication</title>
+    </head>
+    <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f5f5;">
+        <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f5f5; padding: 40px 20px;">
+            <tr>
+                <td align="center">
+                    <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); max-width: 600px;">
+                        <!-- Header -->
+                        <tr>
+                            <td style="padding: 40px 40px 30px 40px;">
+                                <h1 style="margin: 0; font-size: 28px; font-weight: 600; color: #1a1a1a; line-height: 1.3;">
+                                    Enable Two-Factor Authentication
+                                </h1>
+                            </td>
+                        </tr>
+
+                        <!-- Content -->
+                        <tr>
+                            <td style="padding: 0 40px 30px 40px;">
+                                <p style="margin: 0 0 20px 0; font-size: 16px; line-height: 1.6; color: #4a4a4a;">
+                                    Hello {user.first_name or user.username},
+                                </p>
+
+                                <p style="margin: 0 0 30px 0; font-size: 16px; line-height: 1.6; color: #4a4a4a;">
+                                    You have requested to enable Two-Factor Authentication for your Zeugma Platform account. This adds an extra layer of security to protect your account.
+                                </p>
+
+                                <p style="margin: 0 0 20px 0; font-size: 16px; line-height: 1.6; color: #4a4a4a;">
+                                    Use the verification code below to complete the setup:
+                                </p>
+
+                                <!-- Verification Code Box -->
+                                <div style="background-color: #f8f9fa; border: 2px dashed #d1d5db; border-radius: 8px; padding: 24px; text-align: center; margin: 30px 0;">
+                                    <div style="font-size: 36px; font-weight: bold; color: #1a1a1a; letter-spacing: 8px; font-family: 'Courier New', monospace;">
+                                        {code}
+                                    </div>
+                                </div>
+
+                                <p style="margin: 30px 0 20px 0; font-size: 14px; line-height: 1.6; color: #6b7280;">
+                                    This code will expire in <strong>10 minutes</strong>.
+                                </p>
+
+                                <p style="margin: 0 0 10px 0; font-size: 14px; line-height: 1.6; color: #6b7280;">
+                                    If you didn't request this, you can safely ignore this email.
+                                </p>
+                            </td>
+                        </tr>
+
+                        <!-- Footer -->
+                        <tr>
+                            <td style="padding: 30px 40px 40px 40px; border-top: 1px solid #e5e7eb;">
+                                <p style="margin: 0; font-size: 12px; line-height: 1.5; color: #9ca3af; text-align: center;">
+                                    © {current_year} Zeugma Platform. All rights reserved.
+                                </p>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
+    </body>
+    </html>
+        """
 
     try:
-        send_mail(
+        email = EmailMultiAlternatives(
             subject,
-            message,
+            text_message,
             settings.DEFAULT_FROM_EMAIL,
-            [user.email],
-            fail_silently=False,
+            [user.email]
         )
+        email.attach_alternative(html_message, "text/html")
+        email.send(fail_silently=False)
 
         return Response({
             'success': True,
@@ -1042,59 +1220,98 @@ def send_2fa_code(request):
     current_year = datetime.datetime.now().year
 
     subject = 'Your Login Verification Code'
-    message = f"""
-Hello {user.first_name or user.username},
+    current_year = datetime.datetime.now().year
 
-Your verification code is: {code}
+    # Plain text version (fallback)
+    text_message = f"""
+    Hello {user.first_name or user.username},
 
-This code will expire in 10 minutes.
+    Your verification code is: {code}
 
-If you didn't try to log in, please secure your account immediately.
+    This code will expire in 10 minutes.
 
-Best regards,
-Zeugma Platform Team
-    """
+    If you didn't try to log in, please secure your account immediately.
 
-    # HTML version
+    Best regards,
+    Zeugma Platform Team
+        """
+
+    # Professional HTML version
     html_message = f"""
     <!DOCTYPE html>
     <html lang="en">
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Your Verification Code</title>
-        <style>
-            body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
-            .container {{ width: 90%; max-width: 600px; margin: 20px auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px; }}
-            .header {{ font-size: 24px; font-weight: bold; color: #000; }}
-            .code {{ font-size: 36px; font-weight: bold; color: #000; letter-spacing: 4px; margin: 25px 0; padding: 15px; background-color: #f4f4f4; text-align: center; border-radius: 4px; }}
-            .footer {{ margin-top: 20px; font-size: 12px; color: #888; }}
-        </style>
+        <title>Your Login Verification Code</title>
     </head>
-    <body>
-        <div class="container">
-            <div class="header">Zeugma Platform</div>
-            <p>Hello {user.first_name or user.username},</p>
-            <p>Here is your verification code to complete your login:</p>
-            <div class="code">{code}</div>
-            <p>This code is valid for 10 minutes.</p>
-            <p>If you did not request this code, please ignore this email and contact support if you have concerns about your account security.</p>
-            <div class="footer">
-                <p>&copy; {current_year} Zeugma Platform. All rights reserved.</p>
-            </div>
-        </div>
+    <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f5f5;">
+        <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f5f5; padding: 40px 20px;">
+            <tr>
+                <td align="center">
+                    <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); max-width: 600px;">
+                        <!-- Header -->
+                        <tr>
+                            <td style="padding: 40px 40px 30px 40px;">
+                                <h1 style="margin: 0; font-size: 28px; font-weight: 600; color: #1a1a1a; line-height: 1.3;">
+                                    Your Login Verification Code
+                                </h1>
+                            </td>
+                        </tr>
+
+                        <!-- Content -->
+                        <tr>
+                            <td style="padding: 0 40px 30px 40px;">
+                                <p style="margin: 0 0 20px 0; font-size: 16px; line-height: 1.6; color: #4a4a4a;">
+                                    Hello {user.first_name or user.username},
+                                </p>
+
+                                <p style="margin: 0 0 30px 0; font-size: 16px; line-height: 1.6; color: #4a4a4a;">
+                                    Here is your verification code to complete your login to Zeugma Platform:
+                                </p>
+
+                                <!-- Verification Code Box -->
+                                <div style="background-color: #f8f9fa; border: 2px dashed #d1d5db; border-radius: 8px; padding: 24px; text-align: center; margin: 30px 0;">
+                                    <div style="font-size: 36px; font-weight: bold; color: #1a1a1a; letter-spacing: 8px; font-family: 'Courier New', monospace;">
+                                        {code}
+                                    </div>
+                                </div>
+
+                                <p style="margin: 30px 0 20px 0; font-size: 14px; line-height: 1.6; color: #6b7280;">
+                                    This code is valid for <strong>10 minutes</strong>.
+                                </p>
+
+                                <p style="margin: 0 0 10px 0; font-size: 14px; line-height: 1.6; color: #6b7280;">
+                                    If you did not request this code, please ignore this email and contact support if you have concerns about your account security.
+                                </p>
+                            </td>
+                        </tr>
+
+                        <!-- Footer -->
+                        <tr>
+                            <td style="padding: 30px 40px 40px 40px; border-top: 1px solid #e5e7eb;">
+                                <p style="margin: 0; font-size: 12px; line-height: 1.5; color: #9ca3af; text-align: center;">
+                                    © {current_year} Zeugma Platform. All rights reserved.
+                                </p>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
     </body>
     </html>
-    """
+        """
 
     try:
-        send_mail(
+        email = EmailMultiAlternatives(
             subject,
-            message,
+            text_message,
             settings.DEFAULT_FROM_EMAIL,
-            [user.email],
-            fail_silently=False,
+            [user.email]
         )
+        email.attach_alternative(html_message, "text/html")
+        email.send(fail_silently=False)
 
         return Response({
             'success': True,
@@ -1276,3 +1493,207 @@ def user_login_history(request, user_id):
             'last_login_ip': user.last_login_ip,
         }
     })
+
+
+@ratelimit(key='ip', rate='5/h', method='POST')
+@api_view(['POST'])
+def request_password_reset(request):
+    """
+    Send password reset link to user's email
+    """
+    email = request.data.get('email', '').strip().lower()
+
+    if not email:
+        return Response({
+            'success': False,
+            'message': 'Email is required'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        user = User.objects.get(email__iexact=email)
+
+        # Generate password reset token
+        token = default_token_generator.make_token(user)
+        uid = urlsafe_base64_encode(force_bytes(user.pk))
+
+        # Create password reset link
+        frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:5173')
+        reset_link = f"{frontend_url}/reset-password/{uid}/{token}/"
+
+        # Get current year for email template
+        current_year = datetime.datetime.now().year
+
+        # Send email
+        subject = 'Reset Your Password - Zeugma Platform'
+        message = f"""
+Hello {user.first_name or user.username},
+
+We received a request to reset your password for your Zeugma Platform account.
+
+Click the link below to reset your password:
+
+{reset_link}
+
+This link will expire in 24 hours.
+
+If you didn't request a password reset, you can safely ignore this email.
+
+Best regards,
+Zeugma Platform Team
+        """
+
+        # HTML version
+        html_message = f"""
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Reset Your Password</title>
+            <style>
+                body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+                .container {{ width: 90%; max-width: 600px; margin: 20px auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px; }}
+                .header {{ font-size: 24px; font-weight: bold; color: #000; margin-bottom: 20px; }}
+                .button {{ display: inline-block; padding: 12px 24px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 6px; margin: 20px 0; }}
+                .footer {{ margin-top: 20px; font-size: 12px; color: #888; }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">Reset Your Password</div>
+                <p>Hello {user.first_name or user.username},</p>
+                <p>We received a request to reset your password for your Zeugma Platform account.</p>
+                <p>Click the button below to reset your password:</p>
+                <a href="{reset_link}" class="button">Reset Password</a>
+                <p>Or copy and paste this link into your browser:</p>
+                <p style="word-break: break-all; color: #2563eb;">{reset_link}</p>
+                <p>This link will expire in 24 hours.</p>
+                <p>If you didn't request a password reset, you can safely ignore this email.</p>
+                <div class="footer">
+                    <p>&copy; {current_year} Zeugma Platform. All rights reserved.</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+
+        try:
+            from django.core.mail import EmailMultiAlternatives
+
+            email_message = EmailMultiAlternatives(
+                subject,
+                message,
+                settings.DEFAULT_FROM_EMAIL,
+                [user.email]
+            )
+            email_message.attach_alternative(html_message, "text/html")
+            email_message.send(fail_silently=False)
+
+            return Response({
+                'success': True,
+                'message': f'Password reset instructions have been sent to {email}'
+            })
+
+        except Exception as e:
+            return Response({
+                'success': False,
+                'message': f'Failed to send email: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    except User.DoesNotExist:
+        # Don't reveal whether email exists (security best practice)
+        return Response({
+            'success': True,
+            'message': f'If an account exists with {email}, you will receive password reset instructions.'
+        })
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def reset_password(request, uidb64, token):
+    """
+    Reset password using token from email
+    """
+    new_password = request.data.get('password', '')
+
+    if not new_password:
+        return Response({
+            'success': False,
+            'message': 'Password is required'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    # Validate password strength
+    if len(new_password) < 8:
+        return Response({
+            'success': False,
+            'message': 'Password must be at least 8 characters long'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    if not re.search(r'[A-Z]', new_password):
+        return Response({
+            'success': False,
+            'message': 'Password must contain at least one uppercase letter'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    if not re.search(r'[a-z]', new_password):
+        return Response({
+            'success': False,
+            'message': 'Password must contain at least one lowercase letter'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    if not re.search(r'[0-9]', new_password):
+        return Response({
+            'success': False,
+            'message': 'Password must contain at least one number'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        uid = force_str(urlsafe_base64_decode(uidb64))
+        user = User.objects.get(pk=uid)
+    except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+        return Response({
+            'success': False,
+            'message': 'Invalid password reset link'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    if default_token_generator.check_token(user, token):
+        user.set_password(new_password)
+        user.save()
+
+        return Response({
+            'success': True,
+            'message': 'Password has been reset successfully. You can now log in with your new password.'
+        })
+
+    return Response({
+        'success': False,
+        'message': 'Password reset link has expired or is invalid'
+    }, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def validate_reset_token(request, uidb64, token):
+    """
+    Validate if password reset token is still valid
+    """
+    try:
+        uid = force_str(urlsafe_base64_decode(uidb64))
+        user = User.objects.get(pk=uid)
+    except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+        return Response({
+            'valid': False,
+            'message': 'Invalid reset link'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    if default_token_generator.check_token(user, token):
+        return Response({
+            'valid': True,
+            'email': user.email,
+            'username': user.username
+        })
+
+    return Response({
+        'valid': False,
+        'message': 'Reset link has expired'
+    }, status=status.HTTP_400_BAD_REQUEST)

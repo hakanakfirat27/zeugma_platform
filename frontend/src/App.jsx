@@ -37,6 +37,8 @@ import StaffChatPage from './pages/StaffChatPage';
 import StaffNotifications from './pages/StaffNotifications';
 import UserActivityDashboard from './components/userActivity/UserActivityDashboard';
 import UserActivityPage from './pages/UserActivityPage';
+import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
+import ResetPasswordPage from './pages/auth/ResetPasswordPage';
 
 
 function App() {
@@ -48,6 +50,8 @@ function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
         <Route path="/verify-email/:uidb64/:token" element={<VerifyEmailPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password/:uidb64/:token" element={<ResetPasswordPage />} />
 
         {/* Protected routes */}
         <Route path="/staff-dashboard" element={<ProtectedRoute><StaffDashboard /></ProtectedRoute>} />

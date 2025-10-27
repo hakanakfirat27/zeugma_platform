@@ -11,6 +11,7 @@ const LoginPage = () => {
     username: '',
     password: '',
   });
+  const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState('');
   const [infoMessage, setInfoMessage] = useState('');
   const [loading, setLoading] = useState(false);
@@ -52,7 +53,8 @@ const LoginPage = () => {
     try {
       const response = await api.post('/accounts/login/', {
         username: formData.username,
-        password: formData.password
+        password: formData.password,
+        remember_me: rememberMe
       });
 
       // Check if 2FA is required
@@ -185,6 +187,29 @@ const LoginPage = () => {
               />
             </div>
 
+            {/* Remember Me and Forgot Password on same line */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <input
+                  id="remember-me"
+                  name="remember-me"
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded cursor-pointer"
+                />
+                <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-700 cursor-pointer">
+                  Remember me
+                </label>
+              </div>
+              <Link
+                to="/forgot-password"
+                className="text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors"
+              >
+                Forgot password?
+              </Link>
+            </div>
+
             <button
               type="submit"
               disabled={loading}
@@ -216,6 +241,7 @@ const LoginPage = () => {
         isOpen={requires2FA}
         username={tempUsername}
         email={tempEmail}
+        rememberMe={rememberMe}
         onSuccess={handle2FASuccess}
         onCancel={() => {
           setRequires2FA(false);

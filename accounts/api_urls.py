@@ -30,6 +30,9 @@ urlpatterns = [
     path('2fa/verify-login/', views.verify_2fa_login, name='verify-2fa-login'),
 
     path('change-password/', views.change_password, name='change-password'),
+    path('request-password-reset/', views.request_password_reset, name='request-password-reset'),
+    path('reset-password/<str:uidb64>/<str:token>/', views.reset_password, name='reset-password'),
+    path('validate-reset-token/<str:uidb64>/<str:token>/', views.validate_reset_token, name='validate-reset-token'),
 
     # User Activity endpoints
     path('activity/stats/', views.user_activity_stats, name='user-activity-stats'),

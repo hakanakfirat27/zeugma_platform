@@ -184,7 +184,7 @@ const LoginHistoryChart = () => {
             <XAxis
               dataKey="date"
               stroke="#6b7280"
-              style={{ fontSize: '12px' }}
+              style={{ fontSize: '12xpx' }}
               tick={{ fill: '#6b7280' }}
             />
             <YAxis

@@ -139,10 +139,10 @@ const UserLoginHistoryModal = ({ user, onClose }) => {
                           )}
                         </div>
                         <div>
-                          <div className="font-semibold text-gray-900">
+                          <div className="font-semibold text-gray-900 text-sm">
                             {login.success ? 'Successful Login' : 'Failed Login'}
                           </div>
-                          <div className="text-sm text-gray-500">
+                          <div className="text-xs text-gray-500">
                             {formatDateTime(login.login_time)}
                           </div>
                         </div>
@@ -153,7 +153,7 @@ const UserLoginHistoryModal = ({ user, onClose }) => {
 
                       <div className="grid grid-cols-2 gap-4 mt-3 pl-12">
                         {login.ip_address && (
-                          <div className="flex items-center gap-2 text-sm text-gray-600">
+                          <div className="flex items-center gap-2 text-xs text-gray-600">
                             <MapPin className="w-4 h-4 text-gray-400" />
                             <span>{login.ip_address}</span>
                           </div>

@@ -1,8 +1,16 @@
+// frontend/src/components/EmailTwoFactorVerificationModal.jsx
 import { useState, useEffect } from 'react';
 import { Shield, AlertCircle, Mail, Loader2, Clock, RefreshCw } from 'lucide-react';
 import api from '../utils/api';
 
-const EmailTwoFactorVerificationModal = ({ isOpen, username, email, onSuccess, onCancel }) => {
+const EmailTwoFactorVerificationModal = ({
+  isOpen,
+  username,
+  email,
+  rememberMe = false,  // NEW: Accept rememberMe prop
+  onSuccess,
+  onCancel
+}) => {
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -29,7 +37,8 @@ const EmailTwoFactorVerificationModal = ({ isOpen, username, email, onSuccess, o
 
       const response = await api.post('/accounts/2fa/verify-login/', {
         username,
-        code: code.trim()
+        code: code.trim(),
+        remember_me: rememberMe  // NEW: Pass remember_me to backend
       });
 
       if (response.data.success) {

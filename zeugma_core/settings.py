@@ -188,26 +188,19 @@ CSRF_COOKIE_PATH = '/'
 # Session Configuration
 SESSION_ENGINE = 'django.contrib.sessions.backends.db'
 SESSION_COOKIE_NAME = 'sessionid'
-SESSION_COOKIE_AGE = 1209600
-SESSION_SAVE_EVERY_REQUEST = True
+SESSION_COOKIE_AGE = 2592000
+SESSION_SAVE_EVERY_REQUEST = False
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = 'Lax'
 SESSION_COOKIE_SECURE = False
-SESSION_COOKIE_DOMAIN = 'localhost'  # Changed to localhost
+SESSION_COOKIE_DOMAIN = None
+SESSION_EXPIRE_AT_BROWSER_CLOSE = False
 SESSION_COOKIE_PATH = '/'
-
-# CSRF Configuration (keep existing but ensure these are set)
-CSRF_COOKIE_SAMESITE = 'Lax'
-CSRF_COOKIE_SECURE = False
-CSRF_COOKIE_HTTPONLY = False
 
 # Frontend URL
 FRONTEND_URL = 'http://localhost:5173'  # Update for production
 
 # Email Configuration
-# For development: Using console backend (emails print to console)
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-
 # For production: Use SMTP (Gmail example)
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
