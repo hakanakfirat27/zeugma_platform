@@ -92,14 +92,15 @@ const ClientDashboard = () => {
   }
 
   return (
-    <ClientDashboardLayout>
+    <ClientDashboardLayout
+      pageTitle="Dashboard Overview"
+      pageSubtitleBottom={
+        <p className="text-gray-600">
+          Welcome back, <span className="font-semibold text-purple-950">{getDisplayName()}</span>! Here's your subscription summary
+        </p>
+      }
+    >
       <div className="p-6">
-        {/* Welcome Section */}
-        <div className="mb-8">
-          <h2 className="text-3xl font-bold text-gray-900 mb-2">Dashboard Overview</h2>
-          <p className="text-gray-600">Welcome back, {getDisplayName()}! Here's your subscription summary.</p>
-        </div>
-
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           {/* Total Reports */}
@@ -147,8 +148,6 @@ const ClientDashboard = () => {
               <p className="text-xs text-orange-100 mt-1">Within 30 days</p>
             </div>
           </div>
-
-
         </div>
 
         {/* Recent Reports & Subscriptions */}

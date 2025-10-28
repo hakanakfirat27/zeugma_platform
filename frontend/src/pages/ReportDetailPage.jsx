@@ -313,7 +313,7 @@ const ReportDetailPage = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs text-blue-600 font-medium">Total Records</p>
-                  <p className="text-2xl font-bold text-blue-900">{report.record_count}</p>
+                  <p className="text-2xl font-bold text-blue-900">{report.record_count  || 0}</p>
                 </div>
                 <FileText className="w-8 h-8 text-blue-600 opacity-75" />
               </div>

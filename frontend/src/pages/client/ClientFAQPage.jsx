@@ -3,7 +3,10 @@ import ClientDashboardLayout from '../../components/layout/ClientDashboardLayout
 
 const ClientFAQPage = () => {
   return (
-    <ClientDashboardLayout>
+    <ClientDashboardLayout
+      pageTitle="FAQ"
+      pageSubtitleBottom="Searchable FAQ, video tutorials, documentation, and quick answers."
+    >
       <div className="p-6 flex items-center justify-center h-full">
         <div className="text-center max-w-md">
           <div className="w-24 h-24 bg-gradient-to-br from-pink-500 to-purple-500 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-2xl">

@@ -199,24 +199,33 @@ const ClientReportVisualizationPage = () => {
   }
 
   return (
-    <ClientDashboardLayout>
+    <ClientDashboardLayout
+      pageTitle="Data Visualization"
+      pageSubtitleBottom={
+          <p className="text-gray-600">Interactive charts and analytics</p>
+      }
+    >
       <div className="p-6">
         {/* Header */}
         <div className="mb-6">
-          <button
-            onClick={() => navigate(`/client/reports/${reportId}`)}
-            className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4 transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5" />
-            Back to Report
-          </button>
+          {/* Header with Back Button */}
+          <div className="mb-6 gap-2">
+            <button
+              type="button"
+              onClick={() => navigate(`/client/reports/${reportId}`)}
+              className="text-white bg-purple-700 hover:bg-purple-800 font-medium rounded-lg text-sm px-5 py-2.5 text-center inline-flex items-center"
+            >
+              <ArrowLeft className="w-4 h-4 me-2" />
+              Back to Reports
+            </button>
+          </div>
 
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                Data Visualization - {reportAccess?.report_title}
+                {reportAccess?.report_title}
               </h1>
-              <p className="text-gray-600">Interactive charts and analytics</p>
+
             </div>
 
             <button

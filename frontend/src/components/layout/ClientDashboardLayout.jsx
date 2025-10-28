@@ -13,11 +13,21 @@ import {
 import useChatUnreadCount from '../../hooks/useChatUnreadCount';
 
 
-const ClientDashboardLayout = ({ children, pageTitle }) => {
+const ClientDashboardLayout = ({ children, pageTitle, pageSubtitleTop, pageSubtitleBottom }) => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+
+  // ============= NEW: Sidebar Lock State =============
+  // Check localStorage for saved sidebar state (locked or not)
+  const getSavedSidebarState = () => {
+    const saved = localStorage.getItem('clientSidebarLocked');
+    return saved === 'true'; // Returns true if locked (closed)
+  };
+
+  const [isSidebarLocked, setIsSidebarLocked] = useState(getSavedSidebarState());
+  const [isSidebarOpen, setIsSidebarOpen] = useState(!getSavedSidebarState());
+  // ===================================================
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState([]);
@@ -57,6 +67,12 @@ const ClientDashboardLayout = ({ children, pageTitle }) => {
   const [showAvatarMenu, setShowAvatarMenu] = useState(false);
   const avatarMenuRef = useRef(null);
 
+
+  // ============= NEW: Save sidebar lock state =============
+  useEffect(() => {
+    localStorage.setItem('clientSidebarLocked', isSidebarLocked.toString());
+  }, [isSidebarLocked]);
+  // ========================================================
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -423,7 +439,7 @@ const ClientDashboardLayout = ({ children, pageTitle }) => {
         </div>
 
         {/* Navigation */}
-<nav className="flex-1 p-4 overflow-y-auto">
+        <nav className="flex-1 p-4 overflow-y-auto">
           <div className="space-y-1">
             {navLinks.map((link) => {
               const Icon = link.icon;
@@ -439,6 +455,7 @@ const ClientDashboardLayout = ({ children, pageTitle }) => {
                       clearChatBadge();
                     }
                   }}
+                  title={link.name}
                   className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all group relative ${
                     active
                       ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg'
@@ -508,9 +525,19 @@ const ClientDashboardLayout = ({ children, pageTitle }) => {
             {/* Left Section */}
             <div className="flex items-center gap-4">
               <button
-                onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                onClick={() => {
+                  if (isSidebarOpen) {
+                    // Closing sidebar - lock it
+                    setIsSidebarOpen(false);
+                    setIsSidebarLocked(true);
+                  } else {
+                    // Opening sidebar - unlock it
+                    setIsSidebarOpen(true);
+                    setIsSidebarLocked(false);
+                  }
+                }}
                 className="p-2 hover:bg-gray-100 rounded-xl transition-colors"
-                title={isSidebarOpen ? "Close sidebar" : "Open sidebar"}
+                title={isSidebarOpen ? "Close and lock sidebar" : "Open sidebar"}
               >
                 {isSidebarOpen ? (
                   <Menu className="w-5 h-5 text-gray-600" />
@@ -519,11 +546,31 @@ const ClientDashboardLayout = ({ children, pageTitle }) => {
                 )}
               </button>
 
-              {/* Page Title */}
-              <div>
-                <h1 className="text-xl font-bold text-gray-900">
-                  {navLinks.find(link => isActive(link.path))?.name || 'My Profile'}
+              {/* Page Title & Subtitle Area */}
+              <div className="min-w-0">
+                {/* --- MODIFIED: Top subtitle color --- */}
+                {pageSubtitleTop && (
+                  <div className="mb-1 text-gray-300">
+                    {pageSubtitleTop}
+                  </div>
+                )}
+                {/* --- MODIFIED: Page title color --- */}
+                <h1 className="text-xl font-bold text-gray truncate">
+                  {pageTitle || navLinks.find(link => isActive(link.path))?.name || 'Dashboard'}
                 </h1>
+                {/* --- MODIFIED: Bottom subtitle color --- */}
+                {pageSubtitleBottom && (
+                  <div className="mt-1 text-gray">
+                    {pageSubtitleBottom}
+                  </div>
+                )}
+                {/* ============= NEW: Show lock status ============= */}
+                {isSidebarLocked && !pageSubtitleBottom && (
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    Sidebar locked - Click arrow to open
+                  </p>
+                )}
+                {/* ================================================= */}
               </div>
             </div>
 

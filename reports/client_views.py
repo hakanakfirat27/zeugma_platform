@@ -705,3 +705,5 @@ class ClientReportColumnsAPIView(APIView):
             'report_categories': categories,
             'total_fields': len(available_columns)
         })
+
+

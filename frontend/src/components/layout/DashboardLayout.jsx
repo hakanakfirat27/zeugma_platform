@@ -14,10 +14,15 @@ const DashboardLayout = ({ children, pageTitle, headerActions, pageSubtitleTop, 
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [isFullscreen, setIsFullscreen] = useState(false);
 
-  // Notification states
+  const getSavedSidebarState = () => {
+    const saved = localStorage.getItem('clientSidebarLocked');
+    return saved === 'true'; // Returns true if locked (closed)
+  };
+  const [isSidebarLocked, setIsSidebarLocked] = useState(getSavedSidebarState());
+  const [isSidebarOpen, setIsSidebarOpen] = useState(!getSavedSidebarState());
+
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -62,6 +67,11 @@ const DashboardLayout = ({ children, pageTitle, headerActions, pageSubtitleTop, 
     }
     return cookieValue;
   };
+
+
+  useEffect(() => {
+    localStorage.setItem('clientSidebarLocked', isSidebarLocked.toString());
+  }, [isSidebarLocked]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -355,7 +365,7 @@ const DashboardLayout = ({ children, pageTitle, headerActions, pageSubtitleTop, 
         </div>
 
         {/* Navigation */}
-<nav className="flex-1 p-4 overflow-y-auto">
+        <nav className="flex-1 p-4 overflow-y-auto">
           <div className="space-y-1">
             {navLinks
               .filter(link => user?.role && link.roles.includes(user.role.toUpperCase()))
@@ -373,6 +383,7 @@ const DashboardLayout = ({ children, pageTitle, headerActions, pageSubtitleTop, 
                         clearChatBadge();
                       }
                     }}
+                    title={link.name}
                     className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all group relative ${
                       active
                         ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg'
@@ -442,11 +453,25 @@ const DashboardLayout = ({ children, pageTitle, headerActions, pageSubtitleTop, 
             <div className="flex flex-shrink-0 items-center gap-4">
               {/* --- MODIFIED: Icon color and hover --- */}
               <button
-                onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                className="p-1 rounded-xl transition-all hover:bg-white-700"
-                title={isSidebarOpen ? "Close sidebar" : "Open sidebar"}
+                onClick={() => {
+                  if (isSidebarOpen) {
+                    // Closing sidebar - lock it
+                    setIsSidebarOpen(false);
+                    setIsSidebarLocked(true);
+                  } else {
+                    // Opening sidebar - unlock it
+                    setIsSidebarOpen(true);
+                    setIsSidebarLocked(false);
+                  }
+                }}
+                className="p-2 hover:bg-white-900 rounded-xl transition-colors"
+                title={isSidebarOpen ? "Close and lock sidebar" : "Open sidebar"}
               >
-                {isSidebarOpen ? <Menu className="w-5 h-5 text-white" /> : <ArrowRight className="w-5 h-5 text-white" />}
+                {isSidebarOpen ? (
+                  <Menu className="w-5 h-5 text-white-600" />
+                ) : (
+                  <ArrowRight className="w-5 h-5 text-white-600" />
+                )}
               </button>
               {/* Page Title & Subtitle Area */}
               <div className="min-w-0">
@@ -642,6 +667,7 @@ const DashboardLayout = ({ children, pageTitle, headerActions, pageSubtitleTop, 
               </div>
 
               {/* User Avatar Dropdown */}
+
               <div className="relative" ref={avatarMenuRef}>
                  {/* --- MODIFIED: Text/icon colors and hover --- */}
                 <button
@@ -673,6 +699,7 @@ const DashboardLayout = ({ children, pageTitle, headerActions, pageSubtitleTop, 
                               navigate(link.path);
                               setShowAvatarMenu(false);
                             }}
+                            title={link.name}
                             className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 rounded-xl transition-colors text-left group"
                           >
                             <div className={`w-9 h-9 rounded-lg ${link.bg} flex items-center justify-center group-hover:bg-gray-100 transition-colors`}>

@@ -84,14 +84,11 @@ const ClientSubscriptionsPage = () => {
   }
 
   return (
-    <ClientDashboardLayout>
+    <ClientDashboardLayout
+      pageTitle="My Subscriptions"
+      pageSubtitleBottom="Manage and track all your report subscriptions"
+    >
       <div className="p-6">
-        {/* Header */}
-        <div className="mb-8">
-          <h2 className="text-3xl font-bold text-gray-900 mb-2">My Subscriptions</h2>
-          <p className="text-gray-600">Manage and track all your report subscriptions</p>
-        </div>
-
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-5 mb-8">
           <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-2xl shadow-lg p-6 text-white">
@@ -100,7 +97,7 @@ const ClientSubscriptionsPage = () => {
                 <CheckCircle className="w-6 h-6" />
               </div>
             </div>
-            <p className="text-sm text-green-100 mb-1 font-medium">Active</p>
+            <p className="text-sm text-green-100 mb-1 font-medium">Active Subscriptions</p>
             <p className="text-4xl font-bold">{activeCount}</p>
           </div>
 

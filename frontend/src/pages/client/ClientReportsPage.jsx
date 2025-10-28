@@ -59,14 +59,11 @@ const ClientReportsPage = () => {
   }
 
   return (
-    <ClientDashboardLayout>
+    <ClientDashboardLayout
+      pageTitle="My Reports"
+      pageSubtitleBottom="Access and manage your subscribed reports"
+    >
       <div className="p-6">
-        {/* Header */}
-        <div className="mb-8">
-          <h2 className="text-3xl font-bold text-gray-900 mb-2">My Reports</h2>
-          <p className="text-gray-600">Access and manage your subscribed reports</p>
-        </div>
-
         {/* Filters and Search */}
         <div className="bg-white rounded-2xl shadow-sm p-5 mb-6 border border-gray-100">
           <div className="flex items-center justify-between gap-4 flex-wrap">
@@ -161,7 +158,7 @@ const ClientReportsPage = () => {
                       ) : (
                         <span className="flex items-center gap-2 px-3 py-1.5 bg-red-500/20 backdrop-blur-xl rounded-full text-xs font-semibold border border-red-300/30">
                           <AlertCircle className="w-3.5 h-3.5" />
-                          Inactive
+                          Expired
                         </span>
                       )}
                     </div>

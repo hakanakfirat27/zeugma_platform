@@ -692,9 +692,6 @@ const CustomReportsPage = () => {
     </p>
   );
 
-
-
-
   return (
     <DashboardLayout
       pageTitle="Custom Reports"
