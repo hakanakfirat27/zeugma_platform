@@ -1,6 +1,7 @@
 
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
+import { AnnouncementProvider } from './contexts/AnnouncementContext';
 import ProtectedRoute from './components/ProtectedRoute';
 
 // Import pages
@@ -39,6 +40,10 @@ import UserActivityDashboard from './components/userActivity/UserActivityDashboa
 import UserActivityPage from './pages/UserActivityPage';
 import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
 import ResetPasswordPage from './pages/auth/ResetPasswordPage';
+import AnnouncementsManagement from './pages/announcements/AnnouncementsManagement';
+import AnnouncementForm from './pages/announcements/AnnouncementForm';
+import UserAnnouncements from './pages/announcements/UserAnnouncements';
+import AnnouncementDetail from './pages/announcements/AnnouncementDetail';
 
 
 function App() {
@@ -94,6 +99,15 @@ function App() {
         {/* Chat Routes */}
         <Route path="/client/chat" element={<ProtectedRoute allowedRoles={['CLIENT']}><ClientChatPage /></ProtectedRoute>}/>
         <Route path="/staff-chat" element={<ProtectedRoute allowedRoles={['SUPERADMIN', 'STAFF_ADMIN']}><StaffChatPage /></ProtectedRoute>} />
+
+        {/* Announcement Routes */}
+        <Route path="/announcements-management" element={<ProtectedRoute allowedRoles={['SUPERADMIN', 'STAFF_ADMIN']}><AnnouncementsManagement /></ProtectedRoute>} />
+        <Route path="/announcements-management/:id" element={<AnnouncementDetail />} />
+        <Route path="/announcements/new" element={<ProtectedRoute allowedRoles={['SUPERADMIN', 'STAFF_ADMIN']}><AnnouncementForm /></ProtectedRoute>} />
+        <Route path="/announcements/edit/:id" element={<ProtectedRoute allowedRoles={['SUPERADMIN', 'STAFF_ADMIN']}><AnnouncementForm /></ProtectedRoute>} />
+        <Route path="/announcements" element={<ProtectedRoute><UserAnnouncements /></ProtectedRoute>} />
+        <Route path="/client/announcements" element={<ProtectedRoute allowedRoles={['CLIENT']}><UserAnnouncements /></ProtectedRoute>}/>
+
 
         {/* Catch all */}
         <Route path="*" element={<Navigate to="/" replace />} />

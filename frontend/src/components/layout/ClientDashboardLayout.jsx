@@ -2,16 +2,16 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import axios from 'axios';
 import {
   LayoutDashboard, FileText, CreditCard, MessageSquare, HelpCircle,
   LogOut, Menu, Bell, Maximize, Settings, ChevronRight,
   Database, ArrowRight, Check, X, Trash2, CheckCheck,
-  User, Shield, ChevronDown
+  User, Shield, ChevronDown, Megaphone
 } from 'lucide-react';
 import useChatUnreadCount from '../../hooks/useChatUnreadCount';
-
+import useAnnouncementBadge from '../../hooks/useAnnouncementBadge';
 
 const ClientDashboardLayout = ({ children, pageTitle, pageSubtitleTop, pageSubtitleBottom }) => {
   const { user, logout } = useAuth();
@@ -38,11 +38,18 @@ const ClientDashboardLayout = ({ children, pageTitle, pageSubtitleTop, pageSubti
   const notificationRef = useRef(null);
   const { unreadCount: chatUnreadCount, clearCount: clearChatBadge } = useChatUnreadCount();
 
+
+  // Announcement states
+  const [unreadAnnouncementsCount, setUnreadAnnouncementsCount] = useState(0);
+  const [showAnnouncementPopup, setShowAnnouncementPopup] = useState(false);
+  const [currentAnnouncement, setCurrentAnnouncement] = useState(null);
+
   const navLinks = [
     { name: 'Dashboard', path: '/client/dashboard', icon: LayoutDashboard, color: 'text-blue-500' },
     { name: 'Reports', path: '/client/reports', icon: FileText, color: 'text-purple-500' },
     { name: 'Subscriptions', path: '/client/subscriptions', icon: CreditCard, color: 'text-green-500' },
     { name: 'Chat', path: '/client/chat', icon: MessageSquare, color: 'text-orange-500' },
+    { name: 'Announcements', path: '/client/announcements', icon: Megaphone, color: 'text-pink-500', badge: unreadAnnouncementsCount },
     { name: 'FAQ', path: '/client/faq', icon: HelpCircle, color: 'text-pink-500' },
   ];
 
@@ -92,6 +99,58 @@ const ClientDashboardLayout = ({ children, pageTitle, pageSubtitleTop, pageSubti
     axios.defaults.xsrfHeaderName = 'X-CSRFToken';
   }, []);
 
+  // Fetch announcements count
+  const fetchAnnouncementsCount = async () => {
+    try {
+      const response = await axios.get('http://localhost:8000/api/announcements/unread_count/', {
+        withCredentials: true,
+      });
+      setUnreadAnnouncementsCount(response.data.unread_count || 0);
+    } catch (error) {
+      console.error('Error fetching announcements count:', error);
+    }
+  };
+
+  // Fetch unread announcements for popup
+  const fetchUnreadAnnouncements = async () => {
+    try {
+      const response = await axios.get('http://localhost:8000/api/announcements/my_announcements/', {
+        withCredentials: true,
+      });
+
+      const unreadAnnouncements = response.data.filter(a => !a.has_viewed);
+
+      if (unreadAnnouncements.length > 0) {
+        // Show the first unread announcement
+        setCurrentAnnouncement(unreadAnnouncements[0]);
+        setShowAnnouncementPopup(true);
+      }
+    } catch (error) {
+      console.error('Error fetching unread announcements:', error);
+    }
+  };
+
+  // Mark announcement as viewed
+  const markAnnouncementAsViewed = async (announcementId) => {
+    try {
+      await axios.get(`http://localhost:8000/api/announcements/${announcementId}/`, {
+        withCredentials: true,
+      });
+      fetchAnnouncementsCount();
+    } catch (error) {
+      console.error('Error marking announcement as viewed:', error);
+    }
+  };
+
+  // Handle announcement popup close
+  const handleCloseAnnouncementPopup = () => {
+    if (currentAnnouncement) {
+      markAnnouncementAsViewed(currentAnnouncement.id);
+    }
+    setShowAnnouncementPopup(false);
+    setCurrentAnnouncement(null);
+  };
+
   // Fetch notifications from API
   const fetchNotifications = async () => {
     try {
@@ -117,15 +176,16 @@ const ClientDashboardLayout = ({ children, pageTitle, pageSubtitleTop, pageSubti
     }
   };
 
-  // Fetch notifications on component mount and set up WebSocket + polling
+  // Fetch notifications and announcements on component mount
   useEffect(() => {
     fetchNotifications();
+    fetchAnnouncementsCount();
+    fetchUnreadAnnouncements();
 
     // Connect to notification WebSocket for INSTANT updates
     const wsScheme = window.location.protocol === 'https:' ? 'wss' : 'ws';
     const notifWsUrl = `${wsScheme}://${window.location.hostname}:8000/ws/notifications/`;
 
-    console.log('🔔 Notification Bell: Connecting to WebSocket');
     const notifWs = new WebSocket(notifWsUrl);
 
     notifWs.onopen = () => {
@@ -134,16 +194,19 @@ const ClientDashboardLayout = ({ children, pageTitle, pageSubtitleTop, pageSubti
 
     notifWs.onmessage = (event) => {
       const data = JSON.parse(event.data);
-      console.log('🔔 Notification Bell: Received:', data);
 
       // Refresh notification bell when any notification arrives
       if (data.type === 'notification') {
-        console.log('📨 Notification Bell: Updating instantly!');
         fetchNotifications();
+
+        // If it's an announcement notification, refresh announcement count
+        if (data.notification && data.notification.notification_type === 'announcement') {
+          fetchAnnouncementsCount();
+          fetchUnreadAnnouncements();
+        }
 
         // Also refresh chat badge if it's a chat message notification
         if (data.notification && data.notification.notification_type === 'message') {
-          console.log('💬 Notification Bell: Triggering chat badge refresh');
           // The hook will handle this via its own WebSocket connection
         }
       }
@@ -238,9 +301,9 @@ const ClientDashboardLayout = ({ children, pageTitle, pageSubtitleTop, pageSubti
         case 'announcement':
           // Navigate to dashboard or announcements page
           if (notification.related_announcement_id) {
-            navigate(`/client/dashboard?announcement_id=${notification.related_announcement_id}`);
+            navigate(`/client/announcements?announcement_id=${notification.related_announcement_id}`);
           } else {
-            navigate('/client/dashboard');
+            navigate('/client/announcements');
           }
           break;
 
@@ -366,6 +429,30 @@ const ClientDashboardLayout = ({ children, pageTitle, pageSubtitleTop, pageSubti
       console.error('Error response:', error.response);
       alert('Failed to clear notifications. Please try again.');
     }
+  };
+
+  const getAnnouncementTypeIcon = (type) => {
+    const icons = {
+      general: <Bell className="w-5 h-5" />,
+      maintenance: <Settings className="w-5 h-5" />,
+      feature: <Megaphone className="w-5 h-5" />,
+      update: <Bell className="w-5 h-5" />,
+      event: <Bell className="w-5 h-5" />,
+      alert: <Bell className="w-5 h-5" />,
+    };
+    return icons[type] || icons.general;
+  };
+
+  const getAnnouncementTypeColor = (type) => {
+    const colors = {
+      general: 'from-blue-500 to-blue-600',
+      maintenance: 'from-orange-500 to-orange-600',
+      feature: 'from-green-500 to-green-600',
+      update: 'from-purple-500 to-purple-600',
+      event: 'from-pink-500 to-pink-600',
+      alert: 'from-red-500 to-red-600',
+    };
+    return colors[type] || colors.general;
   };
 
   const getNotificationIcon = (type) => {
@@ -896,6 +983,62 @@ const ClientDashboardLayout = ({ children, pageTitle, pageSubtitleTop, pageSubti
           {children}
         </main>
       </div>
+      {/* Announcement Popup Modal */}
+      {showAnnouncementPopup && currentAnnouncement && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col animate-in fade-in slide-in-from-top-5 duration-300">
+            {/* Modal Header */}
+            <div className={`bg-gradient-to-r ${getAnnouncementTypeColor(currentAnnouncement.announcement_type)} text-white p-6`}>
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center backdrop-blur-sm">
+                    {getAnnouncementTypeIcon(currentAnnouncement.announcement_type)}
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-bold">{currentAnnouncement.title}</h2>
+                    <p className="text-sm text-white/90 mt-1">New Announcement</p>
+                  </div>
+                </div>
+                <button
+                  onClick={handleCloseAnnouncementPopup}
+                  className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Body */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {currentAnnouncement.summary && (
+                <p className="text-gray-700 font-medium mb-4">{currentAnnouncement.summary}</p>
+              )}
+              <p className="text-gray-600 whitespace-pre-wrap leading-relaxed">
+                {currentAnnouncement.content}
+              </p>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="border-t border-gray-200 p-6 bg-gray-50 flex items-center justify-between">
+              <button
+                onClick={() => {
+                  navigate('/client/announcements');
+                  handleCloseAnnouncementPopup();
+                }}
+                className="px-6 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-semibold transition-colors"
+              >
+                View All Announcements
+              </button>
+              <button
+                onClick={handleCloseAnnouncementPopup}
+                className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition-colors"
+              >
+                Got it!
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

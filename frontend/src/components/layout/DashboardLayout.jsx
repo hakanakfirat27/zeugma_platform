@@ -42,6 +42,7 @@ const DashboardLayout = ({ children, pageTitle, headerActions, pageSubtitleTop, 
     { name: 'Custom Reports', path: '/custom-reports', icon: FileText, roles: ['SUPERADMIN', 'STAFF_ADMIN'], color: 'text-purple-500' },
     { name: 'Subscriptions', path: '/subscriptions', icon: CreditCard, roles: ['SUPERADMIN', 'STAFF_ADMIN'], color: 'text-green-500' },
     { name: 'User Management', path: '/user-management', icon: Users, roles: ['SUPERADMIN'], color: 'text-red-500' },
+    { name: 'Announcements', path: '/announcements-management', icon: Bell, roles: ['SUPERADMIN', 'STAFF_ADMIN'], color: 'text-red-500' },
     { name: 'Chat', path: '/staff-chat', icon: MessageSquare, roles: ['SUPERADMIN', 'STAFF_ADMIN'], color: 'text-orange-500' },
   ];
 

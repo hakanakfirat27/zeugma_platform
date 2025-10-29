@@ -20,6 +20,7 @@ urlpatterns = [
     path('dashboard/', include('dashboard.urls')),
     path('api/client/', include('reports.client_api_urls')),
     path('api/chat/', include('chat.urls')),
+    path('api/announcements/', include('announcements.urls')),
 ]
 
 if settings.DEBUG:

@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     'notifications',
     'chat',
     'channels',
+    'announcements',
     'rest_framework',
     'corsheaders',
     'django_filters',
