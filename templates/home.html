@@ -1,0 +1,17 @@
+<h1>Welcome to Zeugma Research</h1>
+
+{% if user.is_authenticated %}
+  <p>Hi, {{ user.username }}! Your role is: {{ user.role }}</p>
+  <p>
+    <form action="{% url 'accounts:logout' %}" method="post" style="display: inline;">
+        {% csrf_token %}
+        <button type="submit" style="background:none; border:none; padding:0; color:#0d6efd; text-decoration:underline; cursor:pointer;">
+            Log Out
+        </button>
+    </form>
+  </p>
+{% else %}
+  <p>You are not logged in.</p>
+  <a href="{% url 'accounts:login' %}">Log In</a> | {# UPDATE #}
+  <a href="{% url 'accounts:signup' %}">Sign Up</a> {# UPDATE #}
+{% endif %}

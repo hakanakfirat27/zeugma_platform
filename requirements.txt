@@ -1,0 +1,25 @@
+asgiref==3.9.2
+colorama==0.4.6
+Django==5.2.7
+django-cors-headers==4.9.0
+django-filter==25.1
+djangorestframework==3.16.1
+et_xmlfile==2.0.0
+numpy==2.3.3
+openpyxl==3.1.5
+pandas==2.3.3
+pillow==12.0.0
+pyotp==2.9.0
+python-dateutil==2.9.0.post0
+python-decouple==3.8
+pytz==2025.2
+qrcode==8.2
+six==1.17.0
+sqlparse==0.5.3
+tzdata==2025.2
+
+# channels==4.0.0
+# channels-redis==4.1.0  # For production with Redis
+# daphne==4.0.0  # ASGI server
+
+django-ratelimit==4.1.0

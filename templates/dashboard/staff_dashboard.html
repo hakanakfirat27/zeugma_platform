@@ -1,0 +1,21 @@
+{# We don't have a base.html yet, so we'll start with a simple structure #}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Staff Dashboard - Zeugma Research</title>
+</head>
+<body>
+    <h1>Staff Admin Dashboard</h1>
+    <p>Welcome, {{ user.username }}.</p>
+    <p>This is the future home of your advanced data filtering and management tools.</p>
+
+    <hr>
+    <form action="{% url 'accounts:logout' %}" method="post" style="display: inline;">
+        {% csrf_token %}
+        <button type="submit" style="background:none; border:none; padding:0; color:#0d6efd; text-decoration:underline; cursor:pointer;">
+            Log Out
+        </button>
+    </form>
+</body>
+</html>
