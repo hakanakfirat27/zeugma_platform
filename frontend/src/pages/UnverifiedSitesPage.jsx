@@ -2,6 +2,7 @@
 /**
  * Unverified Sites Management Page
  * Main page for managing unverified company data before verification
+ * UPDATED: Now navigates to detail page instead of opening modal
  */
 
 import { useState, useEffect } from 'react';
@@ -12,7 +13,6 @@ import {
 } from 'lucide-react';
 import DashboardLayout from '../components/layout/DashboardLayout';
 import LoadingSpinner from '../components/LoadingSpinner';
-import UnverifiedSiteDetailModal from '../components/UnverifiedSiteDetailModal';
 import api from '../utils/api';
 import { CATEGORIES, CATEGORY_COLORS } from '../constants/categories';
 
@@ -24,8 +24,6 @@ const UnverifiedSitesPage = () => {
   const [sites, setSites] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedSites, setSelectedSites] = useState(new Set());
-  const [selectedSite, setSelectedSite] = useState(null);
-  const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [stats, setStats] = useState(null);
   
   // Filters
@@ -111,12 +109,6 @@ const UnverifiedSitesPage = () => {
     } else {
       setSelectedSites(new Set(sites.map(site => site.site_id)));
     }
-  };
-  
-  // Detail modal
-  const handleViewDetails = (site) => {
-    setSelectedSite(site);
-    setDetailModalOpen(true);
   };
   
   // Quick actions
@@ -211,117 +203,101 @@ const UnverifiedSitesPage = () => {
   // Get priority badge color
   const getPriorityColor = (priority) => {
     switch (priority) {
-      case 'LOW':
-        return 'bg-gray-100 text-gray-600';
-      case 'MEDIUM':
-        return 'bg-blue-100 text-blue-600';
-      case 'HIGH':
-        return 'bg-orange-100 text-orange-600';
       case 'URGENT':
-        return 'bg-red-100 text-red-600';
+        return 'bg-red-100 text-red-800';
+      case 'HIGH':
+        return 'bg-orange-100 text-orange-800';
+      case 'MEDIUM':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'LOW':
+        return 'bg-green-100 text-green-800';
       default:
-        return 'bg-gray-100 text-gray-600';
+        return 'bg-gray-100 text-gray-800';
     }
   };
   
-  // Get quality color
+  // Get quality score color
   const getQualityColor = (score) => {
-    if (score >= 70) return 'text-green-600';
-    if (score >= 40) return 'text-yellow-600';
+    if (score >= 80) return 'text-green-600';
+    if (score >= 60) return 'text-yellow-600';
     return 'text-red-600';
   };
-  
-  // Header actions
-  const headerActions = (
-    <>
-      <button
-        onClick={fetchSites}
-        className="px-4 py-2 bg-white/10 hover:bg-white/20 backdrop-blur-sm rounded-lg transition-all flex items-center gap-2"
-      >
-        <RefreshCw className="w-4 h-4" />
-        <span className="hidden sm:inline">Refresh</span>
-      </button>
-      <button
-        onClick={() => navigate('/superdatabase')}
-        className="px-4 py-2 bg-white/90 hover:bg-white text-indigo-600 rounded-lg transition-all flex items-center gap-2 font-semibold shadow-lg"
-      >
-        <Upload className="w-4 h-4" />
-        <span className="hidden sm:inline">Import Data</span>
-      </button>
-    </>
-  );
-  
+
   return (
-    <DashboardLayout
-      pageTitle="Unverified Sites"
-      pageSubtitleBottom="Review and verify company data before adding to Superdatabase"
-      headerActions={headerActions}
-    >
-      <div className="flex-1 overflow-auto bg-gray-50">
-        <div className="max-w-7xl mx-auto p-8">
-          
-          {/* Stats Cards */}
-          {stats && (
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-              <div className="bg-white rounded-lg shadow p-4">
-                <div className="text-sm text-gray-600">Total Sites</div>
-                <div className="text-2xl font-bold text-gray-900">{stats.total}</div>
-              </div>
-              <div className="bg-white rounded-lg shadow p-4">
-                <div className="text-sm text-gray-600">Pending Review</div>
-                <div className="text-2xl font-bold text-orange-600">{stats.pending_review}</div>
-              </div>
-              <div className="bg-white rounded-lg shadow p-4">
-                <div className="text-sm text-gray-600">Approved</div>
-                <div className="text-2xl font-bold text-green-600">
-                  {stats.by_status?.APPROVED || 0}
-                </div>
-              </div>
-              <div className="bg-white rounded-lg shadow p-4">
-                <div className="text-sm text-gray-600">Avg Quality</div>
-                <div className={`text-2xl font-bold ${getQualityColor(stats.avg_quality_score)}`}>
-                  {stats.avg_quality_score}%
-                </div>
+    <DashboardLayout>
+      <div className="p-6">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Unverified Sites</h1>
+          <p className="text-gray-600">Manage and verify company data before adding to superdatabase</p>
+        </div>
+        
+        {/* Stats Cards */}
+        {stats && (
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <div className="bg-white rounded-lg shadow p-6">
+              <div className="text-sm font-medium text-gray-600">Total Sites</div>
+              <div className="text-2xl font-bold text-gray-900 mt-2">{stats.total}</div>
+            </div>
+            <div className="bg-white rounded-lg shadow p-6">
+              <div className="text-sm font-medium text-gray-600">Pending Review</div>
+              <div className="text-2xl font-bold text-yellow-600 mt-2">{stats.pending_review}</div>
+            </div>
+            <div className="bg-white rounded-lg shadow p-6">
+              <div className="text-sm font-medium text-gray-600">Approved</div>
+              <div className="text-2xl font-bold text-green-600 mt-2">
+                {stats.by_status?.APPROVED || 0}
               </div>
             </div>
-          )}
-          
+            <div className="bg-white rounded-lg shadow p-6">
+              <div className="text-sm font-medium text-gray-600">Avg Quality</div>
+              <div className="text-2xl font-bold text-indigo-600 mt-2">
+                {stats.avg_quality_score?.toFixed(1)}%
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* Main Content */}
+        <div className="bg-white rounded-lg shadow">
           {/* Tabs */}
-          <div className="bg-white rounded-lg shadow mb-6">
-            <div className="flex border-b">
+          <div className="border-b border-gray-200">
+            <nav className="flex -mb-px px-6">
               {tabs.map((tab) => (
                 <button
                   key={tab.key}
                   onClick={() => setActiveTab(tab.key)}
-                  className={`px-6 py-3 font-medium transition-colors ${
+                  className={`px-6 py-4 font-medium transition-colors ${
                     activeTab === tab.key
                       ? 'border-b-2 border-indigo-600 text-indigo-600'
-                      : 'text-gray-600 hover:text-gray-900'
+                      : 'border-transparent text-gray-500 hover:text-gray-700'
                   }`}
                 >
                   {tab.label}
-                  {stats?.by_status && tab.status && (
-                    <span className="ml-2 text-xs text-gray-500">
-                      ({stats.by_status[tab.status] || 0})
+                  {stats?.by_status?.[tab.status] && (
+                    <span className="ml-2 px-2 py-0.5 text-xs bg-gray-100 text-gray-600 rounded-full">
+                      {stats.by_status[tab.status]}
                     </span>
                   )}
                 </button>
               ))}
-            </div>
+            </nav>
           </div>
           
           {/* Filters */}
-          <div className="bg-white rounded-lg shadow p-4 mb-6">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                <input
-                  type="text"
-                  placeholder="Search companies..."
-                  value={filters.search}
-                  onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                />
+          <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
+            <div className="flex flex-wrap gap-4">
+              <div className="flex-1 min-w-[200px]">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                  <input
+                    type="text"
+                    placeholder="Search by company name..."
+                    value={filters.search}
+                    onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  />
+                </div>
               </div>
               
               <select
@@ -329,12 +305,21 @@ const UnverifiedSitesPage = () => {
                 onChange={(e) => setFilters({ ...filters, category: e.target.value })}
                 className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
               >
-                {CATEGORIES.map((cat) => (
-                  <option key={cat.value} value={cat.value}>
-                    {cat.label}
+                <option value="ALL">All Categories</option>
+                {Object.entries(CATEGORIES || {}).map(([key, value]) => (
+                  <option key={key} value={key}>
+                    {typeof value === 'object' ? value.label : value}
                   </option>
                 ))}
               </select>
+              
+              <input
+                type="text"
+                placeholder="Country"
+                value={filters.country}
+                onChange={(e) => setFilters({ ...filters, country: e.target.value })}
+                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              />
               
               <select
                 value={filters.priority}
@@ -359,7 +344,7 @@ const UnverifiedSitesPage = () => {
           
           {/* Bulk Actions Toolbar */}
           {selectedSites.size > 0 && (
-            <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4 mb-6">
+            <div className="bg-indigo-50 border-b border-indigo-200 px-6 py-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <span className="font-medium text-indigo-900">
@@ -391,7 +376,7 @@ const UnverifiedSitesPage = () => {
           )}
           
           {/* Table */}
-          <div className="bg-white rounded-lg shadow overflow-hidden">
+          <div className="overflow-hidden">
             {loading ? (
               <div className="flex items-center justify-center py-12">
                 <LoadingSpinner />
@@ -445,7 +430,7 @@ const UnverifiedSitesPage = () => {
                       <tr
                         key={site.site_id}
                         className="hover:bg-gray-50 cursor-pointer transition-colors"
-                        onClick={() => handleViewDetails(site)}
+                        onClick={() => navigate(`/unverified-sites/${site.site_id}`)}
                       >
                         <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
                           <input
@@ -517,22 +502,6 @@ const UnverifiedSitesPage = () => {
           </div>
         </div>
       </div>
-      
-      {/* Detail Modal */}
-      {selectedSite && (
-        <UnverifiedSiteDetailModal
-          open={detailModalOpen}
-          onClose={() => {
-            setDetailModalOpen(false);
-            setSelectedSite(null);
-          }}
-          site={selectedSite}
-          onUpdate={() => {
-            fetchSites();
-            fetchStats();
-          }}
-        />
-      )}
     </DashboardLayout>
   );
 };

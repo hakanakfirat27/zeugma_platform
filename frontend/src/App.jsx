@@ -44,6 +44,8 @@ import UnverifiedSitesPage from './pages/UnverifiedSitesPage';
 import CreateReportPage from './pages/CreateReportPage';
 import CustomReportsPage from './pages/CustomReportsPage';
 import ReportDetailPage from './pages/ReportDetailPage';
+import UnverifiedSiteDetailPage from './pages/UnverifiedSiteDetailPage';
+import UnverifiedSiteEditPage from './pages/UnverifiedSiteEditPage';
 
 import ClientReportsPage from './pages/client/ClientReportsPage';
 import ClientReportViewPage from './pages/client/ClientReportViewPage';
@@ -163,6 +165,8 @@ function App() {
 
             {/* Unverified Sites Routes */}
             <Route path="/unverified-sites" element={<ProtectedRoute><UnverifiedSitesPage /></ProtectedRoute>} />
+            <Route path="/unverified-sites/:siteId" element={<ProtectedRoute><UnverifiedSiteDetailPage /></ProtectedRoute>} />
+            <Route path="/unverified-sites/:siteId/edit" element={<ProtectedRoute><UnverifiedSiteEditPage /></ProtectedRoute>} />
 
             {/* Projects Routes */}
             <Route path="/projects" element={<ProtectedRoute><ProjectManagementPage /></ProtectedRoute>} />
