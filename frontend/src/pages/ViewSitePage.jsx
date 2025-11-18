@@ -1,25 +1,42 @@
 // frontend/src/pages/ViewSitePage.jsx
-// Standalone page for viewing site details (converted from ViewSiteModal)
+// ✅ FIXED VERSION - With ToastContainer
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../utils/api';
 import DataCollectorLayout from '../components/layout/DataCollectorLayout';
 import NotesTab from '../components/NotesTab';
+import CallingStatusSelector from '../components/calling/CallingStatusSelector';
+import CallTimeline from '../components/calling/CallTimeline';
+import FieldWithConfirmation from '../components/calling/FieldWithConfirmation';
+import { useFieldConfirmations } from '../hooks/useFieldConfirmations';
+import { ToastContainer } from '../components/Toast';  
+import { useToast } from '../hooks/useToast'; 
+import StatusHistory from '../components/calling/StatusHistory';
+import StatusHistoryModal from '../components/calling/StatusHistoryModal';
 import {
-  ArrowLeft, Edit2, Building2, Users, Info, MessageSquare,
-  CheckCircle, XCircle
+  ArrowLeft, Edit2, Building2, Users, Info, MessageSquare, Phone,
+  CheckCircle, XCircle, CheckCircle as CheckIcon, PlusCircle, FileText, History
 } from 'lucide-react';
 
 const ViewSitePage = () => {
   const { projectId, siteId } = useParams();
   const navigate = useNavigate();
+  const { toasts, removeToast } = useToast();  // ← INITIALIZE TOAST HOOK
   
   const [activeTab, setActiveTab] = useState('core');
   const [notesCount, setNotesCount] = useState(0);
   const [siteData, setSiteData] = useState(null);
   const [fieldMetadata, setFieldMetadata] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+
+  // Add confirmations hook
+  const {
+    confirmations,
+    isLoading: confirmationsLoading,
+  } = useFieldConfirmations(siteId);
 
   useEffect(() => {
     const fetchSiteDetails = async () => {
@@ -44,6 +61,22 @@ const ViewSitePage = () => {
 
     fetchSiteDetails();
   }, [siteId, projectId, navigate]);
+
+  // Fetch notes count for badge
+  useEffect(() => {
+    const fetchNotesCount = async () => {
+      if (!siteId) return;
+      
+      try {
+        const response = await api.get(`/api/sites/${siteId}/notes/`);
+        setNotesCount(response.data.length);
+      } catch (error) {
+        console.error('Failed to fetch notes count:', error);
+      }
+    };
+
+    fetchNotesCount();
+  }, [siteId]);
 
   if (loading) {
     return (
@@ -100,10 +133,37 @@ const ViewSitePage = () => {
 
         {/* Main Content Card */}
         <div className="bg-white rounded-lg shadow-lg">
-          {/* Header */}
+          {/* Header with Field Confirmations Info */}
           <div className="bg-white border-b border-gray-200 px-6 py-4">
-            <h2 className="text-2xl font-bold text-indigo-900">{siteData.company_name}</h2>
-            <p className="text-sm text-gray-600 mt-1">{siteData.website || 'No website'}</p>
+            <div className="flex items-start justify-between">
+              <div>
+                <h2 className="text-2xl font-bold text-indigo-900">{siteData.company_name}</h2>
+                <p className="text-sm text-gray-600 mt-1">{siteData.website || 'No website'}</p>
+              </div>
+              
+              {/* Field Confirmations Legend (Read-only) */}
+              <div className="ml-6">
+                <div className="bg-gray-50 border border-gray-300 rounded-lg p-3">
+                  <h3 className="text-xs font-semibold text-gray-700 mb-2">
+                    Field Confirmations
+                  </h3>
+                  <div className="flex flex-wrap gap-2 text-xs">
+                    <div className="flex items-center gap-1 px-2 py-1 bg-green-200 border border-green-300 rounded">
+                      <FileText className="w-3 h-3 text-green-600" />
+                      <span className="text-gray-700">Pre-filled</span>
+                    </div>
+                    <div className="flex items-center gap-1 px-2 py-1 bg-green-500 border border-green-300 rounded">
+                      <CheckIcon className="w-3 h-3 text-green-600" />
+                      <span className="text-gray-700">Confirmed</span>
+                    </div>
+                    <div className="flex items-center gap-1 px-2 py-1 bg-yellow-200 border border-yellow-300 rounded">
+                      <PlusCircle className="w-3 h-3 text-yellow-600" />
+                      <span className="text-gray-700">New Data</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Tabs */}
@@ -143,6 +203,22 @@ const ViewSitePage = () => {
                 Technical Details
               </button>
               <button
+                onClick={() => setActiveTab('calling')}
+                className={`px-6 py-3 font-medium transition-colors flex items-center gap-2 ${
+                  activeTab === 'calling'
+                    ? 'border-b-2 border-blue-600 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <Phone className="w-4 h-4" />
+                Calling Workflow
+                {siteData.total_calls > 0 && (
+                  <span className="ml-1 px-2 py-0.5 text-xs font-semibold bg-blue-600 text-white rounded-full">
+                    {siteData.total_calls}
+                  </span>
+                )}
+              </button>
+              <button
                 onClick={() => setActiveTab('notes')}
                 className={`px-6 py-3 font-medium transition-colors flex items-center gap-2 ${
                   activeTab === 'notes'
@@ -168,8 +244,11 @@ const ViewSitePage = () => {
                 {fieldMetadata.common_fields.map(field => (
                   <DisplayField 
                     key={field.name}
+                    fieldName={field.name}
                     label={field.label} 
-                    value={siteData[field.name]} 
+                    value={siteData[field.name]}
+                    fieldType={field.type}
+                    confirmations={confirmations}
                   />
                 ))}
               </div>
@@ -193,8 +272,10 @@ const ViewSitePage = () => {
                         {contactFields.map(field => (
                           <DisplayField 
                             key={field.name}
+                            fieldName={field.name}
                             label={field.label} 
-                            value={siteData[field.name]} 
+                            value={siteData[field.name]}
+                            confirmations={confirmations}
                           />
                         ))}
                       </div>
@@ -209,12 +290,41 @@ const ViewSitePage = () => {
                 {fieldMetadata.category_fields.map(field => (
                   <DisplayField 
                     key={field.name}
+                    fieldName={field.name}
                     label={field.label} 
                     value={siteData[field.name]} 
                     fullWidth 
                     fieldType={field.type}
+                    confirmations={confirmations}
                   />
                 ))}
+              </div>
+            )}
+
+            {activeTab === 'calling' && (
+              <div className="space-y-6">
+                <CallingStatusSelector 
+                  siteId={siteId}
+                  currentStatus={siteData.calling_status}
+                  readOnly={true}
+                />
+
+                {/* View History Button */}
+                {siteData.calling_status !== 'NOT_STARTED' && (
+                  <div className="border-t border-gray-200 pt-6">
+                    <button
+                      onClick={() => setShowHistoryModal(true)}
+                      className="flex items-center gap-2 px-4 py-2 bg-blue-100 text-blue-700 border border-blue-300 rounded-lg hover:bg-blue-200 transition-colors"
+                    >
+                      <History className="w-4 h-4" />
+                      View Status Change History
+                    </button>
+                  </div>
+                )}
+
+                <div className="border-t border-gray-200 pt-6">
+                  <CallTimeline siteId={siteId} readOnly={true} />
+                </div>
               </div>
             )}
 
@@ -228,12 +338,22 @@ const ViewSitePage = () => {
           </div>
         </div>
       </div>
+
+      {/* Status History Modal */}
+      <StatusHistoryModal
+        isOpen={showHistoryModal}
+        onClose={() => setShowHistoryModal(false)}
+        siteId={siteId}
+      />
+          
+      {/* ✅ ADD TOAST CONTAINER HERE */}
+      <ToastContainer toasts={toasts} removeToast={removeToast} />
     </DataCollectorLayout>
   );
 };
 
-// Display Field Component (read-only)
-const DisplayField = ({ label, value, fullWidth = false, fieldType = 'text' }) => {
+// Display Field Component (read-only with confirmations)
+const DisplayField = ({ label, value, fullWidth = false, fieldType = 'text', fieldName = '', confirmations = {} }) => {
   const renderValue = () => {
     if (fieldType === 'checkbox') {
       return value === true ? (
@@ -250,12 +370,21 @@ const DisplayField = ({ label, value, fullWidth = false, fieldType = 'text' }) =
   };
 
   return (
-    <div className={fullWidth ? "md:col-span-2" : ""}>
-      <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
-      <div className="text-sm text-gray-900 bg-gray-50 px-3 py-2 rounded border border-gray-200 min-h-[38px]">
-        {renderValue()}
+    <FieldWithConfirmation
+      fieldName={fieldName}
+      fieldValue={value}
+      confirmation={confirmations[fieldName] || {}}
+      onToggleConfirmation={() => {}} // Read-only, no toggle
+      readOnly={true}
+      showConfirmations={true}
+    >
+      <div className={fullWidth ? "md:col-span-2" : ""}>
+        <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+        <div className="text-sm text-gray-900 bg-gray-50 px-3 py-2 rounded border border-gray-200 min-h-[38px]">
+          {renderValue()}
+        </div>
       </div>
-    </div>
+    </FieldWithConfirmation>
   );
 };
 

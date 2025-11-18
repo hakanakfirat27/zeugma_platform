@@ -12,7 +12,7 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../utils/api';
-import useToast from '../hooks/useToast';
+import { useToast } from '../hooks/useToast';
 import { useAuth } from '../contexts/AuthContext';
 import DeleteConfirmationModal from './DeleteConfirmationModal';
 import { 
@@ -133,15 +133,14 @@ const NotesTab = ({ siteId, readOnly = false, onNotesCountChange }) => {
       return response.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(['site-notes', siteId]);
       setNewNoteText('');
       success('Note added successfully');
+      queryClient.invalidateQueries(['site-notes', siteId]);
     },
     onError: (error) => {
-      showError(error.response?.data?.note_text?.[0] || 'Failed to add note');
+      showError('Failed to add note');
     },
   });
-
   // ============================================================================
   // UPDATE NOTE MUTATION
   // ============================================================================
@@ -152,13 +151,13 @@ const NotesTab = ({ siteId, readOnly = false, onNotesCountChange }) => {
       return response.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(['site-notes', siteId]);
       setEditingNoteId(null);
       setEditText('');
       success('Note updated successfully');
+      queryClient.invalidateQueries(['site-notes', siteId]);
     },
     onError: (error) => {
-      showError(error.response?.data?.note_text?.[0] || 'Failed to update note');
+      showError('Failed to update note');
     },
   });
 
@@ -169,15 +168,16 @@ const NotesTab = ({ siteId, readOnly = false, onNotesCountChange }) => {
   const deleteNoteMutation = useMutation({
     mutationFn: async (noteId) => {
       await api.delete(`/api/notes/${noteId}/`);
+      return noteId;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(['site-notes', siteId]);
       setDeleteModalOpen(false);
       setNoteToDelete(null);
       success('Note deleted successfully');
+      queryClient.invalidateQueries(['site-notes', siteId]);
     },
     onError: (error) => {
-      showError(error.response?.data?.detail || 'Failed to delete note');
+      showError('Failed to delete note');
       setDeleteModalOpen(false);
       setNoteToDelete(null);
     },
@@ -236,6 +236,7 @@ const NotesTab = ({ siteId, readOnly = false, onNotesCountChange }) => {
 
   const handleDeleteConfirm = () => {
     if (noteToDelete) {
+      console.log('Deleting note:', noteToDelete.note_id);
       deleteNoteMutation.mutate(noteToDelete.note_id);
     }
   };
@@ -374,6 +375,8 @@ const NotesTab = ({ siteId, readOnly = false, onNotesCountChange }) => {
             onKeyDown={(e) => {
               if (e.key === 'Enter' && e.ctrlKey) {
                 handleAddNote(e);
+              } else if (e.key === 'Enter') {
+                e.preventDefault(); // Prevent form submission
               }
             }}
             placeholder="Add a note about this site... (Ctrl+Enter to save)"

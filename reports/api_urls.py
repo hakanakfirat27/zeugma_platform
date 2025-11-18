@@ -93,6 +93,8 @@ urlpatterns = [
     path('fields/metadata/', get_field_metadata_api, name='field-metadata-all'),
     path('fields/metadata/<str:category>/', get_category_fields_api, name='field-metadata-category'),
 
+    path('', include('reports.calling_urls')),
+
 
 
 ]

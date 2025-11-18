@@ -1,5 +1,9 @@
 // frontend/src/pages/EditSitePage.jsx
-// Standalone page for editing site details - UPDATED with modal confirmation
+// ✅ COMPREHENSIVE FIX: Auto-marking and confirmation display
+// CHANGES:
+// 1. Auto-mark pre-filled fields on page load
+// 2. Fix checkbox toggle behavior to show immediate visual feedback
+// 3. Ensure confirmations state updates propagate correctly
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -11,8 +15,18 @@ import NotesTab from '../components/NotesTab';
 import CancelConfirmationModal from '../components/CancelConfirmationModal';
 import { ToastContainer } from '../components/Toast';
 import { useToast } from '../hooks/useToast';
+import StatusHistory from '../components/calling/StatusHistory';
+
+// Calling Workflow Components
+import CallTimeline from '../components/calling/CallTimeline';
+import CallingStatusSelector from '../components/calling/CallingStatusSelector';
+import FieldWithConfirmation from '../components/calling/FieldWithConfirmation';
+import { useFieldConfirmations } from '../hooks/useFieldConfirmations';
+import StatusHistoryModal from '../components/calling/StatusHistoryModal';
+
 import {
-  ArrowLeft, Save, Building2, Users, Info, MessageSquare
+  ArrowLeft, Save, Building2, Users, Info, MessageSquare, Phone,
+  CheckCircle, PlusCircle, FileText, History  
 } from 'lucide-react';
 
 const EditSitePage = () => {
@@ -31,33 +45,115 @@ const EditSitePage = () => {
   const [originalCompanyName, setOriginalCompanyName] = useState('');
   const [showCancelModal, setShowCancelModal] = useState(false);
 
+  // Field confirmations hook
+  const {
+    confirmations,
+    isLoading: confirmationsLoading,
+    handleToggleConfirmation,
+    autoMarkPreFilled,
+    autoMarkFieldsOnLoad,  // ← NEW: Function to mark all pre-filled fields on load
+    handleSaveAll: saveConfirmations,
+    isSaving: isSavingConfirmations,
+  } = useFieldConfirmations(siteId);
+  
+  // State to toggle confirmation display (default: true)
+  const [showConfirmations, setShowConfirmations] = useState(true);
+
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+
+  // ✅ NEW: Track if we've already auto-marked fields on load
+  const [hasAutoMarkedOnLoad, setHasAutoMarkedOnLoad] = useState(false);
+
+  const fetchData = async () => {
+    try {
+      setIsLoadingData(true);
+      const siteResponse = await api.get(`/api/projects/sites/${siteId}/`);
+      const metadataResponse = await api.get(`/api/fields/metadata/${siteResponse.data.category}/`);
+      
+      setFormData(siteResponse.data);
+      setOriginalCompanyName(siteResponse.data.company_name);
+      setFieldMetadata(metadataResponse.data);
+    } catch (error) {
+      console.error('Error loading data:', error);
+      showError('Failed to load site data. Returning to project details.');
+      setTimeout(() => navigate(`/projects/${projectId}`), 2000);
+    } finally {
+      setIsLoadingData(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setIsLoadingData(true);
-        // First, fetch the site data to get the category
-        const siteResponse = await api.get(`/api/projects/sites/${siteId}/`);
-        
-        // Then, fetch field metadata using the category from site data
-        const metadataResponse = await api.get(`/api/fields/metadata/${siteResponse.data.category}/`);
-
-        setFormData(siteResponse.data);
-        setOriginalCompanyName(siteResponse.data.company_name);
-        setFieldMetadata(metadataResponse.data);
-      } catch (error) {
-        console.error('Error loading data:', error);
-        showError('Failed to load site data. Returning to project details.');
-        setTimeout(() => navigate(`/projects/${projectId}`), 2000);
-      } finally {
-        setIsLoadingData(false);
-      }
-    };
-
     fetchData();
   }, [siteId, projectId, navigate, showError]);
 
+  // Fetch notes count for badge
+  useEffect(() => {
+    const fetchNotesCount = async () => {
+      if (!siteId) return;
+      
+      try {
+        const response = await api.get(`/api/sites/${siteId}/notes/`);
+        setNotesCount(response.data.length);
+      } catch (error) {
+        console.error('Failed to fetch notes count:', error);
+      }
+    };
+
+    fetchNotesCount();
+  }, [siteId]);
+
+  // ✅ NEW: Auto-mark pre-filled fields once data and confirmations are loaded
+  useEffect(() => {
+    if (
+      !isLoadingData && 
+      !confirmationsLoading && 
+      formData && 
+      fieldMetadata && 
+      !hasAutoMarkedOnLoad
+    ) {
+      // Auto-mark all fields that have values but no confirmation
+      const fieldsToCheck = [
+        ...(fieldMetadata.common_fields || []),
+        ...(fieldMetadata.contact_fields || []),
+        ...(fieldMetadata.category_fields || []),
+      ];
+
+      const fieldsToMark = fieldsToCheck
+        .map(field => field.name)
+        .filter(fieldName => {
+          const hasValue = formData[fieldName] && formData[fieldName].toString().trim() !== '';
+          const noConfirmation = !confirmations[fieldName] || (
+            !confirmations[fieldName].is_confirmed &&
+            !confirmations[fieldName].is_new_data &&
+            !confirmations[fieldName].is_pre_filled
+          );
+          return hasValue && noConfirmation;
+        });
+
+      if (fieldsToMark.length > 0) {
+        console.log('Auto-marking pre-filled fields:', fieldsToMark);
+        autoMarkFieldsOnLoad(fieldsToMark);
+      }
+
+      setHasAutoMarkedOnLoad(true);
+    }
+  }, [
+    isLoadingData, 
+    confirmationsLoading, 
+    formData, 
+    fieldMetadata, 
+    confirmations,
+    hasAutoMarkedOnLoad,
+    autoMarkFieldsOnLoad
+  ]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (activeTab === 'notes' || activeTab === 'calling') {
+      return; 
+    }
+
     setIsSubmitting(true);
     setErrors({});
 
@@ -84,20 +180,48 @@ const EditSitePage = () => {
     }
   };
 
-  const handleInputChange = (fieldName, value) => {
-    setFormData(prev => ({
-      ...prev,
-      [fieldName]: value
-    }));
-    // Clear error for this field when user starts typing
-    if (errors[fieldName]) {
-      setErrors(prev => {
-        const newErrors = { ...prev };
-        delete newErrors[fieldName];
-        return newErrors;
-      });
-    }
-  };
+const handleInputChange = (fieldName, value) => {
+  console.log(`\n📝 handleInputChange called: field="${fieldName}", value="${value}"`);
+  
+  // Update form data immediately
+  setFormData(prev => ({
+    ...prev,
+    [fieldName]: value
+  }));
+  
+  // Clear error for this field when user starts typing
+  if (errors[fieldName]) {
+    setErrors(prev => {
+      const newErrors = { ...prev };
+      delete newErrors[fieldName];
+      return newErrors;
+    });
+  }
+  
+  // ✅ NEW AUTO-MARK LOGIC: Check if field now has value and needs marking
+  const valueIsNotEmpty = value && value.toString().trim() !== '';
+  
+  if (valueIsNotEmpty) {
+    // Small delay to let React state settle, then check and mark if needed
+    setTimeout(() => {
+      const currentConfirmation = confirmations[fieldName];
+      
+      // Only auto-mark if field has NO confirmation markers at all
+      const hasNoMarkers = !currentConfirmation || (
+        !currentConfirmation.is_confirmed &&
+        !currentConfirmation.is_new_data &&
+        !currentConfirmation.is_pre_filled
+      );
+      
+      if (hasNoMarkers) {
+        console.log(`✅ Auto-marking field "${fieldName}" as pre-filled`);
+        autoMarkPreFilled(fieldName);
+      } else {
+        console.log(`⏭️ Field "${fieldName}" already has markers, skipping auto-mark`);
+      }
+    }, 150);
+  }
+};
 
   const handleCancel = () => {
     setShowCancelModal(true);
@@ -124,8 +248,6 @@ const EditSitePage = () => {
   return (
     <DataCollectorLayout pageTitle={`Edit: ${originalCompanyName}`}>
       <div className="p-6 max-w-7xl mx-auto">
-        {/* Toast Container */}
-        <ToastContainer toasts={toasts} removeToast={removeToast} />
 
         {/* Header with navigation */}
         <div className="mb-6 flex justify-between items-center">
@@ -136,7 +258,14 @@ const EditSitePage = () => {
             <ArrowLeft className="w-5 h-5" />
             Cancel & Go Back
           </button>
-
+  {/* 🧪 TEST BUTTON - ADD THIS */}
+  <button
+    type="button"
+    onClick={() => success('🎉 Toast is working!')}
+    className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+  >
+    Test Toast
+  </button>
           <button
             onClick={handleSubmit}
             disabled={isSubmitting}
@@ -149,13 +278,73 @@ const EditSitePage = () => {
 
         {/* Main Content Card */}
         <div className="bg-white rounded-lg shadow-lg">
-          {/* Header */}
+          {/* Header with Field Confirmations */}
           <div className="bg-white border-b border-gray-200 px-6 py-4">
-            <h2 className="text-2xl font-bold text-gray-900">Edit Site: {originalCompanyName}</h2>
-            <p className="text-sm text-gray-600 mt-1">Make changes to the site information below</p>
+            <div className="flex items-start justify-between">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">Edit Site: {originalCompanyName}</h2>
+                <p className="text-sm text-gray-600 mt-1">Make changes to the site information below</p>
+              </div>
+              
+              {/* Field Confirmations Section */}
+              <div className="ml-6">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 min-w-[300px]">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-sm font-semibold text-blue-900">
+                      Field Confirmations
+                    </h3>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={showConfirmations}
+                        onChange={(e) => setShowConfirmations(e.target.checked)}
+                        className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                      />
+                      <span className="text-xs font-medium text-blue-900">
+                        Show
+                      </span>
+                    </label>
+                  </div>
+                  
+                  {showConfirmations && (
+                    <div className="space-y-2">
+                      <div className="flex flex-wrap gap-2 text-xs">
+                        <div className="flex items-center gap-1 px-2 py-1 bg-green-200 border border-green-300 rounded">
+                          <FileText className="w-3 h-3 text-green-600" />
+                          <span className="text-gray-700">Pre-filled</span>
+                        </div>
+                        <div className="flex items-center gap-1 px-2 py-1 bg-green-500 border border-green-300 rounded">
+                          <CheckCircle className="w-3 h-3 text-green-600" />
+                          <span className="text-gray-700">Confirmed</span>
+                        </div>
+                        <div className="flex items-center gap-1 px-2 py-1 bg-yellow-200 border border-yellow-300 rounded">
+                          <PlusCircle className="w-3 h-3 text-yellow-600" />
+                          <span className="text-gray-700">New Data</span>
+                        </div>
+                      </div>
+                      <p className="text-xs text-gray-600 italic">
+                        ✓ Auto-saves on change
+                      </p>
+                      {isSavingConfirmations && (
+                        <p className="text-xs text-blue-600 italic">
+                          💾 Saving confirmations...
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
 
-          <form onSubmit={handleSubmit}>
+          <form 
+            onSubmit={handleSubmit}
+            onKeyDown={(e) => {
+              if ((activeTab === 'notes' || activeTab === 'calling') && e.key === 'Enter' && !e.ctrlKey) {
+                e.preventDefault();
+              }
+            }}
+          >
             {/* Tabs */}
             <div className="border-b border-gray-200">
               <nav className="flex -mb-px px-6">
@@ -195,6 +384,26 @@ const EditSitePage = () => {
                   <Info className="w-4 h-4" />
                   Technical Details
                 </button>
+
+                {/* Calling Workflow Tab */}
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('calling')}
+                  className={`px-6 py-3 font-medium transition-colors flex items-center gap-2 ${
+                    activeTab === 'calling'
+                      ? 'border-b-2 border-blue-600 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  <Phone className="w-4 h-4" />
+                  Calling Workflow
+                  {formData.total_calls > 0 && (
+                    <span className="ml-1 px-2 py-0.5 text-xs font-semibold bg-blue-600 text-white rounded-full">
+                      {formData.total_calls}
+                    </span>
+                  )}
+                </button>
+
                 <button
                   type="button"
                   onClick={() => setActiveTab('notes')}
@@ -216,8 +425,33 @@ const EditSitePage = () => {
             </div>
 
             {/* Tab Content */}
-            <div className="p-6 min-h-[400px]">
-              {activeTab === 'notes' ? (
+            <div className="p-6">
+              {activeTab === 'calling' ? (
+                <div className="space-y-6">
+                  <CallingStatusSelector 
+                    siteId={siteId}
+                    currentStatus={formData.calling_status}
+                    onStatusChange={fetchData}
+                  />
+                  {/* View History Button */}
+                  {formData.calling_status !== 'NOT_STARTED' && (
+                    <div className="border-t border-gray-200 pt-6">
+                      <button
+                        type="button"
+                        onClick={() => setShowHistoryModal(true)}
+                        className="flex items-center gap-2 px-4 py-2 bg-blue-100 text-blue-700 border border-blue-300 rounded-lg hover:bg-blue-200 transition-colors"
+                      >
+                        <History className="w-4 h-4" />
+                        View Status Change History
+                      </button>
+                    </div>
+                  )}  
+                  {/* Call Timeline */}
+                  <div className="border-t border-gray-200 pt-6">            
+                    <CallTimeline siteId={siteId} />
+                  </div>
+                </div>  
+              ) : activeTab === 'notes' ? (
                 <NotesTab 
                   siteId={siteId}
                   readOnly={false}
@@ -230,6 +464,9 @@ const EditSitePage = () => {
                   formData={formData}
                   errors={errors}
                   onChange={handleInputChange}
+                  confirmations={confirmations}
+                  handleToggleConfirmation={handleToggleConfirmation}
+                  showConfirmations={showConfirmations}
                 />
               )}
             </div>
@@ -254,6 +491,16 @@ const EditSitePage = () => {
           </form>
         </div>
 
+        {/* Status History Modal */}
+        <StatusHistoryModal
+          isOpen={showHistoryModal}
+          onClose={() => setShowHistoryModal(false)}
+          siteId={siteId}
+        />
+
+        {/* Toast Container */}
+        <ToastContainer toasts={toasts} removeToast={removeToast} />
+
         {/* Cancel Confirmation Modal */}
         <CancelConfirmationModal
           isOpen={showCancelModal}
@@ -268,7 +515,16 @@ const EditSitePage = () => {
 };
 
 // Edit Tab Content Component
-const EditTabContent = ({ activeTab, fieldMetadata, formData, errors, onChange }) => {
+const EditTabContent = ({ 
+  activeTab, 
+  fieldMetadata, 
+  formData, 
+  errors, 
+  onChange,
+  confirmations,
+  handleToggleConfirmation,
+  showConfirmations
+}) => {
   if (!fieldMetadata) return null;
 
   if (activeTab === 'core') {
@@ -281,6 +537,9 @@ const EditTabContent = ({ activeTab, fieldMetadata, formData, errors, onChange }
             value={formData[fieldMeta.name] || ''}
             error={errors[fieldMeta.name]}
             onChange={onChange}
+            confirmations={confirmations}
+            handleToggleConfirmation={handleToggleConfirmation}
+            showConfirmations={showConfirmations}
           />
         ))}
       </div>
@@ -309,6 +568,9 @@ const EditTabContent = ({ activeTab, fieldMetadata, formData, errors, onChange }
                     value={formData[fieldMeta.name] || ''}
                     error={errors[fieldMeta.name]}
                     onChange={onChange}
+                    confirmations={confirmations}
+                    handleToggleConfirmation={handleToggleConfirmation}
+                    showConfirmations={showConfirmations}
                   />
                 ))}
               </div>
@@ -331,6 +593,9 @@ const EditTabContent = ({ activeTab, fieldMetadata, formData, errors, onChange }
             onChange={onChange}
             fullWidth
             showDivider={index < fieldMetadata.category_fields.length - 1}
+            confirmations={confirmations}
+            handleToggleConfirmation={handleToggleConfirmation}
+            showConfirmations={showConfirmations}
           />
         ))}
       </div>
@@ -341,59 +606,92 @@ const EditTabContent = ({ activeTab, fieldMetadata, formData, errors, onChange }
 };
 
 // Form Field Component
-const FormField = ({ fieldMeta, value, error, onChange, fullWidth = false, showDivider = false }) => {
+const FormField = ({ 
+  fieldMeta, 
+  value, 
+  error, 
+  onChange, 
+  fullWidth = false, 
+  showDivider = false,
+  confirmations = {},
+  handleToggleConfirmation = () => {},
+  showConfirmations = false
+}) => {
   const { name, label, type, required } = fieldMeta;
 
-  if (name === 'country' || label.toLowerCase() === 'country') {
+  const renderField = () => {
+    if (name === 'country' || label.toLowerCase() === 'country') {
+      return (
+        <>
+          <div className={fullWidth ? "md:col-span-2 py-3" : ""}>
+            <CountrySelector
+              value={value || ''}
+              onChange={(countryName) => onChange(name, countryName)}
+              error={error}
+              required={required}
+              label={label}
+            />
+          </div>
+          {showDivider && <hr className="my-0 h-px border-t-0 bg-gray-200" />}
+        </>
+      );
+    }
+
+    if (type === 'checkbox') {
+      return (
+        <>
+          <div className="flex items-center py-4">
+            <input
+              type="checkbox"
+              id={name}
+              checked={value || false}
+              onChange={(e) => onChange(name, e.target.checked)}
+              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+            />
+            <label htmlFor={name} className="ml-2 block text-sm text-gray-900">
+              {label}
+            </label>
+          </div>
+          {showDivider && <hr className="my-0 h-px border-t-0 bg-gray-200" />}
+        </>
+      );
+    }
+
+    if (type === 'textarea') {
+      return (
+        <>
+          <div className={fullWidth ? "md:col-span-2 py-2" : ""}>
+            <label htmlFor={name} className="block text-sm font-medium text-gray-700 mb-1">
+              {label}
+              {required && <span className="text-red-500 ml-1">*</span>}
+            </label>
+            <textarea
+              id={name}
+              value={value || ''}
+              onChange={(e) => onChange(name, e.target.value)}
+              rows={3}
+              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                error ? 'border-red-500' : 'border-gray-300'
+              }`}
+            />
+            {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
+          </div>
+        </>
+      );
+    }
+
     return (
       <>
         <div className={fullWidth ? "md:col-span-2 py-3" : ""}>
-          <CountrySelector
-            value={value || ''}
-            onChange={(countryName) => onChange(name, countryName)}
-            error={error}
-            required={required}
-            label={label}
-          />
-        </div>
-        {showDivider && <hr className="my-0 h-px border-t-0 bg-gray-200" />}
-      </>
-    );
-  }
-
-  if (type === 'checkbox') {
-    return (
-      <>
-        <div className="flex items-center py-4">
-          <input
-            type="checkbox"
-            id={name}
-            checked={value || false}
-            onChange={(e) => onChange(name, e.target.checked)}
-            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-          />
-          <label htmlFor={name} className="ml-2 block text-sm text-gray-900">
-            {label}
-          </label>
-        </div>
-        {showDivider && <hr className="my-0 h-px border-t-0 bg-gray-200" />}
-      </>
-    );
-  }
-
-  if (type === 'textarea') {
-    return (
-      <>
-        <div className={fullWidth ? "md:col-span-2 py-2" : ""}>
           <label htmlFor={name} className="block text-sm font-medium text-gray-700 mb-1">
             {label}
             {required && <span className="text-red-500 ml-1">*</span>}
           </label>
-          <textarea
+          <input
+            type={type}
             id={name}
             value={value || ''}
             onChange={(e) => onChange(name, e.target.value)}
-            rows={3}
             className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
               error ? 'border-red-500' : 'border-gray-300'
             }`}
@@ -402,27 +700,19 @@ const FormField = ({ fieldMeta, value, error, onChange, fullWidth = false, showD
         </div>
       </>
     );
-  }
+  };
 
   return (
-    <>
-      <div className={fullWidth ? "md:col-span-2 py-3" : ""}>
-        <label htmlFor={name} className="block text-sm font-medium text-gray-700 mb-1">
-          {label}
-          {required && <span className="text-red-500 ml-1">*</span>}
-        </label>
-        <input
-          type={type}
-          id={name}
-          value={value || ''}
-          onChange={(e) => onChange(name, e.target.value)}
-          className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-            error ? 'border-red-500' : 'border-gray-300'
-          }`}
-        />
-        {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
-      </div>
-    </>
+    <FieldWithConfirmation
+      fieldName={name}
+      fieldValue={value}
+      confirmation={confirmations[name] || {}}
+      onToggleConfirmation={handleToggleConfirmation}
+      readOnly={false}
+      showConfirmations={showConfirmations}
+    >
+      {renderField()}
+    </FieldWithConfirmation>
   );
 };
 

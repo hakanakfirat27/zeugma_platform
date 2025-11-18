@@ -15,10 +15,11 @@ from .models import (
     CompanyCategory,
     DataCollectionProject,
     ReviewNote,
-    ProjectActivityLog
+    ProjectActivityLog,
+    CallLog, 
+    FieldConfirmation
 )
 
-# Import our organized field lists from the new fields.py file
 from .fields import (
     COMMON_FIELDS,
     CONTACT_FIELDS,
@@ -523,3 +524,26 @@ class ProjectActivityLogAdmin(admin.ModelAdmin):
     list_filter = ['action', 'timestamp']
     search_fields = ['project__project_name', 'description']
     readonly_fields = ['log_id', 'timestamp']
+
+
+@admin.register(CallLog)
+class CallLogAdmin(admin.ModelAdmin):
+    list_display = ['call_number', 'site', 'formatted_timestamp', 'call_notes', 'created_by']
+    list_filter = ['call_timestamp', 'created_by']
+    search_fields = ['site__company_name', 'call_notes']
+    readonly_fields = ['call_id', 'created_at']
+    date_hierarchy = 'call_timestamp'
+    
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('site', 'created_by')
+
+
+@admin.register(FieldConfirmation)
+class FieldConfirmationAdmin(admin.ModelAdmin):
+    list_display = ['site', 'field_name', 'is_confirmed', 'is_new_data', 'is_pre_filled', 'confirmed_by']
+    list_filter = ['is_confirmed', 'is_new_data', 'is_pre_filled', 'confirmed_at']
+    search_fields = ['site__company_name', 'field_name']
+    readonly_fields = ['confirmation_id', 'created_at', 'updated_at']
+    
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('site', 'confirmed_by')    

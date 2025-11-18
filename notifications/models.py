@@ -1,3 +1,5 @@
+# notifications/models.py
+
 from django.db import models
 from django.contrib.auth import get_user_model
 from django.utils import timezone
@@ -13,6 +15,7 @@ class Notification(models.Model):
         ('announcement', 'Announcement'),
         ('payment', 'Payment'),
         ('system', 'System'),
+        ('calling', 'Calling Workflow'),
     ]
 
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notifications')
@@ -27,6 +30,7 @@ class Notification(models.Model):
     related_subscription_id = models.IntegerField(null=True, blank=True)
     related_message_id = models.IntegerField(null=True, blank=True)
     related_announcement_id = models.IntegerField(null=True, blank=True)
+    related_site_id = models.CharField(max_length=255, null=True, blank=True)
 
     class Meta:
         ordering = ['-created_at']

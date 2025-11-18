@@ -1,3 +1,5 @@
+# reports/models.py
+
 import uuid
 from django.db import models
 from django.conf import settings
@@ -1320,7 +1322,53 @@ class VerificationAction(models.TextChoices):
     MODIFIED = 'MODIFIED', 'Modified'
     ASSIGNED = 'ASSIGNED', 'Assigned'
     TRANSFERRED = 'TRANSFERRED', 'Transferred to Superdatabase'
-    COMMENT_ADDED = 'COMMENT_ADDED', 'Comment Added'  
+    COMMENT_ADDED = 'COMMENT_ADDED', 'Comment Added'
+
+
+class CallingStatus(models.TextChoices):
+    """Status choices for calling workflow"""
+    NOT_STARTED = 'NOT_STARTED', 'Not Started'
+    YELLOW = 'YELLOW', 'Needs Alternative Numbers'  # Creates notification for admin
+    RED = 'RED', 'Not Relevant / Never Picked Up'
+    PURPLE = 'PURPLE', 'Language Barrier'
+    BLUE = 'BLUE', 'Call Back Later'
+    GREEN = 'GREEN', 'Complete - Ready for Review'  
+
+
+class CallingStatusHistory(models.Model):
+    """Track history of calling status changes"""
+    
+    history_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    site = models.ForeignKey('UnverifiedSite', on_delete=models.CASCADE, related_name='status_history')
+    
+    # Status change details
+    old_status = models.CharField(max_length=20)
+    new_status = models.CharField(max_length=20)
+    status_notes = models.TextField(blank=True, help_text='Notes about why status was changed')
+    
+    # Who made the change
+    changed_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='status_history_changes'  # ← FIXED!
+    )
+    
+    # When
+    changed_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['-changed_at']  # Most recent first
+        verbose_name = 'Calling Status History'
+        verbose_name_plural = 'Calling Status Histories'
+    
+    def __str__(self):
+        return f"{self.site.company_name}: {self.old_status} → {self.new_status}"
+    
+    @property
+    def formatted_timestamp(self):
+        """Return formatted timestamp"""
+        return self.changed_at.strftime('%B %d, %Y at %I:%M %p')
 
 
 class UnverifiedSite(models.Model):
@@ -1764,8 +1812,6 @@ class UnverifiedSite(models.Model):
         related_name='unverified_sites',
         help_text="Project this site belongs to"
 )
-
-    # VERIFICATION-SPECIFIC FIELDS (add these AFTER copying all SuperdatabaseRecord fields)
     
     verification_status = models.CharField(
         max_length=20,
@@ -1824,6 +1870,59 @@ class UnverifiedSite(models.Model):
         related_name='duplicate_unverified_sites'
     )
     
+    # Calling Workflow Fields
+    calling_status = models.CharField(
+        max_length=20,
+        choices=CallingStatus.choices,
+        default=CallingStatus.NOT_STARTED,
+        verbose_name='Calling Status',
+        help_text='Current status in the calling workflow'
+    )
+    
+    calling_status_changed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name='Calling Status Changed At',
+        help_text='Timestamp when calling status was last changed'
+    )
+    
+    calling_status_changed_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='calling_status_changes',
+        verbose_name='Calling Status Changed By'
+    )
+    
+    is_pre_filled = models.BooleanField(
+        default=False,
+        verbose_name='Has Pre-filled Data',
+        help_text='True if this site was created by admin with initial data'
+    )
+    
+    pre_filled_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='pre_filled_sites',
+        verbose_name='Pre-filled By'
+    )
+    
+    pre_filled_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name='Pre-filled At'
+    )
+    
+    # Add to existing fields section
+    total_calls = models.IntegerField(
+        default=0,
+        verbose_name='Total Calls Made',
+        help_text='Number of call attempts made'
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -1888,6 +1987,102 @@ class UnverifiedSite(models.Model):
         self.duplicate_of = None
         return False
     
+    def update_calling_status(self, new_status, changed_by, status_notes=''):
+        """
+        Update calling status and create history entry
+        """
+        from django.utils import timezone
+        
+        # Store old status
+        old_status = self.calling_status
+        
+        # Update status
+        self.calling_status = new_status
+        self.calling_status_changed_by = changed_by
+        self.calling_status_changed_at = timezone.now()
+        self.save(update_fields=[
+            'calling_status',
+            'calling_status_changed_by',
+            'calling_status_changed_at'
+        ])
+        
+        # Create history entry
+        CallingStatusHistory.objects.create(
+            site=self,
+            old_status=old_status,
+            new_status=new_status,
+            status_notes=status_notes,
+            changed_by=changed_by
+        )
+        
+        # If status is YELLOW, create notification for admin
+        if new_status == 'YELLOW':
+            self._create_yellow_status_notification()
+    
+    def _create_yellow_status_notification(self):
+        '''Create notification when site needs alternative numbers'''
+        from notifications.models import Notification
+        from accounts.models import UserRole
+        
+        # Get all admin users
+        admin_users = User.objects.filter(
+            role__in=[UserRole.SUPERADMIN, UserRole.STAFF_ADMIN]
+        )
+        
+        # Create notification for each admin
+        for admin in admin_users:
+            Notification.objects.create(
+                user=admin,
+                notification_type='system',
+                title='Alternative Numbers Needed',
+                message=f'{self.company_name} needs alternative phone numbers. Data collector: {self.collected_by.full_name if self.collected_by else "Unknown"}',
+                related_site_id=str(self.site_id)
+            )
+    
+    def add_call_log(self, notes, created_by):
+        '''Add a new call log entry'''
+        # Get next call number
+        last_call = self.call_logs.order_by('-call_number').first()
+        next_number = (last_call.call_number + 1) if last_call else 1
+        
+        # Create call log
+        call_log = CallLog.objects.create(
+            site=self,
+            call_number=next_number,
+            call_notes=notes,
+            created_by=created_by
+        )
+        
+        # Update total calls
+        self.total_calls = next_number
+        self.save(update_fields=['total_calls'])
+        
+        return call_log
+    
+    def get_field_confirmation_status(self, field_name):
+        '''Get confirmation status for a specific field'''
+        try:
+            return self.field_confirmations.get(field_name=field_name)
+        except FieldConfirmation.DoesNotExist:
+            return None
+    
+    @property
+    def calling_status_display_with_color(self):
+        '''Return status with appropriate color class'''
+        colors = {
+            CallingStatus.NOT_STARTED: 'bg-gray-100 text-gray-800',
+            CallingStatus.YELLOW: 'bg-yellow-100 text-yellow-800',
+            CallingStatus.RED: 'bg-red-100 text-red-800',
+            CallingStatus.PURPLE: 'bg-purple-100 text-purple-800',
+            CallingStatus.BLUE: 'bg-blue-100 text-blue-800',
+            CallingStatus.GREEN: 'bg-green-100 text-green-800',
+        }
+        return {
+            'status': self.get_calling_status_display(),
+            'color': colors.get(self.calling_status, 'bg-gray-100 text-gray-800')
+        }
+
+
     def save(self, *args, **kwargs):
         """Auto-calculate quality score and check duplicates on save."""
         self.calculate_data_quality_score()
@@ -1993,4 +2188,195 @@ class VerificationHistory(models.Model):
     def __str__(self):
         return f"{self.action} - {self.site.company_name} by {self.performed_by}"    
     
+
+# =============================================================================
+# CALL LOG MODEL
+# =============================================================================
+
+class CallLog(models.Model):
+    """
+    Tracks individual call attempts made to a site.
+    Timeline display: "Nov 18, 2:30 PM | Call #1 | No answer"
+    """
+    
+    call_id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False,
+        verbose_name='Call ID'
+    )
+    
+    site = models.ForeignKey(
+        'UnverifiedSite',  # Reference to your UnverifiedSite model
+        on_delete=models.CASCADE,
+        related_name='call_logs',
+        verbose_name='Site'
+    )
+    
+    call_number = models.IntegerField(
+        verbose_name='Call Number',
+        help_text='Sequential number of this call (1, 2, 3, etc.)'
+    )
+    
+    call_timestamp = models.DateTimeField(
+        default=timezone.now,
+        verbose_name='Call Timestamp',
+        help_text='When the call was made'
+    )
+    
+    call_notes = models.TextField(
+        blank=True,
+        verbose_name='Call Notes',
+        help_text='Notes about this specific call (e.g., "No answer", "Spoke with receptionist")'
+    )
+    
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='call_logs_created',
+        verbose_name='Created By'
+    )
+    
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name='Created At'
+    )
+    
+    class Meta:
+        ordering = ['call_number']
+        verbose_name = 'Call Log'
+        verbose_name_plural = 'Call Logs'
+        indexes = [
+            models.Index(fields=['site', 'call_number']),
+            models.Index(fields=['site', '-call_timestamp']),
+        ]
+        unique_together = [['site', 'call_number']]  # Ensure unique call numbers per site
+    
+    def __str__(self):
+        return f"Call #{self.call_number} - {self.site.company_name} - {self.call_timestamp.strftime('%b %d, %I:%M %p')}"
+    
+    @property
+    def formatted_timestamp(self):
+        """Return formatted timestamp: 'Nov 18, 2:30 PM'"""
+        return self.call_timestamp.strftime('%b %d, %I:%M %p')
+
+
+# =============================================================================
+# FIELD CONFIRMATION MODEL
+# =============================================================================
+
+class FieldConfirmation(models.Model):
+    """
+    Tracks which fields have been confirmed, marked as new, or are pre-filled.
+    
+    Field States:
+    - Pre-filled: Data added by admin (is_pre_filled=True)
+    - Confirmed: Data collector verified it's correct (is_confirmed=True)
+    - New: Data collector added new information (is_new_data=True)
+    - Unconfirmed: Field exists but not verified yet
+    """
+    
+    confirmation_id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False,
+        verbose_name='Confirmation ID'
+    )
+    
+    site = models.ForeignKey(
+        'UnverifiedSite',
+        on_delete=models.CASCADE,
+        related_name='field_confirmations',
+        verbose_name='Site'
+    )
+    
+    field_name = models.CharField(
+        max_length=100,
+        verbose_name='Field Name',
+        help_text='Name of the field (e.g., "company_name", "phone_number")'
+    )
+    
+    is_confirmed = models.BooleanField(
+        default=False,
+        verbose_name='Is Confirmed',
+        help_text='True if data collector confirmed this field'
+    )
+    
+    is_new_data = models.BooleanField(
+        default=False,
+        verbose_name='Is New Data',
+        help_text='True if data collector added new information'
+    )
+    
+    is_pre_filled = models.BooleanField(
+        default=False,
+        verbose_name='Is Pre-filled',
+        help_text='True if this field was pre-filled by admin'
+    )
+
+    last_selected = models.CharField(
+        max_length=20,
+        choices=[
+            ('is_pre_filled', 'Pre-filled'),
+            ('is_confirmed', 'Confirmed'),
+            ('is_new_data', 'New Data'),
+        ],
+        null=True,
+        blank=True,
+        verbose_name='Last Selected',
+        help_text='Tracks which confirmation type was last selected for color coding'
+    )    
+    
+    confirmed_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='field_confirmations',
+        verbose_name='Confirmed By'
+    )
+    
+    confirmed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name='Confirmed At'
+    )
+    
+    notes = models.TextField(
+        blank=True,
+        verbose_name='Notes',
+        help_text='Optional notes about this field confirmation'
+    )
+    
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name='Created At'
+    )
+    
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        verbose_name='Updated At'
+    )
+    
+    class Meta:
+        verbose_name = 'Field Confirmation'
+        verbose_name_plural = 'Field Confirmations'
+        unique_together = [['site', 'field_name']]  # One confirmation per field per site
+        indexes = [
+            models.Index(fields=['site', 'field_name']),
+            models.Index(fields=['site', 'is_confirmed']),
+        ]
+    
+    def __str__(self):
+        status = []
+        if self.is_pre_filled:
+            status.append('Pre-filled')
+        if self.is_confirmed:
+            status.append('Confirmed')
+        if self.is_new_data:
+            status.append('New')
+        
+        status_str = ', '.join(status) if status else 'Unconfirmed'
+        return f"{self.site.company_name} - {self.field_name} ({status_str})"    
+
 
