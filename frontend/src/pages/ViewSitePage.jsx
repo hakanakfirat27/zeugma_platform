@@ -1,5 +1,5 @@
 // frontend/src/pages/ViewSitePage.jsx
-// ✅ FIXED VERSION - With ToastContainer
+// ✅ FIXED VERSION - Only colors fields, NOT labels
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -14,6 +14,7 @@ import { ToastContainer } from '../components/Toast';
 import { useToast } from '../hooks/useToast'; 
 import StatusHistory from '../components/calling/StatusHistory';
 import StatusHistoryModal from '../components/calling/StatusHistoryModal';
+import { getFieldConfirmationStyle } from '../utils/fieldStyles';
 import {
   ArrowLeft, Edit2, Building2, Users, Info, MessageSquare, Phone,
   CheckCircle, XCircle, CheckCircle as CheckIcon, PlusCircle, FileText, History
@@ -22,7 +23,7 @@ import {
 const ViewSitePage = () => {
   const { projectId, siteId } = useParams();
   const navigate = useNavigate();
-  const { toasts, removeToast } = useToast();  // ← INITIALIZE TOAST HOOK
+  const { toasts, removeToast } = useToast();
   
   const [activeTab, setActiveTab] = useState('core');
   const [notesCount, setNotesCount] = useState(0);
@@ -42,10 +43,7 @@ const ViewSitePage = () => {
     const fetchSiteDetails = async () => {
       try {
         setLoading(true);
-        // FIXED: First, fetch the site data to get the category
         const siteResponse = await api.get(`/api/projects/sites/${siteId}/`);
-        
-        // Then, fetch field metadata using the category from site data
         const metadataResponse = await api.get(`/api/fields/metadata/${siteResponse.data.category}/`);
         
         setSiteData(siteResponse.data);
@@ -346,14 +344,20 @@ const ViewSitePage = () => {
         siteId={siteId}
       />
           
-      {/* ✅ ADD TOAST CONTAINER HERE */}
       <ToastContainer toasts={toasts} removeToast={removeToast} />
     </DataCollectorLayout>
   );
 };
 
-// Display Field Component (read-only with confirmations)
-const DisplayField = ({ label, value, fullWidth = false, fieldType = 'text', fieldName = '', confirmations = {} }) => {
+// ✅ FIXED: Display Field Component - Only colors the field, NOT the label
+const DisplayField = ({ 
+  label, 
+  value, 
+  fullWidth = false, 
+  fieldType = 'text', 
+  fieldName = '', 
+  confirmations = {}
+}) => {
   const renderValue = () => {
     if (fieldType === 'checkbox') {
       return value === true ? (
@@ -369,18 +373,31 @@ const DisplayField = ({ label, value, fullWidth = false, fieldType = 'text', fie
     return value || '-';
   };
 
+  // ✅ Calculate styles directly from confirmation data
+  const hasValue = value && value.toString().trim() !== '';
+  const confirmation = confirmations[fieldName] || {};
+  const fieldStyle = getFieldConfirmationStyle(confirmation, hasValue);
+
   return (
     <FieldWithConfirmation
       fieldName={fieldName}
       fieldValue={value}
-      confirmation={confirmations[fieldName] || {}}
+      confirmation={confirmation}
       onToggleConfirmation={() => {}} // Read-only, no toggle
       readOnly={true}
       showConfirmations={true}
     >
       <div className={fullWidth ? "md:col-span-2" : ""}>
-        <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
-        <div className="text-sm text-gray-900 bg-gray-50 px-3 py-2 rounded border border-gray-200 min-h-[38px]">
+        {/* ✅ Label is NOT affected by field colors */}
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          {label}
+        </label>
+        
+        {/* ✅ Apply inline styles directly */}
+        <div 
+          className="text-sm text-gray-900 bg-gray-50 px-3 py-2 rounded border border-gray-200 min-h-[38px]"
+          style={fieldStyle}
+        >
           {renderValue()}
         </div>
       </div>

@@ -12,7 +12,6 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../utils/api';
-import { useToast } from '../hooks/useToast';
 import { useAuth } from '../contexts/AuthContext';
 import DeleteConfirmationModal from './DeleteConfirmationModal';
 import { 
@@ -25,9 +24,18 @@ import {
   Clock 
 } from 'lucide-react';
 
-const NotesTab = ({ siteId, readOnly = false, onNotesCountChange }) => {
+const NotesTab = ({ 
+  siteId, 
+  readOnly = false, 
+  onNotesCountChange,
+  toastSuccess,
+  toastError,
+  toastInfo 
+}) => {
   const queryClient = useQueryClient();
-  const { success, error: showError, info } = useToast();
+  const success = toastSuccess;
+  const showError = toastError;
+  const info = toastInfo;
   const [newNoteText, setNewNoteText] = useState('');
   const [editingNoteId, setEditingNoteId] = useState(null);
   const [editText, setEditText] = useState('');

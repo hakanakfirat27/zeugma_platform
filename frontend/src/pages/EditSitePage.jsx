@@ -23,6 +23,7 @@ import CallingStatusSelector from '../components/calling/CallingStatusSelector';
 import FieldWithConfirmation from '../components/calling/FieldWithConfirmation';
 import { useFieldConfirmations } from '../hooks/useFieldConfirmations';
 import StatusHistoryModal from '../components/calling/StatusHistoryModal';
+import { getFieldConfirmationStyle } from '../utils/fieldStyles';
 
 import {
   ArrowLeft, Save, Building2, Users, Info, MessageSquare, Phone,
@@ -40,6 +41,7 @@ const EditSitePage = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState('core');
   const [notesCount, setNotesCount] = useState(0);
+  const [callsCount, setCallsCount] = useState(0); 
   const [fieldMetadata, setFieldMetadata] = useState(null);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [originalCompanyName, setOriginalCompanyName] = useState('');
@@ -72,6 +74,7 @@ const EditSitePage = () => {
       
       setFormData(siteResponse.data);
       setOriginalCompanyName(siteResponse.data.company_name);
+      setCallsCount(siteResponse.data.total_calls || 0);
       setFieldMetadata(metadataResponse.data);
     } catch (error) {
       console.error('Error loading data:', error);
@@ -101,6 +104,17 @@ const EditSitePage = () => {
 
     fetchNotesCount();
   }, [siteId]);
+
+  // ✅ NEW: Function to refetch site data and update counts
+  const refetchSiteData = async () => {
+    try {
+      const response = await api.get(`/api/projects/sites/${siteId}/`);
+      setFormData(response.data);
+      setCallsCount(response.data.total_calls || 0);
+    } catch (error) {
+      console.error('Failed to refetch site data:', error);
+    }
+  };
 
   // ✅ NEW: Auto-mark pre-filled fields once data and confirmations are loaded
   useEffect(() => {
@@ -258,14 +272,7 @@ const handleInputChange = (fieldName, value) => {
             <ArrowLeft className="w-5 h-5" />
             Cancel & Go Back
           </button>
-  {/* 🧪 TEST BUTTON - ADD THIS */}
-  <button
-    type="button"
-    onClick={() => success('🎉 Toast is working!')}
-    className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
-  >
-    Test Toast
-  </button>
+
           <button
             onClick={handleSubmit}
             disabled={isSubmitting}
@@ -348,6 +355,7 @@ const handleInputChange = (fieldName, value) => {
             {/* Tabs */}
             <div className="border-b border-gray-200">
               <nav className="flex -mb-px px-6">
+                {/* Core Information Tab */}
                 <button
                   type="button"
                   onClick={() => setActiveTab('core')}
@@ -360,6 +368,8 @@ const handleInputChange = (fieldName, value) => {
                   <Building2 className="w-4 h-4" />
                   Core Information
                 </button>
+
+                {/* Contact Persons Tab */}
                 <button
                   type="button"
                   onClick={() => setActiveTab('contacts')}
@@ -372,6 +382,8 @@ const handleInputChange = (fieldName, value) => {
                   <Users className="w-4 h-4" />
                   Contact Persons
                 </button>
+
+                {/* Technical Details Tab */}
                 <button
                   type="button"
                   onClick={() => setActiveTab('category')}
@@ -397,13 +409,14 @@ const handleInputChange = (fieldName, value) => {
                 >
                   <Phone className="w-4 h-4" />
                   Calling Workflow
-                  {formData.total_calls > 0 && (
+                  {callsCount > 0 && (
                     <span className="ml-1 px-2 py-0.5 text-xs font-semibold bg-blue-600 text-white rounded-full">
-                      {formData.total_calls}
+                      {callsCount}
                     </span>
                   )}
                 </button>
 
+                {/* Notes Tab */}
                 <button
                   type="button"
                   onClick={() => setActiveTab('notes')}
@@ -448,7 +461,12 @@ const handleInputChange = (fieldName, value) => {
                   )}  
                   {/* Call Timeline */}
                   <div className="border-t border-gray-200 pt-6">            
-                    <CallTimeline siteId={siteId} />
+                    <CallTimeline 
+                      siteId={siteId}
+                      onCallsChange={refetchSiteData}  
+                      toastSuccess={success}
+                      toastError={showError}                      
+                    />
                   </div>
                 </div>  
               ) : activeTab === 'notes' ? (
@@ -456,6 +474,9 @@ const handleInputChange = (fieldName, value) => {
                   siteId={siteId}
                   readOnly={false}
                   onNotesCountChange={setNotesCount}
+                  toastSuccess={success}
+                  toastError={showError}
+               
                 />
               ) : (
                 <EditTabContent
@@ -619,18 +640,30 @@ const FormField = ({
 }) => {
   const { name, label, type, required } = fieldMeta;
 
+  // ✅ Calculate styles directly from confirmation data
+  const hasValue = value && value.toString().trim() !== '';
+  const confirmation = confirmations[name] || {};
+  const fieldStyle = getFieldConfirmationStyle(confirmation, hasValue);
+
   const renderField = () => {
     if (name === 'country' || label.toLowerCase() === 'country') {
       return (
         <>
           <div className={fullWidth ? "md:col-span-2 py-3" : ""}>
-            <CountrySelector
-              value={value || ''}
-              onChange={(countryName) => onChange(name, countryName)}
-              error={error}
-              required={required}
-              label={label}
-            />
+            {/* ✅ ADD THIS WRAPPER */}
+            <div 
+              className="p-3 rounded-lg"
+              style={fieldStyle}
+            >
+              <CountrySelector
+                value={value || ''}
+                onChange={(countryName) => onChange(name, countryName)}
+                error={error}
+                required={required}
+                label={label}
+              />
+            </div>
+            {/* ✅ END WRAPPER */}
           </div>
           {showDivider && <hr className="my-0 h-px border-t-0 bg-gray-200" />}
         </>
@@ -640,7 +673,10 @@ const FormField = ({
     if (type === 'checkbox') {
       return (
         <>
-          <div className="flex items-center py-4">
+          <div 
+            className="flex items-center py-4 px-3 rounded-lg"
+            style={fieldStyle}  
+          >  
             <input
               type="checkbox"
               id={name}
@@ -648,6 +684,7 @@ const FormField = ({
               onChange={(e) => onChange(name, e.target.checked)}
               className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
             />
+            {/* ✅ Label NOT colored */}
             <label htmlFor={name} className="ml-2 block text-sm text-gray-900">
               {label}
             </label>
@@ -661,10 +698,12 @@ const FormField = ({
       return (
         <>
           <div className={fullWidth ? "md:col-span-2 py-2" : ""}>
+            {/* ✅ Label NOT colored */}
             <label htmlFor={name} className="block text-sm font-medium text-gray-700 mb-1">
               {label}
               {required && <span className="text-red-500 ml-1">*</span>}
             </label>
+            {/* ✅ Apply inline styles directly */}
             <textarea
               id={name}
               value={value || ''}
@@ -673,6 +712,7 @@ const FormField = ({
               className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
                 error ? 'border-red-500' : 'border-gray-300'
               }`}
+              style={fieldStyle}
             />
             {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
           </div>
@@ -680,13 +720,16 @@ const FormField = ({
       );
     }
 
+    // Regular input fields
     return (
       <>
         <div className={fullWidth ? "md:col-span-2 py-3" : ""}>
+          {/* ✅ Label NOT colored */}
           <label htmlFor={name} className="block text-sm font-medium text-gray-700 mb-1">
             {label}
             {required && <span className="text-red-500 ml-1">*</span>}
           </label>
+          {/* ✅ Apply inline styles directly */}
           <input
             type={type}
             id={name}
@@ -695,6 +738,7 @@ const FormField = ({
             className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
               error ? 'border-red-500' : 'border-gray-300'
             }`}
+            style={fieldStyle}
           />
           {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
         </div>
@@ -706,7 +750,7 @@ const FormField = ({
     <FieldWithConfirmation
       fieldName={name}
       fieldValue={value}
-      confirmation={confirmations[name] || {}}
+      confirmation={confirmation}
       onToggleConfirmation={handleToggleConfirmation}
       readOnly={false}
       showConfirmations={showConfirmations}

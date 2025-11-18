@@ -1,7 +1,4 @@
-print("🔥 calling_views.py IS BEING LOADED")
-
 # reports/calling_views.py
-# NEW FILE - API Views for Calling Workflow
 
 """
 API Views for the calling workflow system.
@@ -215,12 +212,6 @@ def bulk_update_field_confirmations(request, site_id):
         ]
     }
     """
-    print("="*80)
-    print("BULK UPDATE FUNCTION CALLED!")
-    print(f"Site ID: {site_id}")
-    print(f"Request data: {request.data}")
-    print("="*80)
-
     site = get_object_or_404(UnverifiedSite, site_id=site_id)
     
     # Check permissions
@@ -250,10 +241,7 @@ def bulk_update_field_confirmations(request, site_id):
             defaults={'confirmed_by': user}
         )
         
-        # ========================================================================
-        # UPDATE FIELDS WITH BUSINESS LOGIC ENFORCEMENT
-        # ========================================================================
-        
+        # Update fields
         if 'is_confirmed' in conf_data:
             confirmation.is_confirmed = conf_data['is_confirmed']
             if conf_data['is_confirmed'] and not confirmation.confirmed_at:
@@ -263,87 +251,38 @@ def bulk_update_field_confirmations(request, site_id):
         if 'is_new_data' in conf_data:
             confirmation.is_new_data = conf_data['is_new_data']
         
-        # ⭐ Handle is_pre_filled - once true, stays true (cannot be unchecked)
-        # ⭐ Handle is_pre_filled - COMPREHENSIVE DEBUG VERSION
-        print(f"\n{'='*80}")
-        print(f"DEBUG: Processing field '{field_name}'")
-        print(f"  Received conf_data keys: {list(conf_data.keys())}")
-        print(f"  Full conf_data: {conf_data}")
-        print(f"  'is_pre_filled' in conf_data? {'is_pre_filled' in conf_data}")
-        
+        # Handle is_pre_filled - once true, stays true       
         if 'is_pre_filled' in conf_data:
             new_value = conf_data['is_pre_filled']
-            print(f"  new_value = {new_value}")
-            print(f"  type(new_value) = {type(new_value)}")
-            print(f"  bool(new_value) = {bool(new_value)}")
-            print(f"  Current confirmation.is_pre_filled = {confirmation.is_pre_filled}")
             
             if new_value:
                 # Setting to True - always allow
-                print(f"  ✅ SETTING is_pre_filled to TRUE")
                 confirmation.is_pre_filled = True
-                print(f"  After setting: confirmation.is_pre_filled = {confirmation.is_pre_filled}")
             else:
-                print(f"  ⚠️ new_value is falsy, handling False case...")
                 # Trying to set to False
                 if confirmation.is_pre_filled:
-                    # Already True - keep it True (don't uncheck)
-                    print(f"  🔒 Already True, keeping it True")
-                    pass
-                else:
+
                     # Currently False - allow setting to False
-                    print(f"  ℹ️ Setting to False")
                     confirmation.is_pre_filled = False
-        else:
-            print(f"  ⏭️ 'is_pre_filled' not in conf_data, skipping")
-        
-        print(f"  Final value before save: confirmation.is_pre_filled = {confirmation.is_pre_filled}")
-        print(f"{'='*80}\n")
-        
-        # ⭐ Handle last_selected (determines field color)
+                    # If already True, keep it True (pre-filled cannot be unchecked)
+
+               
+        # Handle last_selected (determines field color)
         if 'last_selected' in conf_data:
             confirmation.last_selected = conf_data['last_selected']
         
         if 'notes' in conf_data:
             confirmation.notes = conf_data['notes']
         
-        # ========================================================================
-        # END UPDATE SECTION
-        # ========================================================================
-        # DEBUG: Print what we're about to save
-        import sys
-        sys.stdout.flush()
-        
-        print(f"  is_pre_filled: {confirmation.is_pre_filled}")
-        print(f"  is_confirmed: {confirmation.is_confirmed}")
-        print(f"  is_new_data: {confirmation.is_new_data}")
-        print(f"  last_selected: {confirmation.last_selected}")
-        
-        sys.stdout.flush()
-
         confirmation.save()
         updated_confirmations.append(confirmation)        
     
-    # Return updated confirmations WITH DEBUG INFO
+    # Return updated confirmations
     response_serializer = FieldConfirmationSerializer(updated_confirmations, many=True)
     
-    # ⭐ DEBUG: Build debug info from database
-    debug_info = []
-    for conf in updated_confirmations:
-        debug_info.append({
-            'field_name': conf.field_name,
-            'is_pre_filled_in_db': conf.is_pre_filled,
-            'is_confirmed_in_db': conf.is_confirmed,
-            'is_new_data_in_db': conf.is_new_data,
-            'last_selected_in_db': conf.last_selected,
-        })
-    
     return Response({
-        'TESTING_NEW_CODE': 'YES_IT_WORKS',
         'updated_count': len(updated_confirmations),
         'confirmations': response_serializer.data,
-        'debug_info': debug_info,  # ⭐ What's actually in database
-        'received_data': confirmations_data,  # ⭐ What frontend sent
     })
 
 

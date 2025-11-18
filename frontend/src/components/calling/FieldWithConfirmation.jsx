@@ -1,6 +1,5 @@
 // frontend/src/components/calling/FieldWithConfirmation.jsx
-// Wrapper component that adds confirmation checkboxes to any field
-// ✅ FIXED: No longer clones React elements - prevents cursor jumping!
+// ✅ SIMPLE VERSION - No cloneElement, just render children and checkboxes
 
 import React from 'react';
 import { CheckCircle, PlusCircle, FileText } from 'lucide-react';
@@ -17,41 +16,14 @@ const FieldWithConfirmation = ({
   
   const hasValue = fieldValue && fieldValue.toString().trim() !== '';
   
-  // Determine field background color based on last selected confirmation
-  const getFieldColor = () => {
-    if (!hasValue || !showConfirmations) return '';
-    
-    const lastSelected = confirmation.last_selected;
-    
-    if (lastSelected === 'is_confirmed') {
-      return 'bg-green-800 border-green-300'; // Olive green for confirmed
-    } else if (lastSelected === 'is_new_data') {
-      return 'bg-yellow-400 border-yellow-300'; // Yellow for new data
-    } else if (lastSelected === 'is_pre_filled') {
-      return 'bg-green-200 border-green-300'; // Olive green for pre-filled
-    }
-    
-    return '';
-  };
-  
   if (!showConfirmations) {
     return children;
   }
 
-  const colorClasses = getFieldColor();
-
   return (
     <div className="relative">
-      {/* ✅ Use a border/shadow overlay instead of background color */}
-      <div className="relative">
-        {children}
-        {colorClasses && (
-          <div 
-            className={`absolute inset-0 pointer-events-none rounded-lg ${colorClasses} opacity-20`}
-            aria-hidden="true"
-          />
-        )}
-      </div>
+      {/* Just render children as-is - no cloneElement */}
+      {children}
       
       {/* Confirmation Checkboxes - shown below the field */}
       {hasValue && (
@@ -97,12 +69,12 @@ const FieldWithConfirmation = ({
         </div>
       )}
       
-      {/* No value indicator when confirmations are shown */}
+      {/* No value indicator when confirmations are shown 
       {!hasValue && showConfirmations && (
         <div className="mt-1 text-xs text-gray-400">
           No value to confirm
         </div>
-      )}
+      )}*/}
     </div>
   );
 };

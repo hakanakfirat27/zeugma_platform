@@ -4,13 +4,19 @@
 import React, { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '../../utils/api';
-import { useToast } from '../../hooks/useToast';
 import DeleteConfirmationModal from '../DeleteConfirmationModal';
 import { Phone, Plus, Trash2, Clock, User } from 'lucide-react';
 
-const CallTimeline = ({ siteId, readOnly = false }) => {
+const CallTimeline = ({ 
+  siteId, 
+  readOnly = false, 
+  onCallsChange,
+  toastSuccess,
+  toastError 
+}) => {
   const queryClient = useQueryClient();
-  const { success, error: showError } = useToast();
+  const success = toastSuccess;
+  const showError = toastError;
   
   const [isAdding, setIsAdding] = useState(false);
   const [newCallNotes, setNewCallNotes] = useState('');
@@ -48,6 +54,11 @@ const CallTimeline = ({ siteId, readOnly = false }) => {
       
       // ✅ Show success toast
       success('Call added successfully!');
+      
+      // ✅ NEW: Notify parent to update badge count
+      if (onCallsChange) {
+        onCallsChange();
+      }
     },
     onError: (error) => {
       console.error('Failed to add call:', error);
@@ -72,6 +83,11 @@ const CallTimeline = ({ siteId, readOnly = false }) => {
       
       // ✅ Show success toast
       success('Call deleted successfully!');
+      
+      // ✅ NEW: Notify parent to update badge count
+      if (onCallsChange) {
+        onCallsChange();
+      }
     },
     onError: (error) => {
       console.error('Failed to delete call:', error);

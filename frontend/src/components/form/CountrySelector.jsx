@@ -115,14 +115,20 @@ const CountrySelector = ({
         
         <div className="flex items-center gap-1">
           {selectedCountry && !disabled && (
-            <button
-              type="button"
+            <div
               onClick={handleClear}
-              className="p-1 hover:bg-gray-100 rounded transition-colors"
+              className="p-1 hover:bg-gray-100 rounded transition-colors cursor-pointer"
               title="Clear selection"
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  handleClear(e);
+                }
+              }}
             >
               <X className="w-4 h-4 text-gray-400" />
-            </button>
+            </div>
           )}
           <ChevronDown 
             className={`w-5 h-5 text-gray-400 transition-transform ${isOpen ? 'transform rotate-180' : ''}`} 
