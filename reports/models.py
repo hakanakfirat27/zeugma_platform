@@ -2378,3 +2378,116 @@ class FieldConfirmation(models.Model):
         return f"{self.site.company_name} - {self.field_name} ({status_str})"    
 
 
+# --- Company Search Result Class ---
+class CompanyResearchResult(models.Model):
+    """
+    Stores AI-generated company research results for future reference.
+    Separate from Superdatabase and UnverifiedSite - purely for research history.
+    """
+    # Primary Key
+    research_id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False,
+        verbose_name="Research ID"
+    )
+    
+    # User who performed the research
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='research_results',
+        verbose_name="Researcher"
+    )
+    
+    # Search Query
+    company_name = models.CharField(
+        max_length=255,
+        verbose_name="Company Name Searched"
+    )
+    country = models.CharField(
+        max_length=100,
+        verbose_name="Country Searched"
+    )
+    
+    # AI Research Result (Full JSON response)
+    result_data = models.JSONField(
+        verbose_name="Research Result Data",
+        help_text="Full JSON data returned from AI research"
+    )
+    
+    # Model used for research (for tracking)
+    model_used = models.CharField(
+        max_length=100,
+        verbose_name="AI Model Used",
+        blank=True,
+        null=True
+    )
+    
+    # Timestamps
+    searched_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="Search Date/Time"
+    )
+    
+    # Quick access fields (extracted from result_data for faster querying)
+    official_name = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        verbose_name="Official Company Name"
+    )
+    city = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        verbose_name="City"
+    )
+    industry = models.CharField(
+        max_length=200,
+        blank=True,
+        null=True,
+        verbose_name="Industry"
+    )
+    website = models.URLField(
+        max_length=500,
+        blank=True,
+        null=True,
+        verbose_name="Website"
+    )
+    
+    # Metadata
+    is_favorite = models.BooleanField(
+        default=False,
+        verbose_name="Marked as Favorite"
+    )
+    notes = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="User Notes"
+    )
+    
+    class Meta:
+        verbose_name = "Company Research Result"
+        verbose_name_plural = "Company Research Results"
+        ordering = ['-searched_at']
+        indexes = [
+            models.Index(fields=['user', '-searched_at']),
+            models.Index(fields=['company_name', 'country']),
+            models.Index(fields=['is_favorite']),
+        ]
+    
+    def __str__(self):
+        return f"{self.company_name} ({self.country}) - {self.searched_at.strftime('%Y-%m-%d')}"
+    
+    def save(self, *args, **kwargs):
+        # Extract quick-access fields from result_data
+        if self.result_data:
+            self.official_name = self.result_data.get('official_name', '')
+            self.city = self.result_data.get('city', '')
+            self.industry = self.result_data.get('industry', '')
+            self.website = self.result_data.get('website', '')
+            self.model_used = self.result_data.get('model_used', '')
+        
+        super().save(*args, **kwargs)
+

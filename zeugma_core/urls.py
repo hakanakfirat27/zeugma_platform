@@ -22,6 +22,7 @@ urlpatterns = [
     path('api/chat/', include('chat.urls')),
     path('api/announcements/', include('announcements.urls')),
     path('api/', include('reports.project_urls')),
+    path('api/', include('reports.research_urls')),
 ]
 
 # Serve static and media files in development

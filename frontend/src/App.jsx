@@ -79,6 +79,7 @@ import EditSitePage from './pages/EditSitePage';
 // Other Pages
 import MyTasksPage from './pages/MyTasksPage';
 import ClientFAQPage from './pages/client/ClientFAQPage';
+import CompanyResearchPage from './pages/CompanyResearchPage';
 
 
 
@@ -176,7 +177,7 @@ function App() {
             <Route path="/projects/:projectId/sites/:siteId/edit" element={<ProtectedRoute><EditSitePage /></ProtectedRoute>} />
 
             <Route path="/my-tasks" element={<ProtectedRoute><MyTasksPage /></ProtectedRoute>} />
-
+            <Route path="/company-research" element={<ProtectedRoute allowedRoles={['DATA_COLLECTOR', 'STAFF_ADMIN', 'SUPERADMIN']}><CompanyResearchPage /></ProtectedRoute>} />
 
 
             {/* Catch all */}

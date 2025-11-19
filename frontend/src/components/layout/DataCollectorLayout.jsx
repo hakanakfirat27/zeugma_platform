@@ -62,6 +62,13 @@ const DataCollectorLayout = ({ children, pageTitle, headerActions, pageSubtitleT
       roles: ['DATA_COLLECTOR'], 
       color: 'text-orange-500' 
     },
+    { 
+      name: 'Company Research', 
+      path: '/company-research', 
+      icon: AlertCircle,
+      roles: ['DATA_COLLECTOR'], 
+      color: 'text-orange-500' 
+    },    
   ];
 
   // Dropdown menu links
@@ -354,7 +361,7 @@ const DataCollectorLayout = ({ children, pageTitle, headerActions, pageSubtitleT
                 >
                   <Icon className={`w-5 h-5 flex-shrink-0 ${active ? 'text-white' : link.color}`} />
                   {(isSidebarOpen) && (
-                    <span className="font-medium transition-opacity duration-200 truncate">{link.name}</span>
+                    <span className="font-medium text-sm transition-opacity duration-200 truncate">{link.name}</span>
                   )}
                   {active && (isSidebarOpen) && (
                     <ChevronRight className="w-4 h-4 ml-auto flex-shrink-0" />

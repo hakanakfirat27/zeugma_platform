@@ -83,7 +83,7 @@ const CountrySelector = ({
     <div ref={dropdownRef} className="relative">
       {/* Label */}
       {label && (
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label className="block text-sm font-medium text-gray-700 mb-2">
           {label}
           {required && <span className="text-red-500 ml-1">*</span>}
         </label>
@@ -105,7 +105,7 @@ const CountrySelector = ({
         <div className="flex items-center gap-2 flex-1 text-left">
           {selectedCountry ? (
             <>
-              <span className="text-2xl">{selectedCountry.flag}</span>
+              <span className="text-sm">{selectedCountry.flag}</span>
               <span className="text-sm text-gray-900">{selectedCountry.name}</span>
             </>
           ) : (
@@ -176,7 +176,7 @@ const CountrySelector = ({
                       `}
                     >
                       <div className="flex items-center gap-3">
-                        <span className="text-2xl">{country.flag}</span>
+                        <span className="text-lg">{country.flag}</span>
                         <span className="text-sm font-medium">{country.name}</span>
                       </div>
                       {selectedCountry?.code === country.code && (

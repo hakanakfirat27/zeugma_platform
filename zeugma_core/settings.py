@@ -34,6 +34,13 @@ DEBUG = config('DEBUG', default=False, cast=bool)
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1').split(',')
 
 
+# 👇 ADD THIS NEW SECTION HERE (RIGHT AFTER ALLOWED_HOSTS) 👇
+# ==============================================================================
+# GEMINI AI CONFIGURATION
+# ==============================================================================
+
+GEMINI_API_KEY = config('GEMINI_API_KEY', default='')
+
 # ==============================================================================
 # APPLICATION DEFINITION
 # ==============================================================================
