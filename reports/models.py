@@ -895,6 +895,7 @@ class UserWidgetPreference(models.Model):
         return f"{self.user.username} - {self.widget.title}"
 
 
+# --- Saved Search Class ---
 class SavedSearch(models.Model):
     """
     Model to store saved filter combinations for clients.
@@ -953,6 +954,7 @@ class SavedSearch(models.Model):
         return f"{self.user.username} - {self.name}"
 
 
+# --- Export Template Class ---
 class ExportTemplate(models.Model):
     
     """
@@ -1011,12 +1013,7 @@ class ExportTemplate(models.Model):
         return f"{self.user.username} - {self.name}"
 
 
-# --- Project Based Complete Unverified Sites System ---
-
-# ============================================================================
-# NEW: PROJECT MODEL
-# ============================================================================
-
+# --- Project Status Class ---
 class ProjectStatus(models.TextChoices):
     """Status choices for data collection projects"""
     ACTIVE = 'ACTIVE', 'Active'
@@ -1025,6 +1022,7 @@ class ProjectStatus(models.TextChoices):
     CANCELLED = 'CANCELLED', 'Cancelled'
 
 
+# --- Data Collection Project Class ---
 class DataCollectionProject(models.Model):
     """
     Projects for organizing unverified site data collection.
@@ -1164,10 +1162,8 @@ class DataCollectionProject(models.Model):
             return 0
         return round((self.get_approved_sites() / total) * 100, 1)
 
-# ============================================================================
-# NEW: REVIEW NOTES MODEL
-# ============================================================================
 
+# --- Review Note Class ---
 class ReviewNote(models.Model):
     """
     Notes exchanged between data collectors and reviewers during the review process.
@@ -1228,6 +1224,7 @@ class ReviewNote(models.Model):
         return f"Note by {self.created_by} on {self.site.company_name} at {self.created_at}"    
     
 
+# --- Project Activity Log Class ---
 class ProjectActivityLog(models.Model):
     """
     Activity log for tracking project-level actions.
@@ -1288,6 +1285,7 @@ class ProjectActivityLog(models.Model):
         return f"{self.get_action_display()} - {self.project.project_name} by {self.performed_by}"    
 
 
+# --- Verification Status Class ---
 class VerificationStatus(models.TextChoices):
     PENDING = 'PENDING', 'Pending Review'
     UNDER_REVIEW = 'UNDER_REVIEW', 'Under Review'
@@ -1297,6 +1295,7 @@ class VerificationStatus(models.TextChoices):
     TRANSFERRED = 'TRANSFERRED', 'Transferred to Superdatabase'
 
 
+# --- Data Source Class ---
 class DataSource(models.TextChoices):
     PHONE_CALL = 'PHONE_CALL', 'Phone Call'
     EMAIL = 'EMAIL', 'Email'
@@ -1307,6 +1306,7 @@ class DataSource(models.TextChoices):
     OTHER = 'OTHER', 'Other'
 
 
+# --- Priority Level Class ---
 class PriorityLevel(models.TextChoices):
     LOW = 'LOW', 'Low'
     MEDIUM = 'MEDIUM', 'Medium'
@@ -1314,6 +1314,7 @@ class PriorityLevel(models.TextChoices):
     URGENT = 'URGENT', 'Urgent'
   
 
+# --- Verification Action Class ---
 class VerificationAction(models.TextChoices):
     CREATED = 'CREATED', 'Created'
     REVIEWED = 'REVIEWED', 'Reviewed'
@@ -1325,6 +1326,7 @@ class VerificationAction(models.TextChoices):
     COMMENT_ADDED = 'COMMENT_ADDED', 'Comment Added'
 
 
+# --- Calling Status Class ---
 class CallingStatus(models.TextChoices):
     """Status choices for calling workflow"""
     NOT_STARTED = 'NOT_STARTED', 'Not Started'
@@ -1335,6 +1337,7 @@ class CallingStatus(models.TextChoices):
     GREEN = 'GREEN', 'Complete - Ready for Review'  
 
 
+# --- Calling Status History Class ---
 class CallingStatusHistory(models.Model):
     """Track history of calling status changes"""
     
@@ -1371,6 +1374,7 @@ class CallingStatusHistory(models.Model):
         return self.changed_at.strftime('%B %d, %Y at %I:%M %p')
 
 
+# --- Unverified Site Class ---
 class UnverifiedSite(models.Model):
     """
     Temporary storage for unverified company data.
@@ -2127,7 +2131,7 @@ class UnverifiedSite(models.Model):
         return superdatabase_record   
 
 
-# --- Verification History Model ---
+# --- Verification History Class ---
 class VerificationHistory(models.Model):
     """
     Audit trail for all actions performed on unverified sites.
@@ -2189,10 +2193,7 @@ class VerificationHistory(models.Model):
         return f"{self.action} - {self.site.company_name} by {self.performed_by}"    
     
 
-# =============================================================================
-# CALL LOG MODEL
-# =============================================================================
-
+# --- Call Log Class ---
 class CallLog(models.Model):
     """
     Tracks individual call attempts made to a site.
@@ -2261,10 +2262,7 @@ class CallLog(models.Model):
         return self.call_timestamp.strftime('%b %d, %I:%M %p')
 
 
-# =============================================================================
-# FIELD CONFIRMATION MODEL
-# =============================================================================
-
+# --- Field Confirmation Class ---
 class FieldConfirmation(models.Model):
     """
     Tracks which fields have been confirmed, marked as new, or are pre-filled.

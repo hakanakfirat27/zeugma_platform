@@ -208,7 +208,7 @@ const CallingStatusSelector = ({ siteId, currentStatus, readOnly = false, onStat
       {!isChanging ? (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <label className="block text-base">
+            <label className="block text-base px-2 py-2 bg-indigo-600 text-white transition-colors shadow-sm">
               Current Calling Status
             </label>
             <button

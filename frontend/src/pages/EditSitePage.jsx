@@ -1,9 +1,4 @@
 // frontend/src/pages/EditSitePage.jsx
-// ✅ COMPREHENSIVE FIX: Auto-marking and confirmation display
-// CHANGES:
-// 1. Auto-mark pre-filled fields on page load
-// 2. Fix checkbox toggle behavior to show immediate visual feedback
-// 3. Ensure confirmations state updates propagate correctly
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -15,15 +10,14 @@ import NotesTab from '../components/NotesTab';
 import CancelConfirmationModal from '../components/CancelConfirmationModal';
 import { ToastContainer } from '../components/Toast';
 import { useToast } from '../hooks/useToast';
-import StatusHistory from '../components/calling/StatusHistory';
 
-// Calling Workflow Components
 import CallTimeline from '../components/calling/CallTimeline';
 import CallingStatusSelector from '../components/calling/CallingStatusSelector';
 import FieldWithConfirmation from '../components/calling/FieldWithConfirmation';
 import { useFieldConfirmations } from '../hooks/useFieldConfirmations';
 import StatusHistoryModal from '../components/calling/StatusHistoryModal';
 import { getFieldConfirmationStyle } from '../utils/fieldStyles';
+import ThankYouEmailModal from '../components/modals/ThankYouEmailModal';
 
 import {
   ArrowLeft, Save, Building2, Users, Info, MessageSquare, Phone,
@@ -46,6 +40,7 @@ const EditSitePage = () => {
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [originalCompanyName, setOriginalCompanyName] = useState('');
   const [showCancelModal, setShowCancelModal] = useState(false);
+  const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
 
   // Field confirmations hook
   const {
@@ -59,12 +54,19 @@ const EditSitePage = () => {
   } = useFieldConfirmations(siteId);
   
   // State to toggle confirmation display (default: true)
-  const [showConfirmations, setShowConfirmations] = useState(true);
+  const [showConfirmations, setShowConfirmations] = useState(false);
 
   const [showHistoryModal, setShowHistoryModal] = useState(false);
 
   // ✅ NEW: Track if we've already auto-marked fields on load
   const [hasAutoMarkedOnLoad, setHasAutoMarkedOnLoad] = useState(false);
+
+  const handleEmailSent = (details) => {
+    // Refresh call logs to show the new email log entry
+    if (typeof refetchCallLogs === 'function') {
+      refetchCallLogs();
+    }
+  };
 
   const fetchData = async () => {
     try {
@@ -164,10 +166,6 @@ const EditSitePage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (activeTab === 'notes' || activeTab === 'calling') {
-      return; 
-    }
-
     setIsSubmitting(true);
     setErrors({});
 
@@ -194,23 +192,41 @@ const EditSitePage = () => {
     }
   };
 
-const handleInputChange = (fieldName, value) => {
-  console.log(`\n📝 handleInputChange called: field="${fieldName}", value="${value}"`);
-  
-  // Update form data immediately
-  setFormData(prev => ({
-    ...prev,
-    [fieldName]: value
-  }));
-  
-  // Clear error for this field when user starts typing
-  if (errors[fieldName]) {
-    setErrors(prev => {
-      const newErrors = { ...prev };
-      delete newErrors[fieldName];
-      return newErrors;
-    });
-  }
+  const getTabErrorCount = (tabName) => {
+    if (!fieldMetadata || !errors || Object.keys(errors).length === 0) return 0;
+    const errorFields = Object.keys(errors);
+    
+    if (tabName === 'core') {
+      const coreFieldNames = fieldMetadata.common_fields?.map(f => f.name) || [];
+      return errorFields.filter(field => coreFieldNames.includes(field)).length;
+    } else if (tabName === 'contacts') {
+      const contactFieldNames = fieldMetadata.contact_fields?.map(f => f.name) || [];
+      return errorFields.filter(field => contactFieldNames.includes(field)).length;
+    } else if (tabName === 'category') {
+      const categoryFieldNames = fieldMetadata.category_fields?.map(f => f.name) || [];
+      return errorFields.filter(field => categoryFieldNames.includes(field)).length;
+    }
+    
+    return 0;
+  };
+
+  const handleInputChange = (fieldName, value) => {
+    console.log(`\n📝 handleInputChange called: field="${fieldName}", value="${value}"`);
+    
+    // Update form data immediately
+    setFormData(prev => ({
+      ...prev,
+      [fieldName]: value
+    }));
+    
+    // Clear error for this field when user starts typing
+    if (errors[fieldName]) {
+      setErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[fieldName];
+        return newErrors;
+      });
+    }
   
   // ✅ NEW AUTO-MARK LOGIC: Check if field now has value and needs marking
   const valueIsNotEmpty = value && value.toString().trim() !== '';
@@ -367,6 +383,11 @@ const handleInputChange = (fieldName, value) => {
                 >
                   <Building2 className="w-4 h-4" />
                   Core Information
+                {getTabErrorCount('core') > 0 && (
+                  <span className="ml-2 inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold text-white bg-red-500 rounded-full">
+                    {getTabErrorCount('core')}
+                  </span>
+                )}                  
                 </button>
 
                 {/* Contact Persons Tab */}
@@ -455,10 +476,25 @@ const handleInputChange = (fieldName, value) => {
                         className="flex items-center gap-2 px-4 py-2 bg-blue-100 text-blue-700 border border-blue-300 rounded-lg hover:bg-blue-200 transition-colors"
                       >
                         <History className="w-4 h-4" />
-                        View Status Change History
+                        Status Change History
                       </button>
                     </div>
                   )}  
+
+                  {/* Thank You Email Button */}
+                  <div className="mb-6">
+                    <button
+                      type="button"
+                      onClick={() => setIsEmailModalOpen(true)}
+                      className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg hover:from-purple-700 hover:to-indigo-700 transition-all duration-200 shadow-md hover:shadow-lg"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                      </svg>
+                      <span>Send Thank You Email</span>
+                    </button>
+                  </div>
+
                   {/* Call Timeline */}
                   <div className="border-t border-gray-200 pt-6">            
                     <CallTimeline 
@@ -493,7 +529,7 @@ const handleInputChange = (fieldName, value) => {
             </div>
 
             {/* Footer Actions */}
-            <div className="bg-gray-50 px-6 py-4 border-t border-gray-200 flex justify-end gap-3">
+            <div className="bg-gray-50 px-4 py-4 border-t border-gray-200 flex justify-end gap-3">
               <button
                 type="button"
                 onClick={handleCancel}
@@ -504,8 +540,9 @@ const handleInputChange = (fieldName, value) => {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
+                <Save className="w-4 h-4" />
                 {isSubmitting ? 'Saving...' : 'Save Changes'}
               </button>
             </div>
@@ -530,6 +567,16 @@ const handleInputChange = (fieldName, value) => {
           title="Confirm Cancellation"
           message="Are you sure you want to cancel? Any unsaved changes will be lost."
         />
+
+        {/* Thank You Email Modal */}
+        <ThankYouEmailModal
+          isOpen={isEmailModalOpen}
+          onClose={() => setIsEmailModalOpen(false)}
+          siteId={siteId}
+          companyName={formData?.company_name || ''}
+          onEmailSent={handleEmailSent}
+        />
+
       </div>
     </DataCollectorLayout>
   );

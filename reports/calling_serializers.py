@@ -1,20 +1,10 @@
 # reports/calling_serializers.py
-# NEW FILE - Serializers for Calling Workflow
-
-"""
-Serializers for the calling workflow system.
-Add this as a new file: reports/calling_serializers.py
-"""
 
 from rest_framework import serializers
 from django.utils import timezone
 from .models import CallLog, FieldConfirmation, UnverifiedSite, CallingStatusHistory
 from .shared_serializers import UserBasicSerializer
 
-
-# =============================================================================
-# CALL LOG SERIALIZERS
-# =============================================================================
 
 class CallLogSerializer(serializers.ModelSerializer):
     """Serializer for CallLog model"""
@@ -38,6 +28,7 @@ class CallLogSerializer(serializers.ModelSerializer):
         read_only_fields = ['call_id', 'call_number', 'created_at', 'formatted_timestamp']
 
 
+
 class CallLogCreateSerializer(serializers.ModelSerializer):
     """Serializer for creating call logs"""
     
@@ -52,9 +43,6 @@ class CallLogCreateSerializer(serializers.ModelSerializer):
         return value.strip()
 
 
-# =============================================================================
-# FIELD CONFIRMATION SERIALIZERS
-# =============================================================================
 
 class FieldConfirmationSerializer(serializers.ModelSerializer):
     """Serializer for FieldConfirmation model"""
@@ -82,6 +70,7 @@ class FieldConfirmationSerializer(serializers.ModelSerializer):
         read_only_fields = ['confirmation_id', 'created_at', 'updated_at']
 
 
+
 class FieldConfirmationUpdateSerializer(serializers.ModelSerializer):
     """Serializer for updating field confirmations"""
     
@@ -97,6 +86,7 @@ class FieldConfirmationUpdateSerializer(serializers.ModelSerializer):
             instance.confirmed_by = self.context['request'].user
         
         return super().update(instance, validated_data)
+
 
 
 class BulkFieldConfirmationSerializer(serializers.Serializer):
@@ -129,9 +119,6 @@ class BulkFieldConfirmationSerializer(serializers.Serializer):
         return value
 
 
-# =============================================================================
-# ENHANCED SITE SERIALIZERS (WITH CALLING WORKFLOW)
-# =============================================================================
 
 class SiteCallingStatusSerializer(serializers.ModelSerializer):
     """Compact serializer for site calling status"""
@@ -151,6 +138,7 @@ class SiteCallingStatusSerializer(serializers.ModelSerializer):
             'calling_status_changed_by_info',
             'total_calls',
         ]
+
 
 
 class CallingStatusUpdateSerializer(serializers.Serializer):
@@ -179,9 +167,6 @@ class CallingStatusUpdateSerializer(serializers.Serializer):
         return value
 
 
-# =============================================================================
-# STATISTICS SERIALIZERS
-# =============================================================================
 
 class CallingStatsSerializer(serializers.Serializer):
     """Serializer for calling workflow statistics"""
@@ -199,6 +184,7 @@ class CallingStatsSerializer(serializers.Serializer):
     
     sites_needing_attention = serializers.IntegerField()
     sites_ready_for_review = serializers.IntegerField()
+
 
 
 class SiteCallingDetailsSerializer(serializers.ModelSerializer):
@@ -232,6 +218,7 @@ class SiteCallingDetailsSerializer(serializers.ModelSerializer):
             'call_logs',
             'field_confirmations',
         ]
+
 
 
 class CallingStatusHistorySerializer(serializers.ModelSerializer):
@@ -279,3 +266,49 @@ class CallingStatusHistorySerializer(serializers.ModelSerializer):
             'GREEN': 'Complete - Ready for Review',
         }
         return status_map.get(obj.new_status, obj.new_status)
+    
+
+
+class ThankYouEmailSerializer(serializers.Serializer):
+    """Serializer for sending thank you emails"""
+    
+    company_name = serializers.CharField(
+        max_length=200,
+        help_text='Company name to personalize the email'
+    )
+    
+    recipient_email = serializers.EmailField(
+        help_text='Email address to send thank you email to'
+    )
+    
+    additional_message = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        help_text='Optional additional message to include in the email'
+    )
+    
+    def validate_recipient_email(self, value):
+        """Validate email format"""
+        if not value or '@' not in value:
+            raise serializers.ValidationError("Please provide a valid email address")
+        return value.strip().lower()
+    
+    def validate_company_name(self, value):
+        """Ensure company name is not empty"""
+        if not value or not value.strip():
+            raise serializers.ValidationError("Company name cannot be empty")
+        return value.strip()
+
+
+
+class EmailLogSerializer(serializers.Serializer):
+    """Serializer for email sending logs"""
+    
+    email_id = serializers.UUIDField(read_only=True)
+    site_id = serializers.UUIDField(read_only=True)
+    company_name = serializers.CharField()
+    recipient_email = serializers.EmailField()
+    sent_by = serializers.CharField()
+    sent_at = serializers.DateTimeField()
+    status = serializers.CharField()
+    error_message = serializers.CharField(allow_null=True)    

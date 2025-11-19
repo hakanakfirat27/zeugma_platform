@@ -1,37 +1,23 @@
 # reports/calling_urls.py
-# NEW FILE - URL Configuration for Calling Workflow
-
-"""
-URL Configuration for Calling Workflow API endpoints.
-Add this as a new file: reports/calling_urls.py
-
-Then include in reports/api_urls.py:
-path('', include('reports.calling_urls')),
-"""
 
 from django.urls import path
 from .calling_views import (
-    # Call Logs
     CallLogListCreateAPIView,
     CallLogDetailAPIView,
-    
-    # Field Confirmations
     FieldConfirmationListAPIView,
     update_field_confirmation,
     bulk_update_field_confirmations,
-    
-    # Calling Status
     update_calling_status,
     get_calling_stats,
     get_yellow_status_sites,
     get_status_history,
+    send_thank_you_email,
+    get_email_history,    
+    check_email_status,
 )
 
 urlpatterns = [
-    # =========================================================================
-    # CALL LOG ENDPOINTS
-    # =========================================================================
-    
+
     # List call logs and create new call for a site
     path(
         'sites/<uuid:site_id>/call-logs/',
@@ -45,10 +31,6 @@ urlpatterns = [
         CallLogDetailAPIView.as_view(),
         name='call-log-detail'
     ),
-    
-    # =========================================================================
-    # FIELD CONFIRMATION ENDPOINTS
-    # =========================================================================
     
     # List all field confirmations for a site
     path(
@@ -70,13 +52,7 @@ urlpatterns = [
         update_field_confirmation,
         name='update-field-confirmation'
     ),
-    
-
-    
-    # =========================================================================
-    # CALLING STATUS ENDPOINTS
-    # =========================================================================
-    
+       
     # Update calling status
     path(
         'sites/<uuid:site_id>/calling-status/',
@@ -111,18 +87,28 @@ urlpatterns = [
         get_status_history,
         name='site-status-history'
     ),    
+
+
+    # Send thank you email
+    path(
+        'sites/<uuid:site_id>/send-thank-you-email/',
+        send_thank_you_email,
+        name='send-thank-you-email'
+    ),
+    
+    # Get email sending history for a site
+    path(
+        'sites/<uuid:site_id>/email-history/',
+        get_email_history,
+        name='email-history'
+    ),    
+
+    # check-email-status
+    path(
+        'sites/<uuid:site_id>/check-email-status/',
+        check_email_status,
+        name='check-email-status'
+    ),
+
 ]
 
-
-# =============================================================================
-# UPDATE YOUR reports/api_urls.py
-# =============================================================================
-
-"""
-In your reports/api_urls.py, add this line:
-
-# Calling Workflow URLs
-path('', include('reports.calling_urls')),
-
-This will mount all calling workflow endpoints under /api/
-"""
