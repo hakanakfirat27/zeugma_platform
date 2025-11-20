@@ -6,7 +6,7 @@ import DashboardLayout from '../components/layout/DashboardLayout';
 import DataCollectorLayout from '../components/layout/DataCollectorLayout';
 import CountrySelector from '../components/form/CountrySelector';
 import CompanyDetailsModal from '../components/modals/CompanyDetailsModal';
-import DeleteConfirmationModal from '../components/DeleteConfirmationModal';
+import DeleteConfirmationModal from '../components/modals/DeleteConfirmationModal';
 import Pagination from '../components/database/Pagination';
 
 const CompanyResearchPage = () => {

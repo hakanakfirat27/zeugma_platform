@@ -3,21 +3,21 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import api from '../utils/api';
-import DataCollectorLayout from '../components/layout/DataCollectorLayout';
-import CountrySelector from '../components/form/CountrySelector';
-import NotesTab from '../components/NotesTab';
-import CancelConfirmationModal from '../components/CancelConfirmationModal';
-import { ToastContainer } from '../components/Toast';
-import { useToast } from '../hooks/useToast';
+import api from '../../utils/api';
+import DataCollectorLayout from '../../components/layout/DataCollectorLayout';
+import CountrySelector from '../../components/form/CountrySelector';
+import NotesTab from '../../components/calling/NotesTab';
+import CancelConfirmationModal from '../../components/modals/CancelConfirmationModal';
+import { ToastContainer } from '../../components/Toast';
+import { useToast } from '../../hooks/useToast';
 
-import CallTimeline from '../components/calling/CallTimeline';
-import CallingStatusSelector from '../components/calling/CallingStatusSelector';
-import FieldWithConfirmation from '../components/calling/FieldWithConfirmation';
-import { useFieldConfirmations } from '../hooks/useFieldConfirmations';
-import StatusHistoryModal from '../components/calling/StatusHistoryModal';
-import { getFieldConfirmationStyle } from '../utils/fieldStyles';
-import ThankYouEmailModal from '../components/modals/ThankYouEmailModal';
+import CallTimeline from '../../components/calling/CallTimeline';
+import CallingStatusSelector from '../../components/calling/CallingStatusSelector';
+import FieldWithConfirmation from '../../components/calling/FieldWithConfirmation';
+import { useFieldConfirmations } from '../../hooks/useFieldConfirmations';
+import StatusHistoryModal from '../../components/calling/StatusHistoryModal';
+import { getFieldConfirmationStyle } from '../../utils/fieldStyles';
+import ThankYouEmailModal from '../../components/modals/ThankYouEmailModal';
 
 import {
   ArrowLeft, Save, Building2, Users, Info, MessageSquare, Phone,
@@ -54,7 +54,7 @@ const EditSitePage = () => {
   } = useFieldConfirmations(siteId);
   
   // State to toggle confirmation display (default: true)
-  const [showConfirmations, setShowConfirmations] = useState(false);
+  const [showConfirmations, setShowConfirmations] = useState(true);
 
   const [showHistoryModal, setShowHistoryModal] = useState(false);
 
@@ -718,23 +718,48 @@ const FormField = ({
     }
 
     if (type === 'checkbox') {
+      // Calculate what will be displayed in View mode
+      const getDisplayPreview = () => {
+        if (value === true) {
+          return { text: '✓ Yes', color: 'text-green-600', bgColor: 'bg-green-50' };
+        } else if (value === false || !value) {
+          if (confirmation?.is_confirmed || confirmation?.is_new_data) {
+            return { text: '✗ No', color: 'text-red-600', bgColor: 'bg-red-50' };
+          }
+          return { text: '- (blank)', color: 'text-gray-400', bgColor: 'bg-gray-50' };
+        }
+        return { text: '- (blank)', color: 'text-gray-400', bgColor: 'bg-gray-50' };
+      };
+
+      const displayPreview = getDisplayPreview();
+
       return (
         <>
-          <div 
-            className="flex items-center py-4 px-3 rounded-lg"
-            style={fieldStyle}  
-          >  
-            <input
-              type="checkbox"
-              id={name}
-              checked={value || false}
-              onChange={(e) => onChange(name, e.target.checked)}
-              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-            />
-            {/* ✅ Label NOT colored */}
-            <label htmlFor={name} className="ml-2 block text-sm text-gray-900">
-              {label}
-            </label>
+          <div className="py-2">
+            <div 
+              className="flex items-center py-4 px-3 rounded-lg"
+              style={fieldStyle}  
+            >  
+              <input
+                type="checkbox"
+                id={name}
+                checked={value || false}
+                onChange={(e) => onChange(name, e.target.checked)}
+                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              />
+              {/* ✅ Label NOT colored */}
+              <label htmlFor={name} className="ml-2 block text-sm text-gray-900">
+                {label}
+              </label>
+            </div>
+            
+            {/* ✅ NEW: Display Preview - Shows what will appear in View mode */}
+            <div className="mt-2 ml-7 flex items-center gap-2">
+              <span className="text-xs text-gray-500">View mode preview:</span>
+              <span className={`text-xs font-medium px-2 py-1 rounded ${displayPreview.bgColor} ${displayPreview.color}`}>
+                {displayPreview.text}
+              </span>
+            </div>
           </div>
           {showDivider && <hr className="my-0 h-px border-t-0 bg-gray-200" />}
         </>
@@ -797,6 +822,7 @@ const FormField = ({
     <FieldWithConfirmation
       fieldName={name}
       fieldValue={value}
+      fieldType={type}  // ← NEW: Pass the field type so checkbox confirmations always show
       confirmation={confirmation}
       onToggleConfirmation={handleToggleConfirmation}
       readOnly={false}

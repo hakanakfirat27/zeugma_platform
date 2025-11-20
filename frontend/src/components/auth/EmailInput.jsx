@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { CheckCircle, XCircle, Loader2, Mail } from 'lucide-react';
-import api from '../utils/api';
+import api from '../../utils/api';
 
 const EmailInput = ({
   value,

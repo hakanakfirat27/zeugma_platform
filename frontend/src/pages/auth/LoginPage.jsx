@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { LogIn, AlertCircle, CheckCircle } from 'lucide-react';
-import EmailTwoFactorVerificationModal from '../../components/EmailTwoFactorVerificationModal';
-import EmailTwoFactorSetupModal from '../../components/EmailTwoFactorSetupModal';
+import EmailTwoFactorVerificationModal from '../../components/auth/EmailTwoFactorVerificationModal';
+import EmailTwoFactorSetupModal from '../../components/auth/EmailTwoFactorSetupModal';
 import api from '../../utils/api';
 
 const LoginPage = () => {

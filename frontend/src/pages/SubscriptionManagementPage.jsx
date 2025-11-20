@@ -8,7 +8,7 @@ import DashboardLayout from '../components/layout/DashboardLayout';
 import LoadingSpinner from '../components/LoadingSpinner';
 import Pagination from '../components/database/Pagination';
 import { ToastContainer } from '../components/Toast';
-import DeleteConfirmationModal from '../components/DeleteConfirmationModal';
+import DeleteConfirmationModal from '../components/modals/DeleteConfirmationModal';
 import { useToast } from '../hooks/useToast';
 import api from '../utils/api';
 import * as XLSX from 'xlsx';

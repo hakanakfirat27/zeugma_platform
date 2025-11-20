@@ -4,7 +4,7 @@
 import React, { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '../../utils/api';
-import DeleteConfirmationModal from '../DeleteConfirmationModal';
+import DeleteConfirmationModal from '../modals/DeleteConfirmationModal';
 import { Phone, Plus, Trash2, Clock, User } from 'lucide-react';
 
 const CallTimeline = ({ 

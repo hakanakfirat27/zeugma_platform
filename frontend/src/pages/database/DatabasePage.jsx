@@ -1,10 +1,10 @@
 import { useState, useMemo } from 'react';
 import { Search, Download, SlidersHorizontal, X, BarChart3, Globe, Package, TrendingUp, Save, Clock, Star, CheckSquare, Square } from 'lucide-react';
-import { useAuth } from '../contexts/AuthContext';
-import { useRecords, useFilterOptions } from '../hooks/useDatabase';
-import { exportToExcel, exportSelectedRecords } from '../utils/excelExport';
-import FilterSidebar from '../components/database/FilterSidebar';
-import Pagination from '../components/database/Pagination';
+import { useAuth } from '../../contexts/AuthContext';
+import { useRecords, useFilterOptions } from '../../hooks/useDatabase';
+import { exportToExcel, exportSelectedRecords } from '../../utils/excelExport';
+import FilterSidebar from '../../components/database/FilterSidebar';
+import Pagination from '../../components/database/Pagination';
 
 const CATEGORIES = [
   { value: 'ALL', label: 'All Categories' },

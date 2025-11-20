@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Shield, Mail, Check, X, AlertCircle, Loader2, Clock } from 'lucide-react';
-import api from '../utils/api';
+import api from '../../utils/api';
 
 const EmailTwoFactorSetupModal = ({ isOpen, onClose, onComplete, isRequired = false }) => {
   const [step, setStep] = useState(1); // 1: Info, 2: Verify Code

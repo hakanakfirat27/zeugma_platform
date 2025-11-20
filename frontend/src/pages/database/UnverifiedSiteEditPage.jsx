@@ -4,13 +4,13 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import api from '../utils/api';
-import DashboardLayout from '../components/layout/DashboardLayout';
-import CountrySelector from '../components/form/CountrySelector';
-import NotesTab from '../components/NotesTab';
-import CancelConfirmationModal from '../components/CancelConfirmationModal';
-import { ToastContainer } from '../components/Toast';
-import { useToast } from '../hooks/useToast';
+import api from '../../utils/api';
+import DashboardLayout from '../../components/layout/DashboardLayout';
+import CountrySelector from '../../components/form/CountrySelector';
+import NotesTab from '../../components/calling/NotesTab';
+import CancelConfirmationModal from '../../components/modals/CancelConfirmationModal';
+import { ToastContainer } from '../../components/Toast';
+import { useToast } from '../../hooks/useToast';
 import {
   ArrowLeft, Save, Building2, Users, Info, MessageSquare
 } from 'lucide-react';

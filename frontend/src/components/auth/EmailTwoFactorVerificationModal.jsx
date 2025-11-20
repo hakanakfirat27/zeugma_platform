@@ -1,7 +1,7 @@
 // frontend/src/components/EmailTwoFactorVerificationModal.jsx
 import { useState, useEffect } from 'react';
 import { Shield, AlertCircle, Mail, Loader2, Clock, RefreshCw } from 'lucide-react';
-import api from '../utils/api';
+import api from '../../utils/api';
 
 const EmailTwoFactorVerificationModal = ({
   isOpen,

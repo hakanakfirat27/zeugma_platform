@@ -3,9 +3,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import UsernameInput from '../components/UsernameInput';
-import EmailInput from '../components/EmailInput';
-import ExpandableRow from '../contexts/ExpandableRow';
+import UsernameInput from '../../components/auth/UsernameInput';
+import EmailInput from '../../components/auth/EmailInput';
+import ExpandableRow from '../../contexts/ExpandableRow';
 
 import {
   ArrowLeft, Users, Plus, Search, X, Edit, Trash2, Eye,
@@ -17,15 +17,15 @@ import {
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
-import DashboardLayout from '../components/layout/DashboardLayout';
-import LoadingSpinner from '../components/LoadingSpinner';
-import Pagination from '../components/database/Pagination';
-import { ToastContainer } from '../components/Toast';
-import DeleteConfirmationModal from '../components/DeleteConfirmationModal';
-import { useToast } from '../hooks/useToast';
-import useUserStatus from '../hooks/useUserStatus';
-import UserLoginHistoryModal from '../components/userActivity/UserLoginHistoryModal';
-import api from '../utils/api';
+import DashboardLayout from '../../components/layout/DashboardLayout';
+import LoadingSpinner from '../../components/LoadingSpinner';
+import Pagination from '../../components/database/Pagination';
+import { ToastContainer } from '../../components/Toast';
+import DeleteConfirmationModal from '../../components/modals/DeleteConfirmationModal';
+import { useToast } from '../../hooks/useToast';
+import useUserStatus from '../../hooks/useUserStatus';
+import UserLoginHistoryModal from '../../components/userActivity/UserLoginHistoryModal';
+import api from '../../utils/api';
 
 // --- Helper Functions & Components ---
 

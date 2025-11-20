@@ -466,7 +466,7 @@ const navLinks = [
                   >
                     <Icon className={`w-5 h-5 flex-shrink-0 ${active ? 'text-white' : link.color}`} />
                     {(isSidebarOpen) && (
-                      <span className="font-medium transition-opacity duration-200 truncate">{link.name}</span>
+                      <span className="font-medium text-sm transition-opacity duration-200 truncate">{link.name}</span>
                     )}
                     {/* --- 3. Add Badge (CORRECTED) --- */}
                     {isChatLink && chatUnreadCount > 0 && (

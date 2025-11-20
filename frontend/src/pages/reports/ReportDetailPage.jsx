@@ -3,17 +3,17 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
-import DashboardLayout from '../components/layout/DashboardLayout';
-import LoadingSpinner from '../components/LoadingSpinner';
-import DataTable from '../components/database/DataTable';
-import RecordDetailModal from '../components/database/RecordDetailModal';
-import Pagination from '../components/database/Pagination';
-import FilterSidebarWithGroups from '../components/database/FilterSidebarWithGroups';
-import api from '../utils/api';
-import { CATEGORIES } from '../constants/categories';
-import { useCustomReportDetail, useCustomReportRecords } from '../hooks/useCustomReports';
-import { useTechnicalFilterOptions } from '../hooks/useDatabase';
+import { useAuth } from '../../contexts/AuthContext';
+import DashboardLayout from '../../components/layout/DashboardLayout';
+import LoadingSpinner from '../../components/LoadingSpinner';
+import DataTable from '../../components/database/DataTable';
+import RecordDetailModal from '../../components/database/RecordDetailModal';
+import Pagination from '../../components/database/Pagination';
+import FilterSidebarWithGroups from '../../components/database/FilterSidebarWithGroups';
+import api from '../../utils/api';
+import { CATEGORIES } from '../..//constants/categories';
+import { useCustomReportDetail, useCustomReportRecords } from '../../hooks/useCustomReports';
+import { useTechnicalFilterOptions } from '../../hooks/useDatabase';
 import {
   ArrowLeft,
   FileText,

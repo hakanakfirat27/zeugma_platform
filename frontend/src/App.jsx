@@ -23,29 +23,29 @@ import ClientDashboardLayout from './components/layout/ClientDashboardLayout';
 import WidgetManagement from './pages/dashboards/WidgetManagement';
 
 // User Management Pages
-import UserManagementPage from './pages/UserManagementPage';
-import CreatePasswordPage from './components/CreatePasswordPage';
+import UserManagementPage from './pages/users/UserManagementPage';
+import CreatePasswordPage from './pages/auth/CreatePasswordPage';
 import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
 import ResetPasswordPage from './pages/auth/ResetPasswordPage';
-import VerifyEmailPage from './components/VerifyEmailPage';
-import MyProfilePage from './pages/MyProfilePage';
-import ProfileUpdatePage from './components/ProfileUpdatePage';
-import ProfileSettingsPage from './pages/ProfileSettingsPage';
+import VerifyEmailPage from '././pages/auth/VerifyEmailPage';
+import MyProfilePage from './pages/profile/MyProfilePage';
+import ProfileUpdatePage from './pages/profile/ProfileUpdatePage';
+import ProfileSettingsPage from './pages/profile/ProfileSettingsPage';
 
 import UserActivityDashboard from './components/userActivity/UserActivityDashboard';
-import UserActivityPage from './pages/UserActivityPage';
+import UserActivityPage from './pages/users/UserActivityPage';
 //import TwoFactorSetupModal from './components/TwoFactorSetupModal';
 //import TwoFactorVerificationModal from './components/TwoFactorVerificationModal';
 
 
 // Database-Report Pages
-import SuperdatabasePage from './pages/SuperdatabasePage';
-import UnverifiedSitesPage from './pages/UnverifiedSitesPage';
-import CreateReportPage from './pages/CreateReportPage';
-import CustomReportsPage from './pages/CustomReportsPage';
-import ReportDetailPage from './pages/ReportDetailPage';
-import UnverifiedSiteDetailPage from './pages/UnverifiedSiteDetailPage';
-import UnverifiedSiteEditPage from './pages/UnverifiedSiteEditPage';
+import SuperdatabasePage from './pages/database/SuperdatabasePage';
+import UnverifiedSitesPage from './pages/database/UnverifiedSitesPage';
+import CreateReportPage from './pages/reports/CreateReportPage';
+import CustomReportsPage from './pages/reports/CustomReportsPage';
+import ReportDetailPage from './pages/reports/ReportDetailPage';
+import UnverifiedSiteDetailPage from './pages/database/UnverifiedSiteDetailPage';
+import UnverifiedSiteEditPage from './pages/database/UnverifiedSiteEditPage';
 
 import ClientReportsPage from './pages/client/ClientReportsPage';
 import ClientReportViewPage from './pages/client/ClientReportViewPage';
@@ -70,11 +70,11 @@ import StaffChatPage from './pages/StaffChatPage';
 import ClientChatPage from './pages/client/ClientChatPage';
 
 // Project Management Pages
-import ProjectManagementPage from './pages/ProjectManagementPage';
-import ProjectDetailPage from './pages/ProjectDetailPage';
-import AddSiteToProjectPage from './pages/AddSiteToProjectPage';
-import ViewSitePage from './pages/ViewSitePage'; 
-import EditSitePage from './pages/EditSitePage';   
+import ProjectManagementPage from './pages/projects/ProjectManagementPage';
+import ProjectDetailPage from './pages/projects/ProjectDetailPage';
+import AddSiteToProjectPage from './pages/projects/AddSiteToProjectPage';
+import ViewSitePage from './pages/projects/ViewSitePage'; 
+import EditSitePage from './pages/projects/EditSitePage';   
 
 // Other Pages
 import MyTasksPage from './pages/MyTasksPage';

@@ -5,16 +5,16 @@ import { FileText } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, SlidersHorizontal, Download, Upload, Trash2, Edit, Plus, BarChart3, TrendingUp, Users, X, ArrowLeft } from 'lucide-react';
-import { useRecords, useFilterOptions, useTechnicalFilterOptions } from '../hooks/useDatabase';
-import { CATEGORIES } from '../constants/categories';
-import { useAuth } from '../contexts/AuthContext';
-import DashboardLayout from '../components/layout/DashboardLayout';
-import DataTable from '../components/database/DataTable';
-import RecordDetailModal from '../components/database/RecordDetailModal';
-import Pagination from '../components/database/Pagination';
-import LoadingSpinner from '../components/LoadingSpinner';
-import api from '../utils/api';
-import FilterSidebarWithGroups from '../components/database/FilterSidebarWithGroups';
+import { useRecords, useFilterOptions, useTechnicalFilterOptions } from '../../hooks/useDatabase';
+import { CATEGORIES } from '../../constants/categories';
+import { useAuth } from '../../contexts/AuthContext';
+import DashboardLayout from '../../components/layout/DashboardLayout';
+import DataTable from '../../components/database/DataTable';
+import RecordDetailModal from '../../components/database/RecordDetailModal';
+import Pagination from '../../components/database/Pagination';
+import LoadingSpinner from '../../components/LoadingSpinner';
+import api from '../../utils/api';
+import FilterSidebarWithGroups from '../../components/database/FilterSidebarWithGroups';
 
 const SuperdatabasePage = () => {
   const navigate = useNavigate();

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { CheckCircle, XCircle, Loader2, Sparkles } from 'lucide-react';
-import api from '../utils/api';
+import api from '../../utils/api';
 
 const UsernameInput = ({
   value,

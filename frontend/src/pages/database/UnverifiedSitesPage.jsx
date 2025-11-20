@@ -11,10 +11,10 @@ import {
   Eye, EyeOff, CheckCircle, XCircle, Edit, Trash2, MoreVertical,
   Upload, Download, Filter, Search, RefreshCw, AlertTriangle
 } from 'lucide-react';
-import DashboardLayout from '../components/layout/DashboardLayout';
-import LoadingSpinner from '../components/LoadingSpinner';
-import api from '../utils/api';
-import { CATEGORIES, CATEGORY_COLORS } from '../constants/categories';
+import DashboardLayout from '../../components/layout/DashboardLayout';
+import LoadingSpinner from '../../components/LoadingSpinner';
+import api from '../../utils/api';
+import { CATEGORIES, CATEGORY_COLORS } from '../../constants/categories';
 
 const UnverifiedSitesPage = () => {
   const navigate = useNavigate();

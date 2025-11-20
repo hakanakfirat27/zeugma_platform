@@ -4,9 +4,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import api from '../utils/api';
-import DashboardLayout from '../components/layout/DashboardLayout';
-import NotesTab from '../components/NotesTab';
+import api from '../../utils/api';
+import DashboardLayout from '../../components/layout/DashboardLayout';
+import NotesTab from '../../components/calling/NotesTab';
 import {
   ArrowLeft, Edit2, Building2, Users, Info, MessageSquare,
   CheckCircle, XCircle, AlertCircle, Clock, Calendar, User

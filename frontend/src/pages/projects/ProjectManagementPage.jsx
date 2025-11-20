@@ -4,16 +4,16 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useAuth } from '../contexts/AuthContext';
-import api from '../utils/api';
-import DataCollectorLayout from '../components/layout/DataCollectorLayout';
-import ProjectCardView from '../components/projects/ProjectCardView';
-import ProjectListView from '../components/projects/ProjectListView';
-import CreateProjectModal from '../components/projects/CreateProjectModal';
-import DeleteConfirmationModal from '../components/DeleteConfirmationModal';
-import EditProjectModal from '../components/projects/EditProjectModal';
-import Pagination from '../components/database/Pagination';  // NEW: Import Pagination component
-import { useToast } from '../contexts/ToastContext';
+import { useAuth } from '../../contexts/AuthContext';
+import api from '../../utils/api';
+import DataCollectorLayout from '../../components/layout/DataCollectorLayout';
+import ProjectCardView from '../../components/projects/ProjectCardView';
+import ProjectListView from '../../components/projects/ProjectListView';
+import CreateProjectModal from '../../components/projects/CreateProjectModal';
+import DeleteConfirmationModal from '../../components/modals/DeleteConfirmationModal';
+import EditProjectModal from '../../components/projects/EditProjectModal';
+import Pagination from '../../components/database/Pagination';  // NEW: Import Pagination component
+import { useToast } from '../../contexts/ToastContext';
 import { 
   FolderOpen, Plus, Search, TrendingUp, 
   Clock, CheckCircle, AlertCircle, LayoutGrid, List, X,

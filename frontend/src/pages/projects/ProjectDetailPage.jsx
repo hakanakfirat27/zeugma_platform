@@ -4,17 +4,20 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'; 
-import api from '../utils/api';
-import DataCollectorLayout from '../components/layout/DataCollectorLayout';
-import DeleteConfirmationModal from '../components/DeleteConfirmationModal';
-import { ToastContainer } from '../components/Toast';
-import { useToast } from '../hooks/useToast';
-import QualityScore from '../components/projects/QualityScore';
-import Pagination from '../components/database/Pagination';
+import api from '../../utils/api';
+import DataCollectorLayout from '../../components/layout/DataCollectorLayout';
+import DeleteConfirmationModal from '../../components/modals/DeleteConfirmationModal';
+import { ToastContainer } from '../../components/Toast';
+import { useToast } from '../../hooks/useToast';
+import QualityScore from '../../components/projects/QualityScore';
+import Pagination from '../../components/database/Pagination';
+import BulkImportModal from '../../components/modals/BulkImportModal';
+import BulkExportModal from '../../components/modals/BulkExportModal';
 import {
   ArrowLeft, Plus, Check, X, Send, Clock,
   AlertCircle, CheckCircle, XCircle, RefreshCw, Edit2, Trash2,
-  Building2, Info, ArrowUpDown, ArrowUp, ArrowDown, Search, Filter
+  Building2, Info, ArrowUpDown, ArrowUp, ArrowDown, Search, Filter,
+  Upload, Download
 } from 'lucide-react';
 
 const ProjectDetailPage = () => {
@@ -36,6 +39,9 @@ const ProjectDetailPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [debouncedSearch, setDebouncedSearch] = useState('');
+
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
 
   // Get user from localStorage
   useEffect(() => {
@@ -277,14 +283,35 @@ const ProjectDetailPage = () => {
 
         {/* Header */}
         <div className="mb-6">
-          <button
-            onClick={() => navigate('/projects')}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-          >
-            <ArrowLeft className="w-5 h-5" />
-            Back to Projects
-          </button>
 
+          <div className="flex gap-3">
+            <button
+              onClick={() => navigate('/projects')}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            >
+              <ArrowLeft className="w-5 h-5" />
+              Back to Projects
+            </button>            
+            {/* Import Button */}
+            <button
+              type="button"
+              onClick={() => setShowImportModal(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              <Upload className="w-4 h-4" />
+              Import Sites
+            </button>
+            
+            {/* Export Button */}
+            <button
+              type="button"
+              onClick={() => setShowExportModal(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+            >
+              <Download className="w-4 h-4" />
+              Export Sites
+            </button>
+          </div>
           <div className="flex justify-between items-start mb-4">
             <div>
               <div className="flex gap-4 py-5">
@@ -311,6 +338,7 @@ const ProjectDetailPage = () => {
               Add Site
             </button>
           </div>
+
 
           {/* Project Statistics */}
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mt-6">
@@ -617,6 +645,21 @@ const ProjectDetailPage = () => {
           )}
         </div>
       </div>
+
+      {/* ✨ NEW: Import/Export Modals */}
+      <BulkImportModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        projectId={projectId}
+        projectName={project?.project_name}
+      />
+      
+      <BulkExportModal
+        isOpen={showExportModal}
+        onClose={() => setShowExportModal(false)}
+        projectId={projectId}
+        projectName={project?.project_name}
+      />
 
       {/* Delete Confirmation Modal - Still using modal for safety */}
       {deletingSite && (

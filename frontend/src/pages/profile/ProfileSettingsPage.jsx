@@ -2,18 +2,18 @@
 // MODIFIED: Merged header by removing secondary header and adding props to LayoutComponent
 
 import { useState, useEffect } from 'react';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import {
   User, Mail, Phone, Building, Shield, Key, Save, ArrowLeft,
   CheckCircle, AlertCircle, Eye, EyeOff, Download, Copy, Check,
   Trash2, RefreshCw
 } from 'lucide-react';
-import DashboardLayout from '../components/layout/DashboardLayout';
-import ClientDashboardLayout from '../components/layout/ClientDashboardLayout';
-import DataCollectorLayout from '../components/layout/DataCollectorLayout';
-import EmailTwoFactorSetupModal from '../components/EmailTwoFactorSetupModal';
-import api from '../utils/api';
+import DashboardLayout from '../../components/layout/DashboardLayout';
+import ClientDashboardLayout from '../../components/layout/ClientDashboardLayout';
+import DataCollectorLayout from '../../components/layout/DataCollectorLayout';
+import EmailTwoFactorSetupModal from '../../components/auth/EmailTwoFactorSetupModal';
+import api from '../../utils/api';
 
 const ProfileSettingsPage = () => {
   const { user, checkAuth } = useAuth();

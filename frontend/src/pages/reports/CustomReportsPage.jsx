@@ -3,18 +3,19 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
-import DashboardLayout from '../components/layout/DashboardLayout';
-import LoadingSpinner from '../components/LoadingSpinner';
-import DeleteConfirmationModal from '../components/DeleteConfirmationModal';
-import Pagination from '../components/database/Pagination';
-import { ToastContainer } from '../components/Toast';
-import { useToast } from '../hooks/useToast';
-import api from '../utils/api';
 import {
   Search, X, FileText, Users, Calendar, Plus, Edit, Trash2, Eye,
   Grid, List, ChevronDown, User, Save, CheckCircle2, Database
 } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
+import DashboardLayout from '../../components/layout/DashboardLayout';
+import LoadingSpinner from '../../components/LoadingSpinner';
+import DeleteConfirmationModal from '../../components/modals/DeleteConfirmationModal';
+import Pagination from '../../components/database/Pagination';
+import { ToastContainer } from '../../components/Toast';
+import { useToast } from '../../hooks/useToast';
+import api from '../../utils/api';
+
 
 // Status Badge Component
 const StatusBadge = ({ isActive }) => {
@@ -858,12 +859,6 @@ const CustomReportsPage = () => {
                             onSort={handleSort}
                           />
                           <SortableHeader
-                            label="Records"
-                            field="record_count"
-                            currentSort={{ field: sortField, direction: sortDirection }}
-                            onSort={handleSort}
-                          />
-                          <SortableHeader
                             label="Subscribers"
                             field="subscription_count"
                             currentSort={{ field: sortField, direction: sortDirection }}
@@ -916,16 +911,6 @@ const CustomReportsPage = () => {
                               {/* Status Column */}
                               <td className="px-6 py-4 whitespace-nowrap">
                                 <StatusBadge isActive={report.is_active} />
-                              </td>
-
-                              {/* Records Column */}
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="flex items-center gap-2">
-                                  <FileText className="w-4 h-4 text-blue-500" />
-                                  <span className="text-sm font-semibold text-gray-900">
-                                    {report.record_count.toLocaleString()}
-                                  </span>
-                                </div>
                               </td>
 
                               {/* Subscribers Column */}

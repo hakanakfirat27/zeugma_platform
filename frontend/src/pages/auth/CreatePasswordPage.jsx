@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Lock, CheckCircle, XCircle, Loader2 } from 'lucide-react';
-import PasswordStrengthInput from '../components/PasswordStrengthInput';
-import EmailTwoFactorSetupModal from '../components/EmailTwoFactorSetupModal';
-import api from '../utils/api';
-import { useAuth } from '../contexts/AuthContext';
+import PasswordStrengthInput from '../../components/auth/PasswordStrengthInput';
+import EmailTwoFactorSetupModal from '../../components/auth/EmailTwoFactorSetupModal';
+import api from '../../utils/api';
+import { useAuth } from '../../contexts/AuthContext';
 
 const CreatePasswordPage = () => {
   const { uidb64, token } = useParams();

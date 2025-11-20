@@ -1,14 +1,14 @@
 // frontend/src/pages/MyProfilePage.jsx
 // MODIFIED: Uses the dynamic 'Layout' component instead of hardcoding ClientDashboardLayout
 
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import {
   User, Mail, Phone, Building, Calendar, Shield, Edit, ArrowLeft
 } from 'lucide-react';
-import DashboardLayout from '../components/layout/DashboardLayout';
-import ClientDashboardLayout from '../components/layout/ClientDashboardLayout';
-import DataCollectorLayout from '../components/layout/DataCollectorLayout';
+import DashboardLayout from '../../components/layout/DashboardLayout';
+import ClientDashboardLayout from '../../components/layout/ClientDashboardLayout';
+import DataCollectorLayout from '../../components/layout/DataCollectorLayout';
 
 
 const MyProfilePage = () => {

@@ -4,8 +4,8 @@
 import { useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import DashboardLayout from '../components/layout/DashboardLayout';
-import UserActivityDashboard from '../components/userActivity/UserActivityDashboard';
+import DashboardLayout from '../../components/layout/DashboardLayout';
+import UserActivityDashboard from '../../components/userActivity/UserActivityDashboard';
 
 const UserActivityPage = () => {
   const navigate = useNavigate();

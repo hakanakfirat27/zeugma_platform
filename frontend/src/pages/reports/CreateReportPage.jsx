@@ -3,15 +3,15 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation, useParams } from 'react-router-dom';
-import DashboardLayout from '../components/layout/DashboardLayout';
-import LoadingSpinner from '../components/LoadingSpinner';
-import { ToastContainer } from '../components/Toast';
-import { useToast } from '../hooks/useToast';
-import api from '../utils/api';
-import { useFilterOptions, useTechnicalFilterOptions } from '../hooks/useDatabase';
-import { CATEGORIES } from '../constants/categories';
 import { ArrowLeft, X, Search, ChevronRight, CheckCircle2, Filter, BarChart3, Globe, Layers, SlidersHorizontal } from 'lucide-react';
-import FilterSidebarWithGroups from '../components/database/FilterSidebarWithGroups';
+import DashboardLayout from '../../components/layout/DashboardLayout';
+import LoadingSpinner from '../../components/LoadingSpinner';
+import { ToastContainer } from '../../components/Toast';
+import { useToast } from '../../hooks/useToast';
+import api from '../../utils/api';
+import { useFilterOptions, useTechnicalFilterOptions } from '../../hooks/useDatabase';
+import { CATEGORIES } from '../../constants/categories';
+import FilterSidebarWithGroups from '../../components/database/FilterSidebarWithGroups';
 
 const CreateReportPage = () => {
   const navigate = useNavigate();

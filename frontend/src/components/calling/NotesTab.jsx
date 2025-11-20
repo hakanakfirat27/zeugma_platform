@@ -11,9 +11,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import api from '../utils/api';
-import { useAuth } from '../contexts/AuthContext';
-import DeleteConfirmationModal from './DeleteConfirmationModal';
+import api from '../../utils/api';
+import { useAuth } from '../../contexts/AuthContext';
+import DeleteConfirmationModal from '../modals/DeleteConfirmationModal';
 import { 
   MessageSquare, 
   Send, 

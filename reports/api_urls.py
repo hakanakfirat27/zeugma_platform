@@ -35,6 +35,13 @@ from .field_metadata_view import (
     get_category_fields_api,
 )
 
+from .import_export_views import (
+    download_import_template,
+    export_sites,
+    import_preview,
+    import_confirm,
+)
+
 # Create a router for ViewSets
 router = DefaultRouter()
 router.register(r'widgets', DashboardWidgetViewSet, basename='widget')
@@ -95,7 +102,11 @@ urlpatterns = [
 
     path('', include('reports.calling_urls')),
 
-
+    # Import/Export URLs
+    path('import-export/template/', download_import_template, name='download-import-template'),
+    path('import-export/export/', export_sites, name='export-sites'),
+    path('import-export/preview/', import_preview, name='import-preview'),
+    path('import-export/confirm/', import_confirm, name='import-confirm'),
 
 ]
 

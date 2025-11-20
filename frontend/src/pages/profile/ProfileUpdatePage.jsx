@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { User, Building, Phone, CheckCircle, Loader2 } from 'lucide-react';
-import EmailTwoFactorSetupModal from '../components/EmailTwoFactorSetupModal';
-import api from '../utils/api';
-import { useAuth } from '../contexts/AuthContext';
+import EmailTwoFactorSetupModal from '../../components/auth/EmailTwoFactorSetupModal';
+import api from '../../utils/api';
+import { useAuth } from '../../contexts/AuthContext';
 
 const ProfileUpdatePage = () => {
   const location = useLocation();

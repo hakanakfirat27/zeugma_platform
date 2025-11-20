@@ -1,5 +1,5 @@
 // frontend/src/components/calling/FieldWithConfirmation.jsx
-// ✅ SIMPLE VERSION - No cloneElement, just render children and checkboxes
+// ✅ UPDATED - Always show confirmations for checkbox fields
 
 import React from 'react';
 import { CheckCircle, PlusCircle, FileText } from 'lucide-react';
@@ -8,6 +8,7 @@ const FieldWithConfirmation = ({
   children, 
   fieldName, 
   fieldValue,
+  fieldType,  // ← NEW: Need to know if it's a checkbox
   confirmation = {},
   onToggleConfirmation,
   readOnly = false,
@@ -15,6 +16,10 @@ const FieldWithConfirmation = ({
 }) => {
   
   const hasValue = fieldValue && fieldValue.toString().trim() !== '';
+  
+  // ✅ NEW: For checkboxes, always show confirmations (even when unchecked)
+  // For other fields, only show when there's a value
+  const shouldShowConfirmations = fieldType === 'checkbox' ? true : hasValue;
   
   if (!showConfirmations) {
     return children;
@@ -26,7 +31,7 @@ const FieldWithConfirmation = ({
       {children}
       
       {/* Confirmation Checkboxes - shown below the field */}
-      {hasValue && (
+      {shouldShowConfirmations && (
         <div className="mt-1 flex flex-wrap gap-3 text-xs">
           {/* Pre-filled Checkbox */}
           <label className="flex items-center gap-1 cursor-pointer">
@@ -68,13 +73,6 @@ const FieldWithConfirmation = ({
           </label>
         </div>
       )}
-      
-      {/* No value indicator when confirmations are shown 
-      {!hasValue && showConfirmations && (
-        <div className="mt-1 text-xs text-gray-400">
-          No value to confirm
-        </div>
-      )}*/}
     </div>
   );
 };

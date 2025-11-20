@@ -5,16 +5,16 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { ArrowLeft, Save, X, Building2, Users, Info, MessageSquare, Phone, CheckCircle, PlusCircle, FileText } from 'lucide-react';
-import useToast from '../hooks/useToast';
-import { ToastContainer } from '../components/Toast';
-import api from '../utils/api';
-import DataCollectorLayout from '../components/layout/DataCollectorLayout';
-import { CATEGORIES } from '../constants/categories';
-import CountrySelector from '../components/form/CountrySelector';
-import NotesTab from '../components/NotesTab';
-import CancelConfirmationModal from '../components/CancelConfirmationModal';
-import FieldWithConfirmation from '../components/calling/FieldWithConfirmation';
-import { useFieldConfirmations } from '../hooks/useFieldConfirmations';
+import useToast from '../../hooks/useToast';
+import { ToastContainer } from '../../components/Toast';
+import api from '../../utils/api';
+import DataCollectorLayout from '../../components/layout/DataCollectorLayout';
+import { CATEGORIES } from '../../constants/categories';
+import CountrySelector from '../../components/form/CountrySelector';
+import NotesTab from '../../components/calling/NotesTab';
+import CancelConfirmationModal from '../../components/modals/CancelConfirmationModal';
+import FieldWithConfirmation from '../../components/calling/FieldWithConfirmation';
+import { useFieldConfirmations } from '../../hooks/useFieldConfirmations';
 
 const AddSiteToProjectPage = () => {
   const { projectId } = useParams();

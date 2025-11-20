@@ -3,18 +3,18 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import api from '../utils/api';
-import DataCollectorLayout from '../components/layout/DataCollectorLayout';
-import NotesTab from '../components/NotesTab';
-import CallingStatusSelector from '../components/calling/CallingStatusSelector';
-import CallTimeline from '../components/calling/CallTimeline';
-import FieldWithConfirmation from '../components/calling/FieldWithConfirmation';
-import { useFieldConfirmations } from '../hooks/useFieldConfirmations';
-import { ToastContainer } from '../components/Toast';  
-import { useToast } from '../hooks/useToast'; 
-import StatusHistory from '../components/calling/StatusHistory';
-import StatusHistoryModal from '../components/calling/StatusHistoryModal';
-import { getFieldConfirmationStyle } from '../utils/fieldStyles';
+import api from '../../utils/api';
+import DataCollectorLayout from '../../components/layout/DataCollectorLayout';
+import NotesTab from '../../components/calling/NotesTab';
+import CallingStatusSelector from '../../components/calling/CallingStatusSelector';
+import CallTimeline from '../../components/calling/CallTimeline';
+import FieldWithConfirmation from '../../components/calling/FieldWithConfirmation';
+import { useFieldConfirmations } from '../../hooks/useFieldConfirmations';
+import { ToastContainer } from '../../components/Toast';  
+import { useToast } from '../../hooks/useToast'; 
+import StatusHistory from '../../components/calling/StatusHistory';
+import StatusHistoryModal from '../../components/calling/StatusHistoryModal';
+import { getFieldConfirmationStyle } from '../../utils/fieldStyles';
 import {
   ArrowLeft, Edit2, Building2, Users, Info, MessageSquare, Phone,
   CheckCircle, XCircle, CheckCircle as CheckIcon, PlusCircle, FileText, History
@@ -360,15 +360,28 @@ const DisplayField = ({
 }) => {
   const renderValue = () => {
     if (fieldType === 'checkbox') {
-      return value === true ? (
-        <span className="text-green-600 flex items-center gap-2">
-          <CheckCircle className="w-4 h-4" /> Yes
-        </span>
-      ) : value === false ? (
-        <span className="text-red-600 flex items-center gap-2">
-          <XCircle className="w-4 h-4" /> No
-        </span>
-      ) : '-';
+      if (value === true) {
+        // Always show "Yes" for checked boxes
+        return (
+          <span className="text-green-600 flex items-center gap-2">
+            <CheckCircle className="w-4 h-4" /> Yes
+          </span>
+        );
+      } else if (value === false) {
+        // For unchecked boxes, only show "No" if it's been confirmed
+        // This distinguishes between "confirmed they don't produce it" vs "unknown"
+        if (confirmation?.is_confirmed || confirmation?.is_new_data) {
+          return (
+            <span className="text-red-600 flex items-center gap-2">
+              <XCircle className="w-4 h-4" /> No
+            </span>
+          );
+        }
+        // Not confirmed - unknown state, show blank
+        return '-';
+      }
+      // Null/undefined - show blank
+      return '-';
     }
     return value || '-';
   };
@@ -382,6 +395,7 @@ const DisplayField = ({
     <FieldWithConfirmation
       fieldName={fieldName}
       fieldValue={value}
+      fieldType={fieldType}  // ← NEW: Pass the field type
       confirmation={confirmation}
       onToggleConfirmation={() => {}} // Read-only, no toggle
       readOnly={true}
