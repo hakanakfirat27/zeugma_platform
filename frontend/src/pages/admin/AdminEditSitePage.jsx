@@ -1,6 +1,4 @@
-// frontend/src/pages/database/UnverifiedSiteEditPage.jsx
-// Standalone page for editing unverified site details (ADMIN SIDE)
-// Uses DashboardLayout for admin interface
+// frontend/src/pages/admin/AdminEditSitePage.jsx
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -26,8 +24,8 @@ import {
   CheckCircle, PlusCircle, FileText, History  
 } from 'lucide-react';
 
-const UnverifiedSiteEditPage = () => {
-  const { siteId } = useParams();
+const AdminEditSitePage = () => {
+  const { projectId, siteId } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { toasts, removeToast, success, error: showError } = useToast();
@@ -50,7 +48,7 @@ const UnverifiedSiteEditPage = () => {
     isLoading: confirmationsLoading,
     handleToggleConfirmation,
     autoMarkPreFilled,
-    autoMarkFieldsOnLoad,
+    autoMarkFieldsOnLoad,  // ← NEW: Function to mark all pre-filled fields on load
     handleSaveAll: saveConfirmations,
     isSaving: isSavingConfirmations,
   } = useFieldConfirmations(siteId);
@@ -60,7 +58,7 @@ const UnverifiedSiteEditPage = () => {
 
   const [showHistoryModal, setShowHistoryModal] = useState(false);
 
-  // Track if we've already auto-marked fields on load
+  // ✅ NEW: Track if we've already auto-marked fields on load
   const [hasAutoMarkedOnLoad, setHasAutoMarkedOnLoad] = useState(false);
 
   const handleEmailSent = (details) => {
@@ -73,21 +71,17 @@ const UnverifiedSiteEditPage = () => {
   const fetchData = async () => {
     try {
       setIsLoadingData(true);
-      
-      // Fetch the unverified site data
-      const siteResponse = await api.get(`/api/unverified-sites/${siteId}/`);
-      
-      // Fetch field metadata using the category from site data
+      const siteResponse = await api.get(`/api/projects/sites/${siteId}/`);
       const metadataResponse = await api.get(`/api/fields/metadata/${siteResponse.data.category}/`);
-
+      
       setFormData(siteResponse.data);
       setOriginalCompanyName(siteResponse.data.company_name);
       setCallsCount(siteResponse.data.total_calls || 0);
       setFieldMetadata(metadataResponse.data);
     } catch (error) {
       console.error('Error loading data:', error);
-      showError('Failed to load site data. Returning to unverified sites list.');
-      setTimeout(() => navigate('/unverified-sites'), 2000);
+      showError('Failed to load site data. Returning to project details.');
+      setTimeout(() => navigate(`/admin/projects/${projectId}`), 2000);
     } finally {
       setIsLoadingData(false);
     }
@@ -95,16 +89,38 @@ const UnverifiedSiteEditPage = () => {
 
   useEffect(() => {
     fetchData();
-  }, [siteId, navigate, showError]);
+  }, [siteId, projectId, navigate, showError]);
 
-  // Fetch notes count for badge
+  // Fetch notes count for badge - FILTER OUT VERIFICATION NOTES
   useEffect(() => {
     const fetchNotesCount = async () => {
       if (!siteId) return;
       
       try {
         const response = await api.get(`/api/sites/${siteId}/notes/`);
-        setNotesCount(response.data.length);
+        
+        // Filter out verification notes - only count regular notes
+        const regularNotes = (response.data || []).filter(note => {
+          const text = note.note_text.toLowerCase();
+          const hasVerificationPrefix = note.note_text.startsWith('[VERIFICATION]');
+          const isMarkedAsVerification = note.is_verification_note === true;
+          const hasVerificationKeywords = 
+            text.includes('[verification]') ||
+            text.includes('needs revision') ||
+            text.includes('sent for revision') ||
+            text.includes('marked for revision') ||
+            text.includes('requires revision') ||
+            text.includes('revision needed') ||
+            text.includes('please revise') ||
+            text.includes('verification:') ||
+            text.includes('rejected because') ||
+            text.includes('approved with') ||
+            text.includes('under review');
+          
+          return !hasVerificationPrefix && !isMarkedAsVerification && !hasVerificationKeywords;
+        });
+        
+        setNotesCount(regularNotes.length);
       } catch (error) {
         console.error('Failed to fetch notes count:', error);
       }
@@ -113,10 +129,10 @@ const UnverifiedSiteEditPage = () => {
     fetchNotesCount();
   }, [siteId]);
 
-  // Function to refetch site data and update counts
+  // ✅ NEW: Function to refetch site data and update counts
   const refetchSiteData = async () => {
     try {
-      const response = await api.get(`/api/unverified-sites/${siteId}/`);
+      const response = await api.get(`/api/projects/sites/${siteId}/`);
       setFormData(response.data);
       setCallsCount(response.data.total_calls || 0);
     } catch (error) {
@@ -124,7 +140,7 @@ const UnverifiedSiteEditPage = () => {
     }
   };
 
-  // Auto-mark pre-filled fields once data and confirmations are loaded
+  // ✅ NEW: Auto-mark pre-filled fields once data and confirmations are loaded
   useEffect(() => {
     if (
       !isLoadingData && 
@@ -169,22 +185,62 @@ const UnverifiedSiteEditPage = () => {
     autoMarkFieldsOnLoad
   ]);
 
+  // Validate required fields
+  const validateRequiredFields = () => {
+    const newErrors = {};
+    
+    // Check company_name (required)
+    if (!formData.company_name || formData.company_name.trim() === '') {
+      newErrors.company_name = 'Company name is required';
+    }
+    
+    // Check country (required)
+    if (!formData.country || formData.country.trim() === '') {
+      newErrors.country = 'Country is required';
+    }
+    
+    // Check for any other required fields in metadata
+    if (fieldMetadata) {
+      fieldMetadata.common_fields?.forEach(field => {
+        if (field.required && (!formData[field.name] || formData[field.name].toString().trim() === '')) {
+          newErrors[field.name] = `${field.label} is required`;
+        }
+      });
+    }
+    
+    return newErrors;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // Validate required fields before submitting
+    const validationErrors = validateRequiredFields();
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
+      showError('Please fill in all required fields');
+      // Switch to core tab if there are errors there
+      if (validationErrors.company_name || validationErrors.country) {
+        setActiveTab('core');
+      }
+      return;
+    }
+
     setIsSubmitting(true);
     setErrors({});
 
     try {
-      await api.put(`/api/unverified-sites/${siteId}/update/`, formData);
+      await api.patch(`/api/sites/${siteId}/`, formData);
       
       // Invalidate queries to refresh data
-      queryClient.invalidateQueries(['unverified-sites']);
+      queryClient.invalidateQueries(['project-sites', projectId]);
+      queryClient.invalidateQueries(['project', projectId]);
       
       success('Site updated successfully!');
       
-      // Navigate back to detail page after short delay
+      // Navigate back to project details after short delay
       setTimeout(() => {
-        navigate(`/unverified-sites/${siteId}`);
+        navigate(`/admin/projects/${projectId}`);
       }, 1500);
     } catch (error) {
       if (error.response?.data) {
@@ -232,30 +288,30 @@ const UnverifiedSiteEditPage = () => {
       });
     }
   
-    // Auto-mark logic: Check if field now has value and needs marking
-    const valueIsNotEmpty = value && value.toString().trim() !== '';
-    
-    if (valueIsNotEmpty) {
-      // Small delay to let React state settle, then check and mark if needed
-      setTimeout(() => {
-        const currentConfirmation = confirmations[fieldName];
-        
-        // Only auto-mark if field has NO confirmation markers at all
-        const hasNoMarkers = !currentConfirmation || (
-          !currentConfirmation.is_confirmed &&
-          !currentConfirmation.is_new_data &&
-          !currentConfirmation.is_pre_filled
-        );
-        
-        if (hasNoMarkers) {
-          console.log(`✅ Auto-marking field "${fieldName}" as pre-filled`);
-          autoMarkPreFilled(fieldName);
-        } else {
-          console.log(`⏭️ Field "${fieldName}" already has markers, skipping auto-mark`);
-        }
-      }, 150);
-    }
-  };
+  // ✅ NEW AUTO-MARK LOGIC: Check if field now has value and needs marking
+  const valueIsNotEmpty = value && value.toString().trim() !== '';
+  
+  if (valueIsNotEmpty) {
+    // Small delay to let React state settle, then check and mark if needed
+    setTimeout(() => {
+      const currentConfirmation = confirmations[fieldName];
+      
+      // Only auto-mark if field has NO confirmation markers at all
+      const hasNoMarkers = !currentConfirmation || (
+        !currentConfirmation.is_confirmed &&
+        !currentConfirmation.is_new_data &&
+        !currentConfirmation.is_pre_filled
+      );
+      
+      if (hasNoMarkers) {
+        console.log(`✅ Auto-marking field "${fieldName}" as pre-filled`);
+        autoMarkPreFilled(fieldName);
+      } else {
+        console.log(`⏭️ Field "${fieldName}" already has markers, skipping auto-mark`);
+      }
+    }, 150);
+  }
+};
 
   const handleCancel = () => {
     setShowCancelModal(true);
@@ -263,7 +319,7 @@ const UnverifiedSiteEditPage = () => {
 
   const handleConfirmCancel = () => {
     setShowCancelModal(false);
-    navigate(`/unverified-sites`);
+    navigate(`/admin/projects/${projectId}`);
   };
 
   if (isLoadingData) {
@@ -271,7 +327,7 @@ const UnverifiedSiteEditPage = () => {
       <DashboardLayout pageTitle="Loading...">
         <div className="flex items-center justify-center h-screen">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
             <p className="text-center mt-4 text-gray-600">Loading site data...</p>
           </div>
         </div>
@@ -287,7 +343,7 @@ const UnverifiedSiteEditPage = () => {
         <div className="mb-6 flex justify-between items-center">
           <button
             onClick={handleCancel}
-            className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
           >
             <ArrowLeft className="w-5 h-5" />
             Cancel & Go Back
@@ -309,15 +365,15 @@ const UnverifiedSiteEditPage = () => {
           <div className="bg-white border-b border-gray-200 px-6 py-4">
             <div className="flex items-start justify-between">
               <div>
-                <h2 className="text-2xl font-bold text-indigo-900">Edit Site: {originalCompanyName}</h2>
+                <h2 className="text-2xl font-bold text-gray-900">Edit Site: {originalCompanyName}</h2>
                 <p className="text-sm text-gray-600 mt-1">Make changes to the site information below</p>
               </div>
               
               {/* Field Confirmations Section */}
               <div className="ml-6">
-                <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-3 min-w-[300px]">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 min-w-[300px]">
                   <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-sm font-semibold text-indigo-900">
+                    <h3 className="text-sm font-semibold text-blue-900">
                       Field Confirmations
                     </h3>
                     <label className="flex items-center gap-2 cursor-pointer">
@@ -325,9 +381,9 @@ const UnverifiedSiteEditPage = () => {
                         type="checkbox"
                         checked={showConfirmations}
                         onChange={(e) => setShowConfirmations(e.target.checked)}
-                        className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500"
+                        className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
                       />
-                      <span className="text-xs font-medium text-indigo-900">
+                      <span className="text-xs font-medium text-blue-900">
                         Show
                       </span>
                     </label>
@@ -353,7 +409,7 @@ const UnverifiedSiteEditPage = () => {
                         ✓ Auto-saves on change
                       </p>
                       {isSavingConfirmations && (
-                        <p className="text-xs text-indigo-600 italic">
+                        <p className="text-xs text-blue-600 italic">
                           💾 Saving confirmations...
                         </p>
                       )}
@@ -381,17 +437,17 @@ const UnverifiedSiteEditPage = () => {
                   onClick={() => setActiveTab('core')}
                   className={`px-6 py-3 font-medium transition-colors flex items-center gap-2 ${
                     activeTab === 'core'
-                      ? 'border-b-2 border-indigo-600 text-indigo-600'
+                      ? 'border-b-2 border-blue-600 text-blue-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700'
                   }`}
                 >
                   <Building2 className="w-4 h-4" />
                   Core Information
-                  {getTabErrorCount('core') > 0 && (
-                    <span className="ml-2 inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold text-white bg-red-500 rounded-full">
-                      {getTabErrorCount('core')}
-                    </span>
-                  )}                  
+                {getTabErrorCount('core') > 0 && (
+                  <span className="ml-2 inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold text-white bg-red-500 rounded-full">
+                    {getTabErrorCount('core')}
+                  </span>
+                )}                  
                 </button>
 
                 {/* Contact Persons Tab */}
@@ -400,7 +456,7 @@ const UnverifiedSiteEditPage = () => {
                   onClick={() => setActiveTab('contacts')}
                   className={`px-6 py-3 font-medium transition-colors flex items-center gap-2 ${
                     activeTab === 'contacts'
-                      ? 'border-b-2 border-indigo-600 text-indigo-600'
+                      ? 'border-b-2 border-blue-600 text-blue-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700'
                   }`}
                 >
@@ -414,7 +470,7 @@ const UnverifiedSiteEditPage = () => {
                   onClick={() => setActiveTab('category')}
                   className={`px-6 py-3 font-medium transition-colors flex items-center gap-2 ${
                     activeTab === 'category'
-                      ? 'border-b-2 border-indigo-600 text-indigo-600'
+                      ? 'border-b-2 border-blue-600 text-blue-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700'
                   }`}
                 >
@@ -428,14 +484,14 @@ const UnverifiedSiteEditPage = () => {
                   onClick={() => setActiveTab('calling')}
                   className={`px-6 py-3 font-medium transition-colors flex items-center gap-2 ${
                     activeTab === 'calling'
-                      ? 'border-b-2 border-indigo-600 text-indigo-600'
+                      ? 'border-b-2 border-blue-600 text-blue-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700'
                   }`}
                 >
                   <Phone className="w-4 h-4" />
                   Calling Workflow
                   {callsCount > 0 && (
-                    <span className="ml-1 px-2 py-0.5 text-xs font-semibold bg-indigo-600 text-white rounded-full">
+                    <span className="ml-1 px-2 py-0.5 text-xs font-semibold bg-blue-600 text-white rounded-full">
                       {callsCount}
                     </span>
                   )}
@@ -447,14 +503,14 @@ const UnverifiedSiteEditPage = () => {
                   onClick={() => setActiveTab('notes')}
                   className={`px-6 py-3 font-medium transition-colors flex items-center gap-2 ${
                     activeTab === 'notes'
-                      ? 'border-b-2 border-indigo-600 text-indigo-600'
+                      ? 'border-b-2 border-blue-600 text-blue-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700'
                   }`}
                 >
                   <MessageSquare className="w-4 h-4" />
                   Notes
                   {notesCount > 0 && (
-                    <span className="ml-1 px-2 py-0.5 text-xs font-semibold bg-indigo-600 text-white rounded-full">
+                    <span className="ml-1 px-2 py-0.5 text-xs font-semibold bg-blue-600 text-white rounded-full">
                       {notesCount}
                     </span>
                   )}
@@ -477,7 +533,7 @@ const UnverifiedSiteEditPage = () => {
                       <button
                         type="button"
                         onClick={() => setShowHistoryModal(true)}
-                        className="flex items-center gap-2 px-4 py-2 bg-indigo-100 text-indigo-700 border border-indigo-300 rounded-lg hover:bg-indigo-200 transition-colors"
+                        className="flex items-center gap-2 px-4 py-2 bg-blue-100 text-blue-700 border border-blue-300 rounded-lg hover:bg-blue-200 transition-colors"
                       >
                         <History className="w-4 h-4" />
                         Status Change History
@@ -516,6 +572,7 @@ const UnverifiedSiteEditPage = () => {
                   onNotesCountChange={setNotesCount}
                   toastSuccess={success}
                   toastError={showError}
+               
                 />
               ) : (
                 <EditTabContent
@@ -627,7 +684,7 @@ const EditTabContent = ({
       <div className="space-y-8">
         {groupedContacts.map((group, index) =>
           group.length > 0 && (
-            <div key={index} className="border-l-4 border-indigo-500 pl-6">
+            <div key={index} className="border-l-4 border-blue-500 pl-6">
               <h4 className="text-md font-semibold text-gray-800 mb-4">
                 Contact {index + 1}
               </h4>
@@ -690,7 +747,7 @@ const FormField = ({
 }) => {
   const { name, label, type, required } = fieldMeta;
 
-  // Calculate styles directly from confirmation data
+  // ✅ Calculate styles directly from confirmation data
   const hasValue = value && value.toString().trim() !== '';
   const confirmation = confirmations[name] || {};
   const fieldStyle = getFieldConfirmationStyle(confirmation, hasValue);
@@ -698,20 +755,24 @@ const FormField = ({
   const renderField = () => {
     if (name === 'country' || label.toLowerCase() === 'country') {
       return (
-        <div className={fullWidth ? "md:col-span-2 py-3" : ""}>
-          <div 
-            className="p-3 rounded-lg"
-            style={fieldStyle}
-          >
-            <CountrySelector
-              value={value || ''}
-              onChange={(countryName) => onChange(name, countryName)}
-              error={error}
-              required={required}
-              label={label}
-            />
+        <>
+          <div className={fullWidth ? "md:col-span-2 py-3" : ""}>
+            {/* ✅ ADD THIS WRAPPER */}
+            <div 
+              className="p-3 rounded-lg"
+              style={fieldStyle}
+            >
+              <CountrySelector
+                value={value || ''}
+                onChange={(countryName) => onChange(name, countryName)}
+                error={error}
+                required={required}
+                label={label}
+              />
+            </div>
+            {/* ✅ END WRAPPER */}
           </div>
-        </div>
+        </>
       );
     }
 
@@ -742,7 +803,7 @@ const FormField = ({
               id={name}
               checked={value || false}
               onChange={(e) => onChange(name, e.target.checked)}
-              className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
             />
             <label htmlFor={name} className="ml-2 block text-sm text-gray-900">
               {label}
@@ -772,7 +833,7 @@ const FormField = ({
             value={value || ''}
             onChange={(e) => onChange(name, e.target.value)}
             rows={3}
-            className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${
+            className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
               error ? 'border-red-500' : 'border-gray-300'
             }`}
             style={fieldStyle}
@@ -794,7 +855,7 @@ const FormField = ({
           id={name}
           value={value || ''}
           onChange={(e) => onChange(name, e.target.value)}
-          className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${
+          className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
             error ? 'border-red-500' : 'border-gray-300'
           }`}
           style={fieldStyle}
@@ -809,7 +870,7 @@ const FormField = ({
       <FieldWithConfirmation
         fieldName={name}
         fieldValue={value}
-        fieldType={type}
+        fieldType={type}  // ← NEW: Pass the field type so checkbox confirmations always show
         confirmation={confirmation}
         onToggleConfirmation={handleToggleConfirmation}
         readOnly={false}
@@ -823,4 +884,4 @@ const FormField = ({
   );
 };
 
-export default UnverifiedSiteEditPage;
+export default AdminEditSitePage;

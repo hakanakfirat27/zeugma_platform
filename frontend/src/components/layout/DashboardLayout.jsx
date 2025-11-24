@@ -1,15 +1,16 @@
+// frontend/src/components/layout/DashboardLayout.jsx
+
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
+import useChatUnreadCount from '../../hooks/useChatUnreadCount';
 import {
   LayoutDashboard, Database, FileText, CreditCard, Users, Settings, MessageSquare, Bell,
   LogOut, ChevronDown, Menu, X, User, Maximize, Minimize, Calendar, MapPin, Phone, Mail,
   Building, Shield, CheckCircle, Clock, TrendingUp, Activity, RefreshCw, Search, Filter,
-  FolderOpen, AlertCircle, ChevronRight, ArrowRight, Check, Trash2, CheckCheck
+  FolderOpen, AlertCircle, ChevronRight, ArrowRight, Check, Trash2, CheckCheck, FolderKanban 
 } from 'lucide-react';
-import useChatUnreadCount from '../../hooks/useChatUnreadCount';
-
 
 const DashboardLayout = ({ children, pageTitle, headerActions, pageSubtitleTop, pageSubtitleBottom }) => {
   const { user, logout } = useAuth();
@@ -38,88 +39,19 @@ const DashboardLayout = ({ children, pageTitle, headerActions, pageSubtitleTop, 
   const avatarMenuRef = useRef(null);
 
   // navLinks array with 'color' properties
-  // Dashboard - different paths for different roles
 const navLinks = [
-  { 
-    name: 'Dashboard', 
-    path: '/staff-dashboard',
-    icon: LayoutDashboard, 
-    roles: ['SUPERADMIN', 'STAFF_ADMIN'], 
-    color: 'text-blue-500',
-  },
-  
-  { 
-    name: 'Superdatabase', 
-    path: '/superdatabase', 
-    icon: Database, 
-    roles: ['SUPERADMIN', 'STAFF_ADMIN'],  // Only admin roles
-    color: 'text-teal-500' 
-  },
-  
-  { 
-    name: 'Unverified Sites', 
-    path: '/unverified-sites', 
-    icon: Database, 
-    roles: ['SUPERADMIN', 'STAFF_ADMIN'],  // Only admin roles
-    color: 'text-teal-500' 
-  },
-  
-  { 
-    name: 'All Projects',
-    path: '/projects', 
-    icon: FolderOpen,
-    roles: ['SUPERADMIN', 'STAFF_ADMIN'],
-    color: 'text-teal-500' 
-  },
-  
-  { 
-    name: 'Review Queue',
-    path: '/my-tasks', 
-    icon: AlertCircle,
-    roles: ['SUPERADMIN', 'STAFF_ADMIN'],
-    color: 'text-orange-500' 
-  },
-  
-  { 
-    name: 'Custom Reports', 
-    path: '/custom-reports', 
-    icon: FileText, 
-    roles: ['SUPERADMIN', 'STAFF_ADMIN'],  // Only admin roles
-    color: 'text-purple-500' 
-  },
-  
-  { 
-    name: 'Subscriptions', 
-    path: '/subscriptions', 
-    icon: CreditCard, 
-    roles: ['SUPERADMIN', 'STAFF_ADMIN'],  // Only admin roles
-    color: 'text-green-500' 
-  },
-  
-  { 
-    name: 'User Management', 
-    path: '/user-management', 
-    icon: Users, 
-    roles: ['SUPERADMIN'],  // Only superadmin
-    color: 'text-red-500' 
-  },
-  
-  { 
-    name: 'Announcements', 
-    path: '/announcements-management', 
-    icon: Bell, 
-    roles: ['SUPERADMIN', 'STAFF_ADMIN'],  // Only admin roles
-    color: 'text-red-500' 
-  },
-  
-  { 
-    name: 'Chat', 
-    path: '/staff-chat', 
-    icon: MessageSquare, 
-    roles: ['SUPERADMIN', 'STAFF_ADMIN'],  // Only admin roles
-    color: 'text-orange-500' 
-  },
+  { name: 'Dashboard', path: '/staff-dashboard', icon: LayoutDashboard, roles: ['SUPERADMIN', 'STAFF_ADMIN'], color: 'text-blue-500',},
+  { name: 'Superdatabase', path: '/superdatabase', icon: Database, roles: ['SUPERADMIN', 'STAFF_ADMIN'], color: 'text-teal-500' },  
+  { name: 'Unverified Sites', path: '/unverified-sites', icon: Database, roles: ['SUPERADMIN', 'STAFF_ADMIN'], color: 'text-teal-500' },
+  { name: 'All Projects', path: '/admin/projects', icon: FolderKanban, roles: ['SUPERADMIN', 'STAFF_ADMIN'], color: 'text-indigo-500' },
+  { name: 'Review Queue', path: '/my-tasks', icon: AlertCircle, roles: ['SUPERADMIN', 'STAFF_ADMIN'], color: 'text-orange-500' },
+  { name: 'Custom Reports', path: '/custom-reports', icon: FileText, roles: ['SUPERADMIN', 'STAFF_ADMIN'], color: 'text-purple-500' },
+  { name: 'Subscriptions', path: '/subscriptions', icon: CreditCard, roles: ['SUPERADMIN', 'STAFF_ADMIN'], color: 'text-green-500' },
+  { name: 'User Management', path: '/user-management', icon: Users, roles: ['SUPERADMIN'], color: 'text-red-500' },
+  { name: 'Announcements', path: '/announcements-management', icon: Bell, roles: ['SUPERADMIN', 'STAFF_ADMIN'], color: 'text-red-500' },
+  { name: 'Chat', path: '/staff-chat', icon: MessageSquare, roles: ['SUPERADMIN', 'STAFF_ADMIN'], color: 'text-orange-500' },
 ];
+
   // Links for the avatar dropdown menu
   const dropdownLinks = [
     { name: 'My Profile', path: '/my-profile', icon: User, color: 'text-blue-600', bg: 'bg-blue-50', description: 'View your public profile' },

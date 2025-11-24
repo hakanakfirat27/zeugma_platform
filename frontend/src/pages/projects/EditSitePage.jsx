@@ -91,14 +91,36 @@ const EditSitePage = () => {
     fetchData();
   }, [siteId, projectId, navigate, showError]);
 
-  // Fetch notes count for badge
+  // Fetch notes count for badge - FILTER OUT VERIFICATION NOTES
   useEffect(() => {
     const fetchNotesCount = async () => {
       if (!siteId) return;
       
       try {
         const response = await api.get(`/api/sites/${siteId}/notes/`);
-        setNotesCount(response.data.length);
+        
+        // Filter out verification notes - only count regular notes
+        const regularNotes = (response.data || []).filter(note => {
+          const text = note.note_text.toLowerCase();
+          const hasVerificationPrefix = note.note_text.startsWith('[VERIFICATION]');
+          const isMarkedAsVerification = note.is_verification_note === true;
+          const hasVerificationKeywords = 
+            text.includes('[verification]') ||
+            text.includes('needs revision') ||
+            text.includes('sent for revision') ||
+            text.includes('marked for revision') ||
+            text.includes('requires revision') ||
+            text.includes('revision needed') ||
+            text.includes('please revise') ||
+            text.includes('verification:') ||
+            text.includes('rejected because') ||
+            text.includes('approved with') ||
+            text.includes('under review');
+          
+          return !hasVerificationPrefix && !isMarkedAsVerification && !hasVerificationKeywords;
+        });
+        
+        setNotesCount(regularNotes.length);
       } catch (error) {
         console.error('Failed to fetch notes count:', error);
       }
@@ -163,14 +185,52 @@ const EditSitePage = () => {
     autoMarkFieldsOnLoad
   ]);
 
+  // Validate required fields
+  const validateRequiredFields = () => {
+    const newErrors = {};
+    
+    // Check company_name (required)
+    if (!formData.company_name || formData.company_name.trim() === '') {
+      newErrors.company_name = 'Company name is required';
+    }
+    
+    // Check country (required)
+    if (!formData.country || formData.country.trim() === '') {
+      newErrors.country = 'Country is required';
+    }
+    
+    // Check for any other required fields in metadata
+    if (fieldMetadata) {
+      fieldMetadata.common_fields?.forEach(field => {
+        if (field.required && (!formData[field.name] || formData[field.name].toString().trim() === '')) {
+          newErrors[field.name] = `${field.label} is required`;
+        }
+      });
+    }
+    
+    return newErrors;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // Validate required fields before submitting
+    const validationErrors = validateRequiredFields();
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
+      showError('Please fill in all required fields');
+      // Switch to core tab if there are errors there
+      if (validationErrors.company_name || validationErrors.country) {
+        setActiveTab('core');
+      }
+      return;
+    }
 
     setIsSubmitting(true);
     setErrors({});
 
     try {
-      await api.put(`/api/projects/sites/${siteId}/update/`, formData);
+      await api.patch(`/api/sites/${siteId}/`, formData);
       
       // Invalidate queries to refresh data
       queryClient.invalidateQueries(['project-sites', projectId]);
@@ -712,7 +772,6 @@ const FormField = ({
             </div>
             {/* ✅ END WRAPPER */}
           </div>
-          {showDivider && <hr className="my-0 h-px border-t-0 bg-gray-200" />}
         </>
       );
     }
@@ -734,79 +793,46 @@ const FormField = ({
       const displayPreview = getDisplayPreview();
 
       return (
-        <>
-          <div className="py-2">
-            <div 
-              className="flex items-center py-4 px-3 rounded-lg"
-              style={fieldStyle}  
-            >  
-              <input
-                type="checkbox"
-                id={name}
-                checked={value || false}
-                onChange={(e) => onChange(name, e.target.checked)}
-                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-              />
-              {/* ✅ Label NOT colored */}
-              <label htmlFor={name} className="ml-2 block text-sm text-gray-900">
-                {label}
-              </label>
-            </div>
-            
-            {/* ✅ NEW: Display Preview - Shows what will appear in View mode */}
-            <div className="mt-2 ml-7 flex items-center gap-2">
-              <span className="text-xs text-gray-500">View mode preview:</span>
-              <span className={`text-xs font-medium px-2 py-1 rounded ${displayPreview.bgColor} ${displayPreview.color}`}>
-                {displayPreview.text}
-              </span>
-            </div>
+        <div className="py-2">
+          <div 
+            className="flex items-center py-4 px-3 rounded-lg"
+            style={fieldStyle}  
+          >  
+            <input
+              type="checkbox"
+              id={name}
+              checked={value || false}
+              onChange={(e) => onChange(name, e.target.checked)}
+              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+            />
+            <label htmlFor={name} className="ml-2 block text-sm text-gray-900">
+              {label}
+            </label>
           </div>
-          {showDivider && <hr className="my-0 h-px border-t-0 bg-gray-200" />}
-        </>
+          
+          {/* Display Preview - Shows what will appear in View mode */}
+          <div className="mt-2 ml-7 flex items-center gap-2">
+            <span className="text-xs text-gray-500">View mode preview:</span>
+            <span className={`text-xs font-medium px-2 py-1 rounded ${displayPreview.bgColor} ${displayPreview.color}`}>
+              {displayPreview.text}
+            </span>
+          </div>
+        </div>
       );
     }
 
     if (type === 'textarea') {
       return (
-        <>
-          <div className={fullWidth ? "md:col-span-2 py-2" : ""}>
-            {/* ✅ Label NOT colored */}
-            <label htmlFor={name} className="block text-sm font-medium text-gray-700 mb-1">
-              {label}
-              {required && <span className="text-red-500 ml-1">*</span>}
-            </label>
-            {/* ✅ Apply inline styles directly */}
-            <textarea
-              id={name}
-              value={value || ''}
-              onChange={(e) => onChange(name, e.target.value)}
-              rows={3}
-              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                error ? 'border-red-500' : 'border-gray-300'
-              }`}
-              style={fieldStyle}
-            />
-            {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
-          </div>
-        </>
-      );
-    }
-
-    // Regular input fields
-    return (
-      <>
-        <div className={fullWidth ? "md:col-span-2 py-3" : ""}>
-          {/* ✅ Label NOT colored */}
+        <div className={fullWidth ? "md:col-span-2 py-2" : ""}>
           <label htmlFor={name} className="block text-sm font-medium text-gray-700 mb-1">
             {label}
             {required && <span className="text-red-500 ml-1">*</span>}
           </label>
-          {/* ✅ Apply inline styles directly */}
-          <input
-            type={type}
+          <textarea
             id={name}
             value={value || ''}
             onChange={(e) => onChange(name, e.target.value)}
+            rows={3}
             className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
               error ? 'border-red-500' : 'border-gray-300'
             }`}
@@ -814,22 +840,47 @@ const FormField = ({
           />
           {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
         </div>
-      </>
+      );
+    }
+
+    // Regular input fields
+    return (
+      <div className={fullWidth ? "md:col-span-2 py-3" : ""}>
+        <label htmlFor={name} className="block text-sm font-medium text-gray-700 mb-1">
+          {label}
+          {required && <span className="text-red-500 ml-1">*</span>}
+        </label>
+        <input
+          type={type}
+          id={name}
+          value={value || ''}
+          onChange={(e) => onChange(name, e.target.value)}
+          className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+            error ? 'border-red-500' : 'border-gray-300'
+          }`}
+          style={fieldStyle}
+        />
+        {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
+      </div>
     );
   };
 
   return (
-    <FieldWithConfirmation
-      fieldName={name}
-      fieldValue={value}
-      fieldType={type}  // ← NEW: Pass the field type so checkbox confirmations always show
-      confirmation={confirmation}
-      onToggleConfirmation={handleToggleConfirmation}
-      readOnly={false}
-      showConfirmations={showConfirmations}
-    >
-      {renderField()}
-    </FieldWithConfirmation>
+    <>
+      <FieldWithConfirmation
+        fieldName={name}
+        fieldValue={value}
+        fieldType={type}  // ← NEW: Pass the field type so checkbox confirmations always show
+        confirmation={confirmation}
+        onToggleConfirmation={handleToggleConfirmation}
+        readOnly={false}
+        showConfirmations={showConfirmations}
+      >
+        {renderField()}
+      </FieldWithConfirmation>
+      {/* Divider comes AFTER confirmation checkboxes with extra spacing */}
+      {showDivider && <hr className="mt-4 mb-6 h-px border-t-0 bg-gray-200" />}
+    </>
   );
 };
 

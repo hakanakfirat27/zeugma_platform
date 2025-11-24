@@ -2,11 +2,13 @@
 
 import React, { useState } from 'react';
 import { X, AlertCircle } from 'lucide-react';
-import { useMutation } from '@tanstack/react-query';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import api from '../../utils/api';
 import { CATEGORIES } from '../../constants/categories';
+import { useAuth } from '../../contexts/AuthContext';
 
 const CreateProjectModal = ({ onClose, onSuccess }) => {
+  const { user } = useAuth();
   const [formData, setFormData] = useState({
     project_name: '',
     description: '',
@@ -90,6 +92,15 @@ const CreateProjectModal = ({ onClose, onSuccess }) => {
       onClose();
     }
   };
+
+  const { data: dataCollectors } = useQuery({
+    queryKey: ['data-collectors'],
+    queryFn: async () => {
+      const response = await api.get('/accounts/users/?role=DATA_COLLECTOR');
+      return response.data.results || response.data;
+    },
+    enabled: user?.role === 'SUPERADMIN' || user?.role === 'STAFF_ADMIN'
+  });
 
   return (
     <div 
@@ -185,7 +196,28 @@ const CreateProjectModal = ({ onClose, onSuccess }) => {
                 <p className="text-red-500 text-xs mt-1">{errors.category}</p>
               )}
             </div>
-
+{(user?.role === 'SUPERADMIN' || user?.role === 'STAFF_ADMIN') && (
+  <div>
+    <label className="block text-sm font-medium text-gray-700 mb-1">
+      Assign To (Optional)
+    </label>
+    <select
+      value={formData.assigned_to || ''}
+      onChange={(e) => handleInputChange('assigned_to', e.target.value)}
+      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+    >
+      <option value="">Unassigned (Self)</option>
+      {dataCollectors && dataCollectors.map(dc => (
+        <option key={dc.id} value={dc.id}>
+          {dc.first_name} {dc.last_name} ({dc.username})
+        </option>
+      ))}
+    </select>
+    <p className="text-xs text-gray-500 mt-1">
+      Leave unassigned to create project for yourself
+    </p>
+  </div>
+)}
             {/* Target Region */}
             <div>
               <label htmlFor="target_region" className="block text-sm font-medium text-gray-700 mb-1">

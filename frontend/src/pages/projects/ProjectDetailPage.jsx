@@ -1,5 +1,4 @@
 // frontend/src/pages/ProjectDetailPage.jsx
-// UPDATED VERSION - Now navigates to separate pages instead of using modals
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -17,7 +16,7 @@ import {
   ArrowLeft, Plus, Check, X, Send, Clock,
   AlertCircle, CheckCircle, XCircle, RefreshCw, Edit2, Trash2,
   Building2, Info, ArrowUpDown, ArrowUp, ArrowDown, Search, Filter,
-  Upload, Download
+  Upload, Download, Users, Calendar, Target, Eye, Edit
 } from 'lucide-react';
 
 const ProjectDetailPage = () => {
@@ -25,21 +24,16 @@ const ProjectDetailPage = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { toasts, removeToast, success, error: showError } = useToast();
-  
-  const [selectedSites, setSelectedSites] = useState([]);
-  const [showBulkActionModal, setShowBulkActionModal] = useState(false);
-  const [deletingSite, setDeletingSite] = useState(null);
-  const [currentUser, setCurrentUser] = useState(null);
-
-  // Pagination and Sorting State
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
-  const [sortField, setSortField] = useState('created_at');
-  const [sortDirection, setSortDirection] = useState('desc');
+ 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
+  const [sortField, setSortField] = useState('created_at');  
+  const [sortDirection, setSortDirection] = useState('desc');
+  const [deletingSite, setDeletingSite] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [currentUser, setCurrentUser] = useState(null);
   const [debouncedSearch, setDebouncedSearch] = useState('');
-
   const [showImportModal, setShowImportModal] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
 
@@ -69,7 +63,7 @@ const ProjectDetailPage = () => {
   }, [searchQuery]);
 
   // Fetch project details
-  const { data: project, isLoading } = useQuery({
+  const { data: project, isLoading, refetch: refetchProject } = useQuery({
     queryKey: ['project', projectId],
     queryFn: async () => {
       const response = await api.get(`/api/projects/${projectId}/`);
@@ -78,7 +72,8 @@ const ProjectDetailPage = () => {
   });
 
   // Fetch sites in project WITH PAGINATION AND SORTING
-  const { data: sitesData, isLoading: sitesLoading } = useQuery({
+  // ✅ Added refetch function
+  const { data: sitesData, isLoading: sitesLoading, isFetching: isFetchingSites, refetch: refetchSites } = useQuery({
     queryKey: [
       'project-sites', 
       projectId, 
@@ -132,31 +127,6 @@ const ProjectDetailPage = () => {
     }
   });
   
-  // Bulk action mutation
-  const bulkActionMutation = useMutation({
-    mutationFn: async ({ action, note }) => {
-      const response = await api.post(
-        `/api/projects/${projectId}/bulk-action/`,
-        {
-          site_ids: selectedSites,
-          action: action,
-          note: note
-        }
-      );
-      return response.data;
-    },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries(['project-sites', projectId]);
-      queryClient.invalidateQueries(['project', projectId]);
-      setSelectedSites([]);
-      setShowBulkActionModal(false);
-      success(`Bulk action completed: ${data.results.success} successful`);
-    },
-    onError: (error) => {
-      showError(`Bulk action failed: ${error.response?.data?.detail || error.message}`);
-    }
-  });
-
   // Handle sorting
   const handleSort = (field) => {
     if (sortField === field) {
@@ -181,29 +151,11 @@ const ProjectDetailPage = () => {
   // Handle page changes
   const handlePageChange = (newPage) => {
     setCurrentPage(newPage);
-    setSelectedSites([]);
   };
 
   const handlePageSizeChange = (newSize) => {
     setPageSize(newSize);
     setCurrentPage(1);
-    setSelectedSites([]);
-  };
-
-  const handleSelectSite = (siteId) => {
-    setSelectedSites(prev =>
-      prev.includes(siteId)
-        ? prev.filter(id => id !== siteId)
-        : [...prev, siteId]
-    );
-  };
-
-  const handleSelectAll = () => {
-    if (selectedSites.length === sitesData?.results?.length) {
-      setSelectedSites([]);
-    } else {
-      setSelectedSites(sitesData?.results?.map(site => site.site_id) || []);
-    }
   };
 
   const handleDeleteClick = (site) => {
@@ -234,14 +186,28 @@ const ProjectDetailPage = () => {
     setCurrentPage(1);
   };
 
-  // UPDATED: Navigate to view page instead of opening modal
+  // Navigate to view page
   const handleViewSite = (site) => {
     navigate(`/projects/${projectId}/sites/${site.site_id}/view`);
   };
 
-  // UPDATED: Navigate to edit page instead of opening modal
+  // Navigate to edit page
   const handleEditSite = (site) => {
     navigate(`/projects/${projectId}/sites/${site.site_id}/edit`);
+  };
+
+  // Navigate to add site page
+  const handleAddSite = () => {
+    navigate(`/projects/${projectId}/add-site`);
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
   };
 
   const getStatusBadge = (status) => {
@@ -283,62 +249,92 @@ const ProjectDetailPage = () => {
 
         {/* Header */}
         <div className="mb-6">
-
-          <div className="flex gap-3">
+          <div className="flex justify-between items-center gap-3 mb-4">
             <button
               onClick={() => navigate('/projects')}
               className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
             >
               <ArrowLeft className="w-5 h-5" />
               Back to Projects
-            </button>            
+            </button>          
+
             {/* Import Button */}
-            <button
-              type="button"
-              onClick={() => setShowImportModal(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              <Upload className="w-4 h-4" />
-              Import Sites
-            </button>
-            
-            {/* Export Button */}
-            <button
-              type="button"
-              onClick={() => setShowExportModal(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-            >
-              <Download className="w-4 h-4" />
-              Export Sites
-            </button>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setShowImportModal(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                <Upload className="w-4 h-4" />
+                Import Sites
+              </button>
+              
+              {/* Export Button */}
+              <button
+                type="button"
+                onClick={() => setShowExportModal(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+              >
+                <Download className="w-4 h-4" />
+                Export Sites
+              </button>  
+            </div>      
           </div>
-          <div className="flex justify-between items-start mb-4">
-            <div>
-              <div className="flex gap-4 py-5">
-                <span className="text-sm text-indigo-600 font-bold">
-                  Category: <span className="font-medium text-gray-500">{project.category_display}</span>
-                </span>
-                {project.target_region && (
-                  <span className="text-sm text-indigo-600 font-bold">
-                    Region: <span className="font-medium text-gray-500">{project.target_region}</span>
-                  </span>
-                )}
-                {project.target_count && (
-                  <span className="text-sm text-indigo-600 font-bold">
-                    Target: <span className="font-medium text-gray-500">{project.target_count} sites</span>
-                  </span>
-                )}                
+          
+          <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+            {/* Project Info Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
+              <div className="flex items-center gap-3">
+                <Building2 className="w-5 h-5 text-gray-400" />
+                <div>
+                  <p className="text-sm text-gray-600">Category</p>
+                  <p className="text-sm font-semibold text-gray-900">{project.category_display}</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <Users className="w-5 h-5 text-gray-400" />
+                <div>
+                  <p className="text-sm text-gray-600">Created By</p>
+                  <p className="text-sm font-semibold text-gray-900">
+                    {project.created_by_info?.first_name} {project.created_by_info?.last_name}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <Calendar className="w-5 h-5 text-gray-400" />
+                <div>
+                  <p className="text-sm text-gray-600">Deadline</p>
+                  <p className="text-sm font-semibold text-gray-900">{formatDate(project.deadline)}</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <Target className="w-5 h-5 text-gray-400" />
+                <div>
+                  <p className="text-sm text-gray-600">Target</p>
+                  <p className="text-sm font-semibold text-gray-900">{project.target_count} sites</p>
+                </div>
               </div>
             </div>
-            <button
-              onClick={() => navigate(`/projects/${projectId}/add-site`)}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-            >
-              <Plus className="w-5 h-5" />
-              Add Site
-            </button>
-          </div>
 
+            {/* Progress Bar */}
+            <div className="mt-6">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-gray-700">Progress</span>
+                <span className="text-sm font-semibold text-gray-900">
+                  {project.total_sites} / {project.target_count} sites ({project.completion_percentage?.toFixed(1)}%)
+                </span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-3">
+                <div
+                  className="bg-indigo-600 h-3 rounded-full transition-all"
+                  style={{ width: `${Math.min(project.completion_percentage || 0, 100)}%` }}
+                />
+              </div>
+            </div>
+          </div>
 
           {/* Project Statistics */}
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mt-6">
@@ -350,122 +346,101 @@ const ProjectDetailPage = () => {
           </div>
         </div>
 
-        {/* Search and Filter Bar */}
-        <div className="bg-white rounded-lg shadow-sm p-4 mb-4">
-          <div className="flex flex-col md:flex-row gap-4">
-            {/* Search Input */}
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={handleSearchChange}
-                placeholder="Search companies..."
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-
-            {/* Status Filter */}
-            <div className="relative">
-              <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
-              <select
-                value={statusFilter}
-                onChange={handleStatusFilterChange}
-                className="pl-10 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white min-w-[200px]"
-              >
-                <option value="ALL">All Statuses</option>
-                <option value="PENDING">Pending</option>
-                <option value="UNDER_REVIEW">Under Review</option>
-                <option value="APPROVED">Approved</option>
-                <option value="REJECTED">Rejected</option>
-                <option value="NEEDS_REVISION">Needs Revision</option>
-                <option value="TRANSFERRED">Transferred</option>
-              </select>
-            </div>
-
-            {/* Clear Filters Button */}
-            {(searchQuery || statusFilter !== 'ALL') && (
+        {/* ✅ UPDATED: Sites Section - Now matches Admin page design */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+          <div className="p-6 border-b border-gray-200">
+            {/* ✅ Section Header with Add Site button on right */}
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-gray-900">Sites in Project</h2>
               <button
-                onClick={handleClearFilters}
-                className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 border border-gray-300 rounded-lg hover:bg-gray-50"
+                onClick={handleAddSite}
+                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
               >
-                Clear Filters
+                <Plus className="w-5 h-5" />
+                Add Site
               </button>
+            </div>
+
+            {/* ✅ Filters - Now includes Refresh button */}
+            <div className="flex flex-col md:flex-row gap-4">
+              {/* Search Input */}
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={handleSearchChange}
+                  placeholder="Search sites..."
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+
+              {/* Status Filter */}
+              <div className="relative">
+                <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
+                <select
+                  value={statusFilter}
+                  onChange={handleStatusFilterChange}
+                  className="pl-10 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white min-w-[200px]"
+                >
+                  <option value="ALL">All Statuses</option>
+                  <option value="PENDING">Pending</option>
+                  <option value="UNDER_REVIEW">Under Review</option>
+                  <option value="APPROVED">Approved</option>
+                  <option value="REJECTED">Rejected</option>
+                  <option value="NEEDS_REVISION">Needs Revision</option>
+                  <option value="TRANSFERRED">Transferred</option>
+                </select>
+              </div>
+
+              {/* Refresh Button */}
+              <button
+                onClick={() => {
+                  refetchProject();
+                  refetchSites();
+                }}
+                disabled={isFetchingSites}
+                className="p-2 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50"
+                title="Refresh"
+              >
+                <RefreshCw className={`w-5 h-5 ${isFetchingSites ? 'animate-spin' : ''}`} />
+              </button>
+            </div>
+
+            {/* Active Filters Display */}
+            {(searchQuery || statusFilter !== 'ALL') && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {searchQuery && (
+                  <span className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
+                    Search: "{searchQuery}"
+                    <button onClick={() => setSearchQuery('')} className="hover:text-blue-900">
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                )}
+                {statusFilter !== 'ALL' && (
+                  <span className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
+                    Status: {statusFilter.replace('_', ' ')}
+                    <button onClick={() => setStatusFilter('ALL')} className="hover:text-blue-900">
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                )}
+                <button
+                  onClick={handleClearFilters}
+                  className="text-sm text-red-600 hover:text-red-900"
+                >
+                  Clear all
+                </button>
+              </div>
             )}
           </div>
 
-          {/* Active Filters Display */}
-          {(searchQuery || statusFilter !== 'ALL') && (
-            <div className="mt-3 flex flex-wrap gap-2">
-              {searchQuery && (
-                <span className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
-                  Search: "{searchQuery}"
-                  <button onClick={() => setSearchQuery('')} className="hover:text-blue-900">
-                    <X className="w-3 h-3" />
-                  </button>
-                </span>
-              )}
-              {statusFilter !== 'ALL' && (
-                <span className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
-                  Status: {statusFilter.replace('_', ' ')}
-                  <button onClick={() => setStatusFilter('ALL')} className="hover:text-blue-900">
-                    <X className="w-3 h-3" />
-                  </button>
-                </span>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Bulk Actions Bar */}
-        {isAdmin && selectedSites.length > 0 && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4 flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <span className="text-sm font-medium text-blue-900">
-                {selectedSites.length} site(s) selected
-              </span>
-              <button
-                onClick={() => setSelectedSites([])}
-                className="text-sm text-blue-600 hover:text-blue-800"
-              >
-                Clear selection
-              </button>
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={() => bulkActionMutation.mutate({ action: 'approve', note: '' })}
-                className="flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white rounded text-sm hover:bg-green-700"
-              >
-                <Check className="w-4 h-4" />
-                Approve
-              </button>
-              <button
-                onClick={() => setShowBulkActionModal(true)}
-                className="flex items-center gap-1 px-3 py-1.5 bg-orange-600 text-white rounded text-sm hover:bg-orange-700"
-              >
-                <Send className="w-4 h-4" />
-                Send for Revision
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Sites Table */}
-        <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+          {/* Sites Table */}
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  {isAdmin && (
-                    <th className="px-6 py-3 text-left">
-                      <input
-                        type="checkbox"
-                        checked={selectedSites.length === sitesData?.results?.length && sitesData?.results?.length > 0}
-                        onChange={handleSelectAll}
-                        className="rounded border-gray-300"
-                      />
-                    </th>
-                  )}
                   <th 
                     className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100 transition-colors"
                     onClick={() => handleSort('company_name')}
@@ -513,7 +488,7 @@ const ProjectDetailPage = () => {
               <tbody className="bg-white divide-y divide-gray-200">
                 {sitesLoading ? (
                   <tr>
-                    <td colSpan="7" className="px-6 py-8 text-center">
+                    <td colSpan="6" className="px-6 py-8 text-center">
                       <div className="flex justify-center">
                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
                       </div>
@@ -521,7 +496,7 @@ const ProjectDetailPage = () => {
                   </tr>
                 ) : sitesData?.results?.length === 0 ? (
                   <tr>
-                    <td colSpan="7" className="px-6 py-8 text-center">
+                    <td colSpan="6" className="px-6 py-8 text-center">
                       <div className="text-gray-500">
                         {searchQuery || statusFilter !== 'ALL' ? (
                           <>
@@ -540,7 +515,7 @@ const ProjectDetailPage = () => {
                             <h3 className="text-lg font-semibold text-gray-900 mb-2">No sites yet</h3>
                             <p className="text-gray-600 mb-4">Add your first site to this project</p>
                             <button
-                              onClick={() => navigate(`/projects/${projectId}/add-site`)}
+                              onClick={handleAddSite}
                               className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
                             >
                               <Plus className="w-5 h-5" />
@@ -559,19 +534,6 @@ const ProjectDetailPage = () => {
                       onClick={() => handleViewSite(site)}
                       title="Click to view details"
                     >
-                      {isAdmin && (
-                        <td 
-                          className="px-6 py-4"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={selectedSites.includes(site.site_id)}
-                            onChange={() => handleSelectSite(site.site_id)}
-                            className="rounded border-gray-300"
-                          />
-                        </td>
-                      )}
                       <td className="px-6 py-4">
                         <div className="text-sm font-medium text-gray-900">{site.company_name}</div>
                         <div className="text-sm text-gray-500">{site.website || 'No website'}</div>
@@ -600,24 +562,24 @@ const ProjectDetailPage = () => {
                         className="px-6 py-4"
                         onClick={(e) => e.stopPropagation()}
                       >
-                        <div className="flex gap-2">
+                        <div className="flex items-center gap-2">
                           <button
                             onClick={() => handleViewSite(site)}
                             className="text-blue-600 hover:text-blue-800 p-1 transition-colors"
                             title="View Details"
                           >
-                            <Info className="w-4 h-4" />
-                          </button>
+                            <Eye className="w-4 h-4" />
+                          </button>                          
                           <button
                             onClick={() => handleEditSite(site)}
-                            className="text-green-600 hover:text-green-800 p-1 transition-colors"
+                            className="p-2 text-gray-600 hover:bg-gray-50 rounded-lg transition-colors"
                             title="Edit"
                           >
                             <Edit2 className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => handleDeleteClick(site)}
-                            className="text-red-600 hover:text-red-800 p-1 transition-colors"
+                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                             title="Delete"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -646,7 +608,7 @@ const ProjectDetailPage = () => {
         </div>
       </div>
 
-      {/* ✨ NEW: Import/Export Modals */}
+      {/* Import/Export Modals */}
       <BulkImportModal
         isOpen={showImportModal}
         onClose={() => setShowImportModal(false)}
@@ -661,7 +623,7 @@ const ProjectDetailPage = () => {
         projectName={project?.project_name}
       />
 
-      {/* Delete Confirmation Modal - Still using modal for safety */}
+      {/* Delete Confirmation Modal */}
       {deletingSite && (
         <DeleteConfirmationModal
           isOpen={!!deletingSite}
@@ -674,14 +636,6 @@ const ProjectDetailPage = () => {
         />
       )}
 
-      {/* Bulk Action Modal */}
-      {showBulkActionModal && (
-        <BulkActionModal
-          selectedCount={selectedSites.length}
-          onClose={() => setShowBulkActionModal(false)}
-          onSubmit={(note) => bulkActionMutation.mutate({ action: 'needs_revision', note })}
-        />
-      )}
     </DataCollectorLayout>
   );
 };
@@ -700,61 +654,6 @@ const StatBox = ({ title, value, color }) => {
     <div className={`border rounded-lg p-4 ${colors[color]}`}>
       <div className="text-sm opacity-75">{title}</div>
       <div className="text-2xl font-bold mt-1">{value}</div>
-    </div>
-  );
-};
-
-// Bulk Action Modal
-const BulkActionModal = ({ selectedCount, onClose, onSubmit }) => {
-  const [note, setNote] = useState('');
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    onSubmit(note);
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900">Send for Revision</h3>
-          <p className="text-sm text-gray-600 mt-1">
-            Adding revision note for {selectedCount} site(s)
-          </p>
-        </div>
-
-        <form onSubmit={handleSubmit}>
-          <div className="p-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Revision Note <span className="text-red-500">*</span>
-            </label>
-            <textarea
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              required
-              rows={4}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="Explain what needs to be revised..."
-            />
-          </div>
-
-          <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-end gap-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700"
-            >
-              Send for Revision
-            </button>
-          </div>
-        </form>
-      </div>
     </div>
   );
 };

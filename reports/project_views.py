@@ -2,6 +2,7 @@
 
 """
 API Views for Project-based Unverified Sites Management
+FIXED: Data collector queryset assignment on line 168
 """
 
 from rest_framework import status, generics, filters
@@ -41,6 +42,7 @@ from .permissions import (
     IsStaffOnly,
     CanVerifySites,
 )
+from .project_permissions import user_can_access_project, user_can_access_site
 from .pagination import CustomPagination
 from accounts.models import UserRole
 
@@ -67,9 +69,12 @@ class ProjectListCreateAPIView(generics.ListCreateAPIView):
         user = self.request.user
         queryset = DataCollectionProject.objects.all()
         
-        # Data collectors see only their own projects
+        # Data collectors see projects they created or are assigned to
         if user.role == UserRole.DATA_COLLECTOR:
-            queryset = queryset.filter(created_by=user)
+            from django.db.models import Q
+            queryset = queryset.filter(
+                Q(created_by=user) | Q(assigned_to=user)  # ✅ NEW - includes assigned_to
+            )
         
         # Staff/Superadmins see projects they're assigned to review or all projects
         elif user.role in [UserRole.STAFF_ADMIN, UserRole.SUPERADMIN]:
@@ -106,6 +111,9 @@ class ProjectListCreateAPIView(generics.ListCreateAPIView):
             needs_revision_sites=Count(
                 Case(When(unverified_sites__verification_status='NEEDS_REVISION', then=1))
             ),
+            transferred_sites=Count(
+                Case(When(unverified_sites__verification_status='TRANSFERRED', then=1))
+            ),
         )
         
         # Add computed fields for completion and approval rates
@@ -122,7 +130,7 @@ class ProjectListCreateAPIView(generics.ListCreateAPIView):
             )
         )
         
-        return queryset.select_related('created_by').prefetch_related('assigned_reviewers')
+        return queryset.select_related('created_by', 'assigned_to').prefetch_related('assigned_reviewers')
     
     def get_serializer_class(self):
         """Use different serializers for list and create"""
@@ -158,9 +166,10 @@ class ProjectDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
         user = self.request.user
         queryset = DataCollectionProject.objects.all()
         
-        # Data collectors can only access their own projects
+        # ✅ FIXED: Data collectors can only access their own projects or assigned projects
         if user.role == UserRole.DATA_COLLECTOR:
-            queryset = queryset.filter(created_by=user)
+            from django.db.models import Q
+            queryset = queryset.filter(Q(created_by=user) | Q(assigned_to=user))
         
         # Add annotations for detail view
         queryset = queryset.annotate(
@@ -180,6 +189,9 @@ class ProjectDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
             needs_revision_sites=Count(
                 Case(When(unverified_sites__verification_status='NEEDS_REVISION', then=1))
             ),
+            transferred_sites=Count(
+                Case(When(unverified_sites__verification_status='TRANSFERRED', then=1))
+            ),
         )
         
         queryset = queryset.annotate(
@@ -195,7 +207,7 @@ class ProjectDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
             )
         )
         
-        return queryset.select_related('created_by').prefetch_related('assigned_reviewers')
+        return queryset.select_related('created_by', 'assigned_to').prefetch_related('assigned_reviewers')
     
     def get_serializer_class(self):
         """Use different serializers for different methods"""
@@ -216,11 +228,14 @@ class ProjectDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
     
     def perform_destroy(self, instance):
         """Log deletion before deleting"""
+        project_name = instance.project_name
+        instance.delete()
+        
         ProjectActivityLog.objects.create(
-            project=instance,
-            action='STATUS_CHANGED',
+            project=None,
+            action='DELETED',
             performed_by=self.request.user,
-            description=f"Project '{instance.project_name}' deleted"
+            description=f"Project '{project_name}' deleted"
         )
         instance.delete()
 
@@ -255,9 +270,9 @@ class ProjectSitesListAPIView(generics.ListAPIView):
         project_id = self.kwargs.get('project_id')
         project = get_object_or_404(DataCollectionProject, project_id=project_id)
         
-        # Check permissions
+        # Check permissions using project-based access
         user = self.request.user
-        if user.role == UserRole.DATA_COLLECTOR and project.created_by != user:
+        if not user_can_access_project(user, project):  # ✅ NEW
             return UnverifiedSite.objects.none()
         
         queryset = project.unverified_sites.all()
@@ -296,10 +311,10 @@ class AddSiteToProjectAPIView(generics.CreateAPIView):
         project_id = self.kwargs.get('project_id')
         project = get_object_or_404(DataCollectionProject, project_id=project_id)
         
-        # Check permissions
+        # Check permissions using project-based access
         user = self.request.user
-        if user.role == UserRole.DATA_COLLECTOR and project.created_by != user:
-            raise PermissionError("You can only add sites to your own projects")
+        if not user_can_access_project(user, project):  # ✅ NEW
+            raise PermissionError("You do not have permission to add sites to this project")
         
         # ✅ VALIDATION: Ensure company_name and country are provided and not empty
         company_name = serializer.validated_data.get('company_name', '').strip()
@@ -362,15 +377,19 @@ class SiteDetailAPIView(generics.RetrieveAPIView):
     def get_queryset(self):
         """Filter sites based on user role"""
         user = self.request.user
-        queryset = UnverifiedSite.objects.all()
+        
+        # Admins see all sites
+        if user.role in [UserRole.SUPERADMIN, UserRole.STAFF_ADMIN]:
+            return UnverifiedSite.objects.all()
         
         # Data collectors can only view sites in their projects
         if user.role == UserRole.DATA_COLLECTOR:
-            queryset = queryset.filter(
-                Q(collected_by=user) | Q(project__created_by=user)
+            from django.db.models import Q
+            return UnverifiedSite.objects.filter(
+                Q(project__created_by=user) | Q(project__assigned_to=user)
             )
         
-        return queryset
+        return UnverifiedSite.objects.none()
 
 
 @api_view(['POST'])
@@ -407,13 +426,19 @@ class UpdateSiteInProjectAPIView(generics.UpdateAPIView):
     def get_queryset(self):
         """Filter sites based on user role"""
         user = self.request.user
-        queryset = UnverifiedSite.objects.all()
         
-        # Data collectors can only update their own sites
+        # Admins can update all sites
+        if user.role in [UserRole.SUPERADMIN, UserRole.STAFF_ADMIN]:
+            return UnverifiedSite.objects.all()
+        
+        # Data collectors can update sites in their projects
         if user.role == UserRole.DATA_COLLECTOR:
-            queryset = queryset.filter(collected_by=user)
+            from django.db.models import Q
+            return UnverifiedSite.objects.filter(
+                Q(project__created_by=user) | Q(project__assigned_to=user)
+            )
         
-        return queryset
+        return UnverifiedSite.objects.none()
     
     def perform_update(self, serializer):
         """
@@ -460,13 +485,19 @@ class DeleteSiteFromProjectAPIView(generics.DestroyAPIView):
     def get_queryset(self):
         """Filter sites based on user role"""
         user = self.request.user
-        queryset = UnverifiedSite.objects.all()
         
-        # Data collectors can only delete their own sites
+        # Admins can delete all sites
+        if user.role in [UserRole.SUPERADMIN, UserRole.STAFF_ADMIN]:
+            return UnverifiedSite.objects.all()
+        
+        # Data collectors can delete sites in their projects
         if user.role == UserRole.DATA_COLLECTOR:
-            queryset = queryset.filter(collected_by=user)
+            from django.db.models import Q
+            return UnverifiedSite.objects.filter(
+                Q(project__created_by=user) | Q(project__assigned_to=user)
+            )
         
-        return queryset
+        return UnverifiedSite.objects.none()
     
     def perform_destroy(self, instance):
         """Log deletion activity before deleting"""
@@ -509,7 +540,7 @@ def send_for_revision(request, site_id):
         # Create review note
         ReviewNote.objects.create(
             site=site,
-            note_text=serializer.validated_data['note'],
+            note_text=f"[VERIFICATION] {serializer.validated_data['note']}",
             created_by=request.user,
             is_internal=False  # Visible to data collector
         )
@@ -553,7 +584,7 @@ def resubmit_site(request, site_id):
     site = get_object_or_404(UnverifiedSite, site_id=site_id)
     
     # Check if user is the original collector
-    if site.collected_by != request.user:
+    if not user_can_access_site(user, site):
         return Response(
             {'error': 'You can only resubmit sites you collected'},
             status=status.HTTP_403_FORBIDDEN
@@ -652,8 +683,9 @@ def bulk_project_action(request, project_id):
     action = serializer.validated_data['action']
     note = serializer.validated_data.get('note', '')
     
-    # Get sites
-    sites = UnverifiedSite.objects.filter(
+    # Get sites with select_for_update to prevent race conditions
+    # This locks the rows until the transaction completes
+    sites = UnverifiedSite.objects.select_for_update().filter(
         site_id__in=site_ids,
         project=project
     )
@@ -688,6 +720,15 @@ def bulk_project_action(request, project_id):
                     comments=note
                 )
                 
+                # ✅ NEW: Create review note if provided
+                if note:
+                    ReviewNote.objects.create(
+                        site=site,
+                        note_text=f"[VERIFICATION] {note}",
+                        created_by=request.user,
+                        is_internal=False
+                    )
+                
             elif action == 'reject':
                 site.verification_status = VerificationStatus.REJECTED
                 site.verified_by = request.user
@@ -702,24 +743,72 @@ def bulk_project_action(request, project_id):
                     comments=note
                 )
                 
+                # ✅ NEW: Create review note if provided
+                if note:
+                    ReviewNote.objects.create(
+                        site=site,
+                        note_text=f"[VERIFICATION] {note}",
+                        created_by=request.user,
+                        is_internal=False
+                    )
+                
             elif action == 'transfer':
-                # Check if already approved
-                if site.verification_status != VerificationStatus.APPROVED:
+                # Re-fetch the site to get the latest status (prevents race conditions)
+                site.refresh_from_db()
+                
+                # Check if already transferred
+                if site.verification_status == VerificationStatus.TRANSFERRED:
                     results['failed'] += 1
                     results['errors'].append(
-                        f"Site '{site.company_name}' not approved"
+                        f"Site '{site.company_name}' already transferred"
                     )
                     continue
                 
-                # Transfer to Superdatabase
-                superdatabase_record = site.transfer_to_superdatabase()
+                # Check if approved
+                if site.verification_status != VerificationStatus.APPROVED:
+                    results['failed'] += 1
+                    results['errors'].append(
+                        f"Site '{site.company_name}' not approved (current status: {site.get_verification_status_display()})"
+                    )
+                    continue
                 
-                results['success'] += 1
-                continue
+                # Transfer to superdatabase (model method handles status update and history)
+                try:
+                    superdatabase_record = site.transfer_to_superdatabase(transferred_by=request.user)
+                    results['success'] += 1
+                    continue
+                except ValueError as e:
+                    # ValueError is raised for business logic errors (already transferred, not approved)
+                    results['failed'] += 1
+                    results['errors'].append(f"{site.company_name}: {str(e)}")
+                    continue
+                except Exception as e:
+                    results['failed'] += 1
+                    results['errors'].append(f"Transfer failed for '{site.company_name}': {str(e)}")
+                    continue
                 
             elif action == 'under_review':
                 site.verification_status = VerificationStatus.UNDER_REVIEW
+                site.verified_by = request.user  # ✅ NEW: Track who started review
                 site.save()
+                
+                # ✅ NEW: Create verification history
+                from .models import VerificationHistory
+                VerificationHistory.objects.create(
+                    site=site,
+                    action='UNDER_REVIEW',
+                    performed_by=request.user,
+                    comments=note or 'Site marked for review'
+                )
+                
+                # ✅ NEW: Create review note if provided
+                if note:
+                    ReviewNote.objects.create(
+                        site=site,
+                        note_text=f"[VERIFICATION] {note}",
+                        created_by=request.user,
+                        is_internal=False
+                    )
             
             elif action == 'needs_revision':
                 site.verification_status = VerificationStatus.NEEDS_REVISION
@@ -727,11 +816,20 @@ def bulk_project_action(request, project_id):
                 site.verified_date = timezone.now()
                 site.save()
                 
-                # Create review note if provided
+                # ✅ NEW: Create verification history
+                from .models import VerificationHistory
+                VerificationHistory.objects.create(
+                    site=site,
+                    action='NEEDS_REVISION',
+                    performed_by=request.user,
+                    comments=note or 'Site needs revision'
+                )
+                
+                # Create review note if provided - with [VERIFICATION] prefix
                 if note:
                     ReviewNote.objects.create(
                         site=site,
-                        note_text=note,
+                        note_text=f"[VERIFICATION] {note}",
                         created_by=request.user,
                         is_internal=False
                     )

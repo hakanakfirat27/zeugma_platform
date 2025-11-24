@@ -26,7 +26,11 @@ class ChatRoomViewSet(viewsets.ModelViewSet):
         user = self.request.user
         if user.role in [UserRole.SUPERADMIN, UserRole.STAFF_ADMIN]:
             queryset = ChatRoom.objects.all()
+        elif user.role == UserRole.DATA_COLLECTOR:
+            # Data collectors see only their own rooms
+            queryset = ChatRoom.objects.filter(client=user)
         else:
+            # Clients see only their own rooms
             queryset = ChatRoom.objects.filter(client=user)
 
         is_active = self.request.query_params.get('is_active')
@@ -37,7 +41,7 @@ class ChatRoomViewSet(viewsets.ModelViewSet):
 
     def create(self, request, *args, **kwargs):
         """Create a new chat room"""
-        if request.user.role == UserRole.CLIENT:
+        if request.user.role in [UserRole.CLIENT, UserRole.DATA_COLLECTOR]:
             room, created = ChatRoom.objects.get_or_create(
                 client=request.user,
                 room_type='SUPPORT',
@@ -140,13 +144,13 @@ class ChatRoomViewSet(viewsets.ModelViewSet):
             return Response({'unread_count': 0})
 
         if user.role in [UserRole.SUPERADMIN, UserRole.STAFF_ADMIN]:
-            # Staff: Count all unread messages sent by CLIENTS
+            # Staff: Count all unread messages sent by CLIENTS and DATA_COLLECTORS
             unread = ChatMessage.objects.filter(
                 is_read=False,
-                sender__role=UserRole.CLIENT
+                sender__role__in=[UserRole.CLIENT, UserRole.DATA_COLLECTOR]
             ).count()
-        else:  # Client
-            # Client: Count unread messages in their rooms sent by STAFF
+        else:  # Client or Data Collector
+            # Client/Data Collector: Count unread messages in their rooms sent by STAFF
             unread = ChatMessage.objects.filter(
                 room__client=user,
                 is_read=False,

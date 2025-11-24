@@ -131,19 +131,43 @@ class UnverifiedSiteListAPIView(generics.ListAPIView):
         )
 
 
-class UnverifiedSiteDetailAPIView(generics.RetrieveAPIView):
+class UnverifiedSiteDetailAPIView(generics.RetrieveDestroyAPIView):
     """
     Get detailed information about a single unverified site.
+    Also supports DELETE method for deleting the site.
     """
     serializer_class = UnverifiedSiteDetailSerializer
     permission_classes = [IsAuthenticated, IsStaffOrDataCollector]
     lookup_field = 'site_id'
     queryset = UnverifiedSite.objects.all()
+    
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        company_name = instance.company_name
+        
+        # Create history entry before deletion
+        VerificationHistory.objects.create(
+            site=instance,
+            action='DELETED',
+            performed_by=request.user,
+            comments=f'Site "{company_name}" deleted by {request.user.username}'  # Changed 'notes' to 'comments'
+        )
+        
+        self.perform_destroy(instance)
+        
+        return Response(
+            {
+                'success': True,
+                'message': f'Site "{company_name}" deleted successfully'
+            },
+            status=status.HTTP_200_OK
+        )
 
 
 class UnverifiedSiteCreateAPIView(generics.CreateAPIView):
     """
     Create a new unverified site (manual entry).
+    FIXED: Now returns the created site with site_id
     """
     serializer_class = UnverifiedSiteCreateUpdateSerializer
     permission_classes = [IsAuthenticated, IsStaffOrDataCollector]
@@ -152,6 +176,25 @@ class UnverifiedSiteCreateAPIView(generics.CreateAPIView):
         serializer.save(
             collected_by=self.request.user,
             collected_date=timezone.now()
+        )
+    
+    def create(self, request, *args, **kwargs):
+        """
+        Override create to return the full detail serializer response
+        """
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        
+        # Use detail serializer for the response to include site_id
+        instance = serializer.instance
+        detail_serializer = UnverifiedSiteDetailSerializer(instance)
+        
+        headers = self.get_success_headers(detail_serializer.data)
+        return Response(
+            detail_serializer.data,
+            status=status.HTTP_201_CREATED,
+            headers=headers
         )
 
 
@@ -163,6 +206,38 @@ class UnverifiedSiteUpdateAPIView(generics.UpdateAPIView):
     permission_classes = [IsAuthenticated, IsStaffOrDataCollector]
     lookup_field = 'site_id'
     queryset = UnverifiedSite.objects.all()
+
+
+class UnverifiedSiteDeleteAPIView(generics.DestroyAPIView):
+    """
+    Delete an unverified site.
+    Only staff members can delete unverified sites.
+    """
+    permission_classes = [IsAuthenticated, IsStaffOnly]
+    lookup_field = 'site_id'
+    queryset = UnverifiedSite.objects.all()
+    
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        company_name = instance.company_name
+        
+        # Create history entry before deletion
+        VerificationHistory.objects.create(
+            site=instance,
+            action='DELETED',
+            performed_by=request.user,
+            notes=f'Site "{company_name}" deleted by {request.user.username}'
+        )
+        
+        self.perform_destroy(instance)
+        
+        return Response(
+            {
+                'success': True,
+                'message': f'Site "{company_name}" deleted successfully'
+            },
+            status=status.HTTP_200_OK
+        )
 
 
 # =============================================================================
@@ -359,6 +434,13 @@ class TransferToSuperdatabaseAPIView(APIView):
     def post(self, request, site_id):
         site = get_object_or_404(UnverifiedSite, site_id=site_id)
         
+        # Check if already transferred
+        if site.verification_status == VerificationStatus.TRANSFERRED:
+            return Response(
+                {'error': 'This site has already been transferred to Superdatabase'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
         # Check if approved
         if site.verification_status != VerificationStatus.APPROVED:
             return Response(
@@ -367,32 +449,8 @@ class TransferToSuperdatabaseAPIView(APIView):
             )
         
         try:
-            # Get all field names except verification-specific ones
-            exclude_fields = {
-                'site_id', 'verification_status', 'collected_by', 'verified_by',
-                'collected_date', 'verified_date', 'source', 'priority',
-                'notes', 'rejection_reason', 'data_quality_score',
-                'assigned_to', 'is_duplicate', 'duplicate_of',
-                'created_at', 'updated_at'
-            }
-            
-            # Build data dict
-            transfer_data = {}
-            for field in UnverifiedSite._meta.fields:
-                field_name = field.name
-                if field_name not in exclude_fields:
-                    transfer_data[field_name] = getattr(site, field_name)
-            
-            # Create SuperdatabaseRecord
-            superdatabase_record = SuperdatabaseRecord.objects.create(**transfer_data)
-            
-            # Create history entry
-            VerificationHistory.objects.create(
-                site=site,
-                action='TRANSFERRED',
-                performed_by=request.user,
-                notes=f'Transferred to Superdatabase (ID: {superdatabase_record.factory_id})'
-            )
+            # Use the model's transfer method which handles everything
+            superdatabase_record = site.transfer_to_superdatabase(transferred_by=request.user)
             
             return Response({
                 'success': True,
@@ -400,6 +458,11 @@ class TransferToSuperdatabaseAPIView(APIView):
                 'superdatabase_id': str(superdatabase_record.factory_id)
             })
             
+        except ValueError as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
         except Exception as e:
             return Response(
                 {'error': f'Transfer failed: {str(e)}'},
@@ -415,10 +478,12 @@ class UnverifiedSiteBulkActionAPIView(APIView):
     """
     Perform bulk actions on multiple unverified sites.
     
+    UPDATED: Added support for needs_revision and transfer actions
+    
     POST body:
     {
         "site_ids": ["uuid1", "uuid2", "uuid3"],
-        "action": "approve" | "reject" | "under_review",
+        "action": "approve" | "reject" | "under_review" | "needs_revision" | "transfer",
         "comments": "Optional comments"
     }
     """
@@ -435,40 +500,98 @@ class UnverifiedSiteBulkActionAPIView(APIView):
         
         sites = UnverifiedSite.objects.filter(site_id__in=site_ids)
         
-        if action == 'approve':
-            sites.update(
-                verification_status=VerificationStatus.APPROVED,
-                verified_by=request.user,
-                verified_date=timezone.now()
-            )
-            action_label = 'APPROVED'
-            
-        elif action == 'reject':
-            sites.update(
-                verification_status=VerificationStatus.REJECTED,
-                verified_by=request.user,
-                verified_date=timezone.now(),
-                rejection_reason=comments
-            )
-            action_label = 'REJECTED'
-            
-        elif action == 'under_review':
-            sites.update(verification_status=VerificationStatus.UNDER_REVIEW)
-            action_label = 'UNDER_REVIEW'
+        if not sites.exists():
+            return Response({
+                'error': 'No valid sites found'
+            }, status=status.HTTP_404_NOT_FOUND)
         
-        # Create history entries
+        results = {
+            'success': 0,
+            'failed': 0,
+            'errors': []
+        }
+        
         for site in sites:
-            VerificationHistory.objects.create(
-                site=site,
-                action=action_label,
-                performed_by=request.user,
-                notes=comments
-            )
+            try:
+                if action == 'approve':
+                    site.verification_status = VerificationStatus.APPROVED
+                    site.verified_by = request.user
+                    site.verified_date = timezone.now()
+                    site.save()
+                    action_label = 'APPROVED'
+                    
+                elif action == 'reject':
+                    site.verification_status = VerificationStatus.REJECTED
+                    site.verified_by = request.user
+                    site.verified_date = timezone.now()
+                    site.rejection_reason = comments
+                    site.save()
+                    action_label = 'REJECTED'
+                    
+                elif action == 'under_review':
+                    site.verification_status = VerificationStatus.UNDER_REVIEW
+                    site.save()
+                    action_label = 'UNDER_REVIEW'
+                
+                elif action == 'needs_revision':
+                    site.verification_status = VerificationStatus.NEEDS_REVISION
+                    site.verified_by = request.user
+                    site.verified_date = timezone.now()
+                    site.save()
+                    action_label = 'NEEDS_REVISION'
+                    
+                    # Create review note if comment provided
+                    if comments:
+                        from .models import ReviewNote
+                        ReviewNote.objects.create(
+                            site=site,
+                            note_text=comments,
+                            created_by=request.user,
+                            is_internal=False
+                        )
+                
+                elif action == 'transfer':
+                    # Check if already transferred
+                    if site.verification_status == VerificationStatus.TRANSFERRED:
+                        results['failed'] += 1
+                        results['errors'].append(f"Site '{site.company_name}' already transferred")
+                        continue
+                    
+                    # Only transfer approved sites
+                    if site.verification_status != VerificationStatus.APPROVED:
+                        results['failed'] += 1
+                        results['errors'].append(f"Site '{site.company_name}' not approved")
+                        continue
+                    
+                    # Transfer to superdatabase (model method handles status update and history)
+                    try:
+                        site.transfer_to_superdatabase(transferred_by=request.user)
+                        # Skip history entry creation - model method already handles it
+                        results['success'] += 1
+                        continue
+                    except Exception as e:
+                        results['failed'] += 1
+                        results['errors'].append(f"Transfer failed for '{site.company_name}': {str(e)}")
+                        continue
+                
+                # Create history entry (for non-transfer actions)
+                VerificationHistory.objects.create(
+                    site=site,
+                    action=action_label,
+                    performed_by=request.user,
+                    comments=comments
+                )
+                
+                results['success'] += 1
+                
+            except Exception as e:
+                results['failed'] += 1
+                results['errors'].append(f"Error processing '{site.company_name}': {str(e)}")
         
         return Response({
             'success': True,
-            'message': f'{sites.count()} sites updated',
-            'action': action
+            'message': f'Bulk {action} completed',
+            'results': results
         })
 
 

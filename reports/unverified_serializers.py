@@ -7,128 +7,138 @@ Serializers for UnverifiedSite API endpoints.
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from .models import UnverifiedSite, VerificationHistory, VerificationStatus, DataSource, PriorityLevel
-from .shared_serializers import UserBasicSerializer  # IMPORT FROM SHARED
 
 User = get_user_model()
 
 
-# UserBasicSerializer is now imported from shared_serializers.py
-# No need to redefine it here
+class UserBasicSerializer(serializers.ModelSerializer):
+    """Basic user info"""
+    class Meta:
+        model = User
+        fields = ['id', 'username', 'email', 'first_name', 'last_name']
+        read_only_fields = fields
 
 
 class UnverifiedSiteListSerializer(serializers.ModelSerializer):
     """
-    Serializer for listing unverified sites (list view).
-    Includes minimal fields for performance.
-    """
-    collected_by_name = serializers.CharField(source='collected_by.username', read_only=True)
-    verified_by_name = serializers.CharField(source='verified_by.username', read_only=True)
-    assigned_to_name = serializers.CharField(source='assigned_to.username', read_only=True)
-    
-    verification_status_display = serializers.CharField(
-        source='get_verification_status_display',
-        read_only=True
-    )
-    priority_display = serializers.CharField(
-        source='get_priority_display',
-        read_only=True
-    )
-    source_display = serializers.CharField(
-        source='get_source_display',
-        read_only=True
-    )
-    category_display = serializers.CharField(
-        source='get_category_display',
-        read_only=True
-    )
-    
-    class Meta:
-        model = UnverifiedSite
-        fields = [
-            'site_id',
-            'company_name',
-            'category',
-            'category_display',
-            'country',
-            'verification_status',
-            'verification_status_display',
-            'priority',
-            'priority_display',
-            'source',
-            'source_display',
-            'data_quality_score',
-            'is_duplicate',
-            'collected_by',
-            'collected_by_name',
-            'verified_by',
-            'verified_by_name',
-            'assigned_to',
-            'assigned_to_name',
-            'collected_date',
-            'verified_date',
-            'created_at',
-            'updated_at',
-        ]
-        read_only_fields = [
-            'site_id',
-            'data_quality_score',
-            'is_duplicate',
-            'collected_date',
-            'created_at',
-            'updated_at',
-        ]
-
-
-class UnverifiedSiteDetailSerializer(serializers.ModelSerializer):
-    """
-    Serializer for detailed view of a single unverified site.
-    Includes all fields and nested relationships.
+    UPDATED: List serializer with project information
     """
     collected_by_info = UserBasicSerializer(source='collected_by', read_only=True)
     verified_by_info = UserBasicSerializer(source='verified_by', read_only=True)
     assigned_to_info = UserBasicSerializer(source='assigned_to', read_only=True)
     
     verification_status_display = serializers.CharField(
-        source='get_verification_status_display',
+        source='get_verification_status_display', 
         read_only=True
     )
     priority_display = serializers.CharField(
-        source='get_priority_display',
+        source='get_priority_display', 
         read_only=True
     )
     source_display = serializers.CharField(
-        source='get_source_display',
-        read_only=True
-    )
-    category_display = serializers.CharField(
-        source='get_category_display',
+        source='get_source_display', 
         read_only=True
     )
     
-    # Duplicate info
+    # NEW: Add project information
+    project_id = serializers.UUIDField(source='project.project_id', read_only=True, allow_null=True)
+    project_name = serializers.CharField(source='project.project_name', read_only=True, allow_null=True)
+    project_status = serializers.CharField(source='project.status', read_only=True, allow_null=True)
+    
+    class Meta:
+        model = UnverifiedSite
+        fields = [
+            'site_id',
+            'company_name',
+            'country',
+            'website',
+            'category',
+            'verification_status',
+            'verification_status_display',
+            'priority',
+            'priority_display',
+            'source',
+            'source_display',
+            'collected_by',
+            'collected_by_info',
+            'collected_date',
+            'verified_by',
+            'verified_by_info',
+            'verified_date',
+            'assigned_to',
+            'assigned_to_info',
+            'is_duplicate',
+            'data_quality_score',
+            'notes',
+            # NEW: Project fields
+            'project_id',
+            'project_name',
+            'project_status',
+        ]
+        read_only_fields = [
+            'site_id',
+            'collected_date',
+            'verified_date',
+            'collected_by_info',
+            'verified_by_info',
+            'assigned_to_info',
+            'verification_status_display',
+            'priority_display',
+            'source_display',
+            'project_id',
+            'project_name',
+            'project_status',
+        ]
+
+
+class UnverifiedSiteDetailSerializer(serializers.ModelSerializer):
+    """
+    UPDATED: Detail serializer with full project information
+    """
+    collected_by_info = UserBasicSerializer(source='collected_by', read_only=True)
+    verified_by_info = UserBasicSerializer(source='verified_by', read_only=True)
+    assigned_to_info = UserBasicSerializer(source='assigned_to', read_only=True)
     duplicate_of_info = serializers.SerializerMethodField()
+    
+    verification_status_display = serializers.CharField(
+        source='get_verification_status_display', 
+        read_only=True
+    )
+    priority_display = serializers.CharField(source='get_priority_display', read_only=True)
+    source_display = serializers.CharField(source='get_source_display', read_only=True)
+    category_display = serializers.CharField(source='get_category_display', read_only=True)
+    
+    # NEW: Add detailed project information
+    project_info = serializers.SerializerMethodField()
     
     class Meta:
         model = UnverifiedSite
         fields = '__all__'
-        read_only_fields = [
-            'site_id',
-            'data_quality_score',
-            'is_duplicate',
-            'duplicate_of',
-            'collected_date',
-            'created_at',
-            'updated_at',
-        ]
     
     def get_duplicate_of_info(self, obj):
-        """Return basic info about the duplicate if exists"""
         if obj.duplicate_of:
             return {
-                'factory_id': str(obj.duplicate_of.factory_id),
+                'site_id': str(obj.duplicate_of.site_id),
                 'company_name': obj.duplicate_of.company_name,
-                'country': obj.duplicate_of.country,
-                'category': obj.duplicate_of.get_category_display(),
+                'country': obj.duplicate_of.country
+            }
+        return None
+    
+    def get_project_info(self, obj):
+        """Get detailed project information"""
+        if obj.project:
+            return {
+                'project_id': str(obj.project.project_id),
+                'project_name': obj.project.project_name,
+                'status': obj.project.status,
+                'status_display': obj.project.get_status_display(),
+                'category': obj.project.category,
+                'category_display': obj.project.get_category_display(),
+                'created_by': {
+                    'id': obj.project.created_by.id,
+                    'username': obj.project.created_by.username,
+                    'email': obj.project.created_by.email,
+                } if obj.project.created_by else None,
             }
         return None
 
@@ -223,6 +233,7 @@ class AssignReviewerSerializer(serializers.Serializer):
 class BulkActionSerializer(serializers.Serializer):
     """
     Serializer for bulk actions on multiple sites.
+    UPDATED: Added support for needs_revision and transfer actions
     """
     site_ids = serializers.ListField(
         child=serializers.UUIDField(),
@@ -230,7 +241,7 @@ class BulkActionSerializer(serializers.Serializer):
         min_length=1
     )
     action = serializers.ChoiceField(
-        choices=['approve', 'reject', 'under_review'],
+        choices=['approve', 'reject', 'under_review', 'needs_revision', 'transfer'],
         required=True
     )
     comments = serializers.CharField(required=False, allow_blank=True)

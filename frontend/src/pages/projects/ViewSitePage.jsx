@@ -17,8 +17,10 @@ import StatusHistoryModal from '../../components/calling/StatusHistoryModal';
 import { getFieldConfirmationStyle } from '../../utils/fieldStyles';
 import {
   ArrowLeft, Edit2, Building2, Users, Info, MessageSquare, Phone,
-  CheckCircle, XCircle, CheckCircle as CheckIcon, PlusCircle, FileText, History
+  CheckCircle, XCircle, CheckCircle as CheckIcon, PlusCircle, FileText, History,
+  Clock, RefreshCw, AlertCircle, Shield
 } from 'lucide-react';
+import VerificationStatusTab from '../../components/verification/VerificationStatusTab';
 
 const ViewSitePage = () => {
   const { projectId, siteId } = useParams();
@@ -27,6 +29,7 @@ const ViewSitePage = () => {
   
   const [activeTab, setActiveTab] = useState('core');
   const [notesCount, setNotesCount] = useState(0);
+  const [verificationHistoryCount, setVerificationHistoryCount] = useState(0);
   const [siteData, setSiteData] = useState(null);
   const [fieldMetadata, setFieldMetadata] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -60,20 +63,59 @@ const ViewSitePage = () => {
     fetchSiteDetails();
   }, [siteId, projectId, navigate]);
 
-  // Fetch notes count for badge
+  // Fetch notes count for badge - FILTER OUT VERIFICATION NOTES
   useEffect(() => {
     const fetchNotesCount = async () => {
       if (!siteId) return;
       
       try {
         const response = await api.get(`/api/sites/${siteId}/notes/`);
-        setNotesCount(response.data.length);
+        
+        // Filter out verification notes - only count regular notes
+        const regularNotes = (response.data || []).filter(note => {
+          const text = note.note_text.toLowerCase();
+          const hasVerificationPrefix = note.note_text.startsWith('[VERIFICATION]');
+          const isMarkedAsVerification = note.is_verification_note === true;
+          const hasVerificationKeywords = 
+            text.includes('[verification]') ||
+            text.includes('needs revision') ||
+            text.includes('sent for revision') ||
+            text.includes('marked for revision') ||
+            text.includes('requires revision') ||
+            text.includes('revision needed') ||
+            text.includes('please revise') ||
+            text.includes('verification:') ||
+            text.includes('rejected because') ||
+            text.includes('approved with') ||
+            text.includes('under review');
+          
+          return !hasVerificationPrefix && !isMarkedAsVerification && !hasVerificationKeywords;
+        });
+        
+        setNotesCount(regularNotes.length);
       } catch (error) {
         console.error('Failed to fetch notes count:', error);
       }
     };
 
     fetchNotesCount();
+  }, [siteId]);
+
+  // Fetch verification history count for badge
+  useEffect(() => {
+    const fetchVerificationHistoryCount = async () => {
+      if (!siteId) return;
+      
+      try {
+        const response = await api.get(`/api/unverified-sites/${siteId}/history/`);
+        setVerificationHistoryCount(response.data?.length || 0);
+      } catch (error) {
+        // History might not be available for all sites
+        setVerificationHistoryCount(0);
+      }
+    };
+
+    fetchVerificationHistoryCount();
   }, [siteId]);
 
   if (loading) {
@@ -108,7 +150,10 @@ const ViewSitePage = () => {
   }
 
   return (
-    <DataCollectorLayout pageTitle={siteData.company_name || 'Site Details'}>
+    <DataCollectorLayout
+    pageTitle={siteData.company_name || 'Site Details'}
+    pageSubtitleBottom={siteData.country}
+    >
       <div className="p-6 max-w-7xl mx-auto">
         {/* Header with navigation buttons */}
         <div className="mb-6 flex justify-between items-center">
@@ -166,7 +211,7 @@ const ViewSitePage = () => {
 
           {/* Tabs */}
           <div className="border-b border-gray-200">
-            <nav className="flex -mb-px px-6">
+            <nav className="flex -mb-px px-6 text-sm">
               <button
                 onClick={() => setActiveTab('core')}
                 className={`px-6 py-3 font-medium transition-colors flex items-center gap-2 ${
@@ -229,6 +274,22 @@ const ViewSitePage = () => {
                 {notesCount > 0 && (
                   <span className="ml-1 px-2 py-0.5 text-xs font-semibold bg-blue-600 text-white rounded-full">
                     {notesCount}
+                  </span>
+                )}
+              </button>
+              <button
+                onClick={() => setActiveTab('verification')}
+                className={`px-6 py-3 font-medium transition-colors flex items-center gap-2 ${
+                  activeTab === 'verification'
+                    ? 'border-b-2 border-blue-600 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <Shield className="w-4 h-4" />
+                Verification Status
+                {verificationHistoryCount > 0 && (
+                  <span className="ml-1 px-2 py-0.5 text-xs font-semibold bg-blue-600 text-white rounded-full">
+                    {verificationHistoryCount}
                   </span>
                 )}
               </button>
@@ -332,6 +393,10 @@ const ViewSitePage = () => {
                 readOnly={true}  
                 onNotesCountChange={setNotesCount} 
               />
+            )}
+
+            {activeTab === 'verification' && (
+              <VerificationStatusTab siteId={siteId} />
             )}
           </div>
         </div>

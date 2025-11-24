@@ -38,6 +38,7 @@ from .calling_serializers import (
 
 )
 from .permissions import IsStaffOrDataCollector
+from .project_permissions import user_can_access_site 
 from accounts.models import UserRole
 
 
@@ -59,11 +60,10 @@ class CallLogListCreateAPIView(generics.ListCreateAPIView):
         site_id = self.kwargs.get('site_id')
         site = get_object_or_404(UnverifiedSite, site_id=site_id)
         
-        # Check permissions
+        # Check permissions using project-based access
         user = self.request.user
-        if user.role == UserRole.DATA_COLLECTOR:
-            if site.collected_by != user:
-                return CallLog.objects.none()
+        if not user_can_access_site(user, site):  # ✅ NEW
+            return CallLog.objects.none()
         
         return site.call_logs.all().select_related('created_by')
     
@@ -72,11 +72,11 @@ class CallLogListCreateAPIView(generics.ListCreateAPIView):
         site_id = self.kwargs.get('site_id')
         site = get_object_or_404(UnverifiedSite, site_id=site_id)
         
-        # Check permissions
+        # Check permissions using project-based access
         user = self.request.user
-        if user.role == UserRole.DATA_COLLECTOR and site.collected_by != user:
+        if not user_can_access_site(user, site):  # ✅ NEW
             from rest_framework.exceptions import PermissionDenied
-            raise PermissionDenied("You can only add call logs to your own sites")
+            raise PermissionDenied("You do not have permission to add call logs to this site")
         
         # Use the site's method to add call log (handles call number automatically)
         call_notes = serializer.validated_data['call_notes']
@@ -129,11 +129,10 @@ class FieldConfirmationListAPIView(generics.ListAPIView):
         site_id = self.kwargs.get('site_id')
         site = get_object_or_404(UnverifiedSite, site_id=site_id)
         
-        # Check permissions
+        # Check permissions using project-based access
         user = self.request.user
-        if user.role == UserRole.DATA_COLLECTOR:
-            if site.collected_by != user:
-                return FieldConfirmation.objects.none()
+        if not user_can_access_site(user, site):  # ✅ NEW
+            return FieldConfirmation.objects.none()
         
         return site.field_confirmations.all().select_related('confirmed_by')
 
@@ -142,23 +141,13 @@ class FieldConfirmationListAPIView(generics.ListAPIView):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated, IsStaffOrDataCollector])
 def update_field_confirmation(request, site_id, field_name):
-    """
-    POST: Update or create field confirmation for a specific field
-    
-    Body:
-    {
-        "is_confirmed": true,
-        "is_new_data": false,
-        "notes": "Optional notes"
-    }
-    """
     site = get_object_or_404(UnverifiedSite, site_id=site_id)
     
-    # Check permissions
+    # Check permissions using project-based access
     user = request.user
-    if user.role == UserRole.DATA_COLLECTOR and site.collected_by != user:
+    if not user_can_access_site(user, site):  # ✅ NEW
         return Response(
-            {'error': 'You can only update confirmations for your own sites'},
+            {'error': 'You do not have permission to update confirmations for this site'},
             status=status.HTTP_403_FORBIDDEN
         )
     
@@ -194,36 +183,13 @@ def update_field_confirmation(request, site_id, field_name):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated, IsStaffOrDataCollector])
 def bulk_update_field_confirmations(request, site_id):
-    """
-    POST: Bulk update field confirmations
-    
-    Body:
-    {
-        "confirmations": [
-            {
-                "field_name": "company_name",
-                "is_confirmed": true,
-                "is_new_data": false,
-                "is_pre_filled": true,
-                "last_selected": "is_confirmed"
-            },
-            {
-                "field_name": "phone_number",
-                "is_confirmed": false,
-                "is_new_data": true,
-                "is_pre_filled": true,
-                "last_selected": "is_new_data"
-            }
-        ]
-    }
-    """
     site = get_object_or_404(UnverifiedSite, site_id=site_id)
     
-    # Check permissions
+    # Check permissions using project-based access
     user = request.user
-    if user.role == UserRole.DATA_COLLECTOR and site.collected_by != user:
+    if not user_can_access_site(user, site):  # ✅ NEW
         return Response(
-            {'error': 'You can only update confirmations for your own sites'},
+            {'error': 'You do not have permission to update confirmations for this site'},
             status=status.HTTP_403_FORBIDDEN
         )
     
@@ -298,11 +264,11 @@ def update_calling_status(request, site_id):
     """Update calling status of a site"""
     site = get_object_or_404(UnverifiedSite, site_id=site_id)
     
-    # Check permissions
+    # Check permissions using project-based access
     user = request.user
-    if user.role == UserRole.DATA_COLLECTOR and site.collected_by != user:
+    if not user_can_access_site(user, site):  # ✅ NEW
         return Response(
-            {'error': 'You can only update status for your own sites'},
+            {'error': 'You do not have permission to update status for this site'},
             status=status.HTTP_403_FORBIDDEN
         )
     
@@ -413,7 +379,7 @@ def get_status_history(request, site_id):
     
     # Check permissions
     user = request.user
-    if user.role == UserRole.DATA_COLLECTOR and site.collected_by != user:
+    if not user_can_access_site(user, site):
         return Response(
             {'error': 'You can only view history for your own sites'},
             status=status.HTTP_403_FORBIDDEN
@@ -449,7 +415,7 @@ def send_thank_you_email(request, site_id):
     
     # Check permissions
     user = request.user
-    if user.role == UserRole.DATA_COLLECTOR and site.collected_by != user:
+    if not user_can_access_site(user, site):
         return Response(
             {'error': 'You can only send emails for your own sites'},
             status=status.HTTP_403_FORBIDDEN
@@ -593,7 +559,7 @@ def check_email_status(request, site_id):
     user = request.user
     
     # Check permissions
-    if user.role == UserRole.DATA_COLLECTOR and site.collected_by != user:
+    if not user_can_access_site(user, site):
         return Response(
             {'error': 'You can only check status for your own sites'},
             status=status.HTTP_403_FORBIDDEN
@@ -662,7 +628,7 @@ def get_email_history(request, site_id):
     
     # Check permissions
     user = request.user
-    if user.role == UserRole.DATA_COLLECTOR and site.collected_by != user:
+    if not user_can_access_site(user, site):
         return Response(
             {'error': 'You can only view email history for your own sites'},
             status=status.HTTP_403_FORBIDDEN

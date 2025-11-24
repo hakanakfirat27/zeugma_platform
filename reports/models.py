@@ -1084,7 +1084,17 @@ class DataCollectionProject(models.Model):
         related_name='created_projects',
         help_text="Data collector who created this project"
     )
-    
+
+    assigned_to = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='assigned_projects',
+        limit_choices_to={'role': 'DATA_COLLECTOR'},
+        help_text="Data collector assigned to work on this project"
+)  
+
     assigned_reviewers = models.ManyToManyField(
         User,
         related_name='assigned_review_projects',
@@ -1324,6 +1334,8 @@ class VerificationAction(models.TextChoices):
     ASSIGNED = 'ASSIGNED', 'Assigned'
     TRANSFERRED = 'TRANSFERRED', 'Transferred to Superdatabase'
     COMMENT_ADDED = 'COMMENT_ADDED', 'Comment Added'
+    NEEDS_REVISION = 'NEEDS_REVISION', 'Needs Revision' 
+    UNDER_REVIEW = 'UNDER_REVIEW', 'Under Review'
 
 
 # --- Calling Status Class ---
@@ -2085,50 +2097,91 @@ class UnverifiedSite(models.Model):
             'status': self.get_calling_status_display(),
             'color': colors.get(self.calling_status, 'bg-gray-100 text-gray-800')
         }
+    
+    def transfer_to_superdatabase(self, transferred_by=None):
+        """
+        Transfer this site's data to the SuperdatabaseRecord.
+        Updates status to TRANSFERRED and creates history entry.
+        
+        Args:
+            transferred_by: User who performed the transfer
+            
+        Returns:
+            SuperdatabaseRecord: The newly created record
+            
+        Raises:
+            ValueError: If site is already transferred or not approved
+        """
+        from django.db import transaction
+        
+        # Refresh from database to get the latest status (prevent race conditions)
+        self.refresh_from_db(fields=['verification_status'])
+        
+        # Check if already transferred
+        if self.verification_status == VerificationStatus.TRANSFERRED:
+            raise ValueError('This site has already been transferred to Superdatabase')
+        
+        # Check if approved
+        if self.verification_status != VerificationStatus.APPROVED:
+            raise ValueError(f'Site must be approved before transfer. Current status: {self.get_verification_status_display()}')
+        
+        # Fields to exclude from transfer (verification-specific fields)
+        exclude_fields = {
+            'site_id', 'verification_status', 'collected_by', 'verified_by',
+            'collected_date', 'verified_date', 'source', 'priority',
+            'notes', 'rejection_reason', 'data_quality_score',
+            'assigned_to', 'is_duplicate', 'duplicate_of',
+            'created_at', 'updated_at', 'project',
+            'calling_status', 'calling_status_changed_at', 'calling_status_changed_by',
+            'is_pre_filled', 'pre_filled_by', 'pre_filled_at', 'total_calls'
+        }
+        
+        # Build data dict for SuperdatabaseRecord
+        transfer_data = {}
+        for field in self._meta.fields:
+            field_name = field.name
+            if field_name not in exclude_fields:
+                # Check if field exists in SuperdatabaseRecord
+                try:
+                    SuperdatabaseRecord._meta.get_field(field_name)
+                    transfer_data[field_name] = getattr(self, field_name)
+                except Exception:
+                    # Field doesn't exist in SuperdatabaseRecord, skip it
+                    pass
+        
+        # Use atomic transaction to ensure both operations succeed or fail together
+        with transaction.atomic():
+            # Create SuperdatabaseRecord
+            superdatabase_record = SuperdatabaseRecord.objects.create(**transfer_data)
+            
+            # Update status to TRANSFERRED using direct database update to ensure it persists
+            # This bypasses any issues with the model's save() method
+            UnverifiedSite.objects.filter(site_id=self.site_id).update(
+                verification_status=VerificationStatus.TRANSFERRED
+            )
+            
+            # Refresh the instance to get the updated status
+            self.refresh_from_db()
+            
+            # Create history entry
+            VerificationHistory.objects.create(
+                site=self,
+                action='TRANSFERRED',
+                performed_by=transferred_by,
+                comments=f'Transferred to Superdatabase (ID: {superdatabase_record.factory_id})'
+            )
+        
+        return superdatabase_record
 
 
     def save(self, *args, **kwargs):
         """Auto-calculate quality score and check duplicates on save."""
-        self.calculate_data_quality_score()
-        self.check_for_duplicates()
-        super().save(*args, **kwargs)    
-
-    def transfer_to_superdatabase(self, transferred_by=None):
-        """
-        Transfer this verified site to SuperdatabaseRecord.
-        Returns the created SuperdatabaseRecord instance.
-        """
-        if self.verification_status != VerificationStatus.APPROVED:
-            raise ValueError("Only approved sites can be transferred")
-        
-        # Create new SuperdatabaseRecord with all field values
-        superdatabase_record = SuperdatabaseRecord()
-        
-        # Copy all fields (excluding verification-specific ones)
-        exclude_fields = [
-            'site_id', 'verification_status', 'collected_by', 'collected_date',
-            'verified_by', 'verified_date', 'source', 'priority', 'notes',
-            'rejection_reason', 'data_quality_score', 'assigned_to',
-            'is_duplicate', 'duplicate_of', 'created_at', 'updated_at'
-        ]
-        
-        for field in self._meta.fields:
-            if field.name not in exclude_fields and field.name != 'factory_id':
-                value = getattr(self, field.name)
-                setattr(superdatabase_record, field.name, value)
-        
-        # Save the new record
-        superdatabase_record.save()
-        
-        # Create verification history entry
-        VerificationHistory.objects.create(
-            site=self,
-            action=VerificationAction.TRANSFERRED,
-            performed_by=transferred_by,
-            comments=f"Transferred to Superdatabase with factory_id: {superdatabase_record.factory_id}"
-        )
-        
-        return superdatabase_record   
+        # Only calculate quality score and check duplicates if not a partial update
+        update_fields = kwargs.get('update_fields')
+        if update_fields is None:
+            self.calculate_data_quality_score()
+            self.check_for_duplicates()
+        super().save(*args, **kwargs)
 
 
 # --- Verification History Class ---

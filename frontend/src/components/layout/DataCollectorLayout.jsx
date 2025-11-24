@@ -1,94 +1,55 @@
 // frontend/src/components/layout/DataCollectorLayout.jsx
-// COMPLETE STANDALONE LAYOUT FOR DATA COLLECTORS
 
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
+import useChatUnreadCount from '../../hooks/useChatUnreadCount';
 import {
-  LayoutDashboard, FolderOpen, AlertCircle, Plus,
-  LogOut, ChevronDown, Menu, X, User, Settings,
-  Bell, Calendar, MapPin, Phone, Mail, Building,
-  Shield, Clock, RefreshCw, Lock, Unlock, Database,
-  ArrowRight, Maximize, Minimize, CheckCheck, Trash2,
-  Check, ChevronRight
+  LayoutDashboard, FolderOpen, AlertCircle, Plus, LogOut, ChevronDown, 
+  Menu, X, User, Settings, Bell, Calendar, MapPin, Phone, Mail, Building,
+  Shield, Clock, RefreshCw, Lock, Unlock, Database, ArrowRight, Maximize,
+  Minimize, CheckCheck, Trash2, Check, ChevronRight, MessageCircle
 } from 'lucide-react';
 
 const DataCollectorLayout = ({ children, pageTitle, headerActions, pageSubtitleTop, pageSubtitleBottom }) => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-
-  // Sidebar state
+    
   const getSavedSidebarState = () => {
     const saved = localStorage.getItem('dataCollectorSidebarLocked');
     return saved === 'true';
   };
+
   const [isSidebarLocked, setIsSidebarLocked] = useState(getSavedSidebarState());
   const [isSidebarOpen, setIsSidebarOpen] = useState(!getSavedSidebarState());
-  
-  // UI state
+
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const notificationRef = useRef(null);
-  
+  const { unreadCount: chatUnreadCount, clearCount: clearChatBadge } = useChatUnreadCount();
+
   const [showAvatarMenu, setShowAvatarMenu] = useState(false);
   const avatarMenuRef = useRef(null);
 
-  const [isFullscreen, setIsFullscreen] = useState(false);
-
-  // DATA COLLECTOR NAVIGATION - Only relevant links (NO roles property needed)
+  // DATA COLLECTOR NAVIGATION
   const navLinks = [
-    { 
-      name: 'Dashboard', 
-      path: '/data-collector-dashboard', 
-      icon: LayoutDashboard,
-      color: 'text-blue-500' 
-    },
-    { 
-      name: 'My Projects', 
-      path: '/projects', 
-      icon: FolderOpen,
-      roles: ['DATA_COLLECTOR'], 
-      color: 'text-teal-500' 
-    },
-    { 
-      name: 'My Tasks', 
-      path: '/my-tasks', 
-      icon: AlertCircle,
-      roles: ['DATA_COLLECTOR'], 
-      color: 'text-orange-500' 
-    },
-    { 
-      name: 'Company Research', 
-      path: '/company-research', 
-      icon: AlertCircle,
-      roles: ['DATA_COLLECTOR'], 
-      color: 'text-orange-500' 
-    },    
+    { name: 'Dashboard', path: '/data-collector-dashboard', icon: LayoutDashboard, color: 'text-blue-500' },
+    { name: 'My Projects', path: '/projects', icon: FolderOpen, color: 'text-teal-500' },
+    { name: 'My Tasks', path: '/my-tasks', icon: AlertCircle, color: 'text-orange-500' },
+    { name: 'Company Research', path: '/company-research', icon: AlertCircle, color: 'text-orange-500' },
+    { name: 'Chat', path: '/data-collector-chat', icon: MessageCircle, color: 'text-purple-500' },    
   ];
 
   // Dropdown menu links
   const dropdownLinks = [
-    { 
-      name: 'My Profile', 
-      path: '/my-profile', 
-      icon: User, 
-      color: 'text-blue-600', 
-      bg: 'bg-blue-50',
-      description: 'View your profile'
-    },
-    { 
-      name: 'Profile Settings', 
-      path: '/profile-settings', 
-      icon: Settings, 
-      color: 'text-pink-600', 
-      bg: 'bg-pink-50',
-      description: 'Update your settings'
-    }
+    { name: 'My Profile', path: '/my-profile', icon: User, color: 'text-blue-600', bg: 'bg-blue-50', description: 'View your profile'},
+    { name: 'Profile Settings', path: '/profile-settings', icon: Settings, color: 'text-pink-600', bg: 'bg-pink-50', description: 'Update your settings'}
   ];
 
   // CSRF token helper
@@ -135,40 +96,72 @@ const DataCollectorLayout = ({ children, pageTitle, headerActions, pageSubtitleT
     axios.defaults.xsrfHeaderName = 'X-CSRFToken';
   }, []);
 
-  // Fetch notifications
-  useEffect(() => {
-    if (user) {
-      fetchNotifications();
-    }
-  }, [user]);
-
+  // Fetch notifications from API
   const fetchNotifications = async () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await axios.get('/api/notifications/', {
-        headers: {
-          'X-CSRFToken': getCSRFToken()
-        }
+      const response = await axios.get('http://localhost:8000/api/notifications/', {
+        withCredentials: true,
       });
-      setNotifications(response.data.results || []);
+      setNotifications(response.data.notifications || []);
       setUnreadCount(response.data.unread_count || 0);
     } catch (error) {
       console.error('Error fetching notifications:', error);
-      setError(error.message);
+      setError(error.response?.data?.detail || 'Failed to load notifications');
     } finally {
       setLoading(false);
     }
   };
 
-  const markAsRead = async (notificationId) => {
+  // Fetch notifications on component mount and set up WebSocket
+  useEffect(() => {
+    fetchNotifications();
+
+    // Connect to notification WebSocket for INSTANT updates
+    const wsScheme = window.location.protocol === 'https:' ? 'wss' : 'ws';
+    const notifWsUrl = `${wsScheme}://${window.location.hostname}:8000/ws/notifications/`;
+
+    const notifWs = new WebSocket(notifWsUrl);
+
+    notifWs.onopen = () => {
+      console.log('✅ Notification WebSocket connected');
+    };
+
+    notifWs.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+
+      if (data.type === 'notification') {
+        fetchNotifications();
+      }
+    };
+
+    notifWs.onerror = (error) => {
+      console.error('❌ Notification WebSocket error:', error);
+    };
+
+    notifWs.onclose = () => {
+      console.log('🔴 Notification WebSocket disconnected');
+    };
+
+    return () => {
+      if (notifWs.readyState === WebSocket.OPEN) {
+        notifWs.close();
+      }
+    };
+  }, []);
+
+
+  const markAsRead = async (id) => {
     try {
+      const csrfToken = getCSRFToken();
       await axios.post(
-        `/api/notifications/${notificationId}/mark-read/`,
+        `http://localhost:8000/api/notifications/${id}/mark_as_read/`,
         {},
-        { headers: { 'X-CSRFToken': getCSRFToken() } }
+        { withCredentials: true, headers: { 'X-CSRFToken': csrfToken } }
       );
-      fetchNotifications();
+      setNotifications(notifications.map(n => n.id === id ? { ...n, is_read: true } : n));
+      setUnreadCount(prev => Math.max(0, prev - 1));
     } catch (error) {
       console.error('Error marking notification as read:', error);
     }
@@ -176,52 +169,85 @@ const DataCollectorLayout = ({ children, pageTitle, headerActions, pageSubtitleT
 
   const markAllAsRead = async () => {
     try {
+      const csrfToken = getCSRFToken();
       await axios.post(
-        '/api/notifications/mark-all-read/',
+        'http://localhost:8000/api/notifications/mark_all_as_read/',
         {},
-        { headers: { 'X-CSRFToken': getCSRFToken() } }
+        { withCredentials: true, headers: { 'X-CSRFToken': csrfToken } }
       );
-      fetchNotifications();
+      setNotifications(notifications.map(n => ({ ...n, is_read: true })));
+      setUnreadCount(0);
     } catch (error) {
       console.error('Error marking all as read:', error);
     }
   };
 
   const clearAll = async () => {
+    if (!window.confirm('Are you sure you want to clear all notifications?')) return;
+
     try {
-      await axios.post(
-        '/api/notifications/clear-all/',
-        {},
-        { headers: { 'X-CSRFToken': getCSRFToken() } }
+      const csrfToken = getCSRFToken();
+      await axios.delete(
+        'http://localhost:8000/api/notifications/clear_all/',
+        {
+          withCredentials: true,
+          headers: { 'X-CSRFToken': csrfToken }
+        }
       );
+      setNotifications([]);
+      setUnreadCount(0);
       fetchNotifications();
     } catch (error) {
-      console.error('Error clearing all:', error);
+      console.error('Error clearing all notifications:', error);
+      alert('Failed to clear notifications. Please try again.');
     }
   };
 
-  const deleteNotification = async (notificationId, e) => {
-    e.stopPropagation();
+  const deleteNotification = async (id, event) => {
+    event?.stopPropagation();
     try {
+      const csrfToken = getCSRFToken();
       await axios.delete(
-        `/api/notifications/${notificationId}/`,
-        { headers: { 'X-CSRFToken': getCSRFToken() } }
+        `http://localhost:8000/api/notifications/${id}/delete_notification/`,
+        { withCredentials: true, headers: { 'X-CSRFToken': csrfToken } }
       );
-      fetchNotifications();
+      const notification = notifications.find(n => n.id === id);
+      setNotifications(notifications.filter(n => n.id !== id));
+      if (notification && !notification.is_read) {
+        setUnreadCount(prev => Math.max(0, prev - 1));
+      }
     } catch (error) {
       console.error('Error deleting notification:', error);
     }
   };
 
-  const handleNotificationClick = (notification) => {
-    if (!notification.is_read) {
-      markAsRead(notification.id);
-    }
-    setShowNotifications(false);
-    if (notification.link) {
-      navigate(notification.link);
+
+  // Notification handler functions
+  const handleNotificationClick = async (notification) => {
+    try {
+      if (!notification.is_read) {
+        await markAsRead(notification.id);
+      }
+      switch (notification.notification_type) {
+        case 'PROJECT_ASSIGNED':
+          navigate('/projects');
+          break;
+        case 'message':
+          navigate(notification.related_message_id ? `/data-collector-chat?message_id=${notification.related_message_id}` : '/data-collector-chat');
+          break;
+        case 'announcement':
+          navigate(notification.related_announcement_id ? `/data-collector-dashboard?announcement_id=${notification.related_announcement_id}` : '/data-collector-dashboard');
+          break;
+        default:
+          navigate('/data-collector-dashboard');
+          break;
+      }
+      setShowNotifications(false);
+    } catch (error) {
+      console.error('Error handling notification click:', error);
     }
   };
+
 
   const getNotificationIcon = (type) => {
     const iconProps = { className: "w-5 h-5" };
@@ -249,7 +275,13 @@ const DataCollectorLayout = ({ children, pageTitle, headerActions, pageSubtitleT
     }
   };
 
-  const isActive = (path) => location.pathname === path;
+  const isActive = (path) => {
+    // For paths like /projects, also match child routes like /projects/123
+    if (path === '/projects') {
+      return location.pathname === path || location.pathname.startsWith('/projects/');
+    }
+    return location.pathname === path;
+  };
 
   const getUserInitials = () => {
     if (user?.first_name && user?.last_name) {
@@ -267,20 +299,6 @@ const DataCollectorLayout = ({ children, pageTitle, headerActions, pageSubtitleT
 
   const getUserRole = () => {
     return 'Data Collector';
-  };
-
-  const toggleSidebar = () => {
-    if (isSidebarLocked) {
-      setIsSidebarLocked(false);
-      setIsSidebarOpen(true);
-    } else {
-      setIsSidebarOpen(!isSidebarOpen);
-    }
-  };
-
-  const lockSidebar = () => {
-    setIsSidebarLocked(!isSidebarLocked);
-    setIsSidebarOpen(!isSidebarLocked);
   };
 
   const sidebarWidth = isSidebarOpen ? 'w-64' : 'w-20';
@@ -342,18 +360,25 @@ const DataCollectorLayout = ({ children, pageTitle, headerActions, pageSubtitleT
           </div>
         </div>
 
-        {/* Navigation - FIXED: Removed roles filter */}
+        {/* Navigation */}
         <nav className="flex-1 p-4 overflow-y-auto">
           <div className="space-y-1">
             {navLinks.map((link) => {
               const Icon = link.icon;
               const active = isActive(link.path);
+              const isChatLink = link.name === 'Chat';
               return (
                 <button
                   key={link.name}
-                  onClick={() => navigate(link.path)}
+                  onClick={() => {
+                    navigate(link.path);
+                    // Clear chat badge immediately when clicking Chat
+                    if (isChatLink) {
+                      clearChatBadge();
+                    }
+                  }}
                   title={link.name}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all group relative ${
+                  className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all group relative ${
                     active
                       ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg'
                       : 'text-slate-300 hover:bg-slate-800 hover:text-white'
@@ -362,6 +387,18 @@ const DataCollectorLayout = ({ children, pageTitle, headerActions, pageSubtitleT
                   <Icon className={`w-5 h-5 flex-shrink-0 ${active ? 'text-white' : link.color}`} />
                   {(isSidebarOpen) && (
                     <span className="font-medium text-sm transition-opacity duration-200 truncate">{link.name}</span>
+                  )}
+                  {/* Chat Badge */}
+                  {isChatLink && chatUnreadCount > 0 && (
+                    <span className={`absolute min-w-[20px] h-5 px-1.5 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-200 ${
+                      active ? 'bg-white text-purple-600' : 'bg-red-500 text-white'
+                    } ${
+                      isSidebarOpen
+                        ? 'right-3 top-1/2 -translate-y-1/2' // Centered when open
+                        : 'scale-75 top-1 right-1' // Top-right corner when collapsed
+                    }`}>
+                      {chatUnreadCount > 99 ? '99+' : chatUnreadCount}
+                    </span>
                   )}
                   {active && (isSidebarOpen) && (
                     <ChevronRight className="w-4 h-4 ml-auto flex-shrink-0" />
@@ -391,7 +428,7 @@ const DataCollectorLayout = ({ children, pageTitle, headerActions, pageSubtitleT
           <div className="mt-3 space-y-2">
             <button
               onClick={logout}
-              className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-slate-300 hover:bg-red-600/10 hover:text-red-400 transition-all"
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-300 hover:bg-red-600/10 hover:text-red-400 transition-all"
             >
               <LogOut className="w-5 h-5" />
               {(isSidebarOpen) && <span className="font-medium">Logout</span>}
@@ -597,21 +634,6 @@ const DataCollectorLayout = ({ children, pageTitle, headerActions, pageSubtitleT
                         ))
                       )}
                     </div>
-
-                    {/* Footer */}
-                    {notifications.length > 0 && (
-                      <div className="p-3 border-t border-gray-200 bg-gray-50">
-                        <button
-                          onClick={() => {
-                            navigate('/notifications');
-                            setShowNotifications(false);
-                          }}
-                          className="w-full text-center text-sm text-blue-600 hover:text-blue-700 font-medium"
-                        >
-                          View All Notifications
-                        </button>
-                      </div>
-                    )}
                   </div>
                 )}
               </div>

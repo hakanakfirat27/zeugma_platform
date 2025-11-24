@@ -1,6 +1,5 @@
-// frontend/src/pages/database/UnverifiedSiteDetailPage.jsx
-// Standalone page for viewing unverified site details (ADMIN SIDE)
-// Uses DashboardLayout for admin interface
+// frontend/src/pages/admin/AdminViewSitePage.jsx
+// ✅ FIXED VERSION - Only colors fields, NOT labels
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -18,13 +17,13 @@ import StatusHistoryModal from '../../components/calling/StatusHistoryModal';
 import { getFieldConfirmationStyle } from '../../utils/fieldStyles';
 import {
   ArrowLeft, Edit2, Building2, Users, Info, MessageSquare, Phone,
-  CheckCircle, XCircle, AlertCircle, Clock, Calendar, User,
-  CheckCircle as CheckIcon, PlusCircle, FileText, History, Shield, RefreshCw
+  CheckCircle, XCircle, CheckCircle as CheckIcon, PlusCircle, FileText, History,
+  Clock, RefreshCw, AlertCircle, Shield, Send
 } from 'lucide-react';
 import VerificationStatusTab from '../../components/verification/VerificationStatusTab';
 
-const UnverifiedSiteDetailPage = () => {
-  const { siteId } = useParams();
+const AdminViewSitePage = () => {
+  const { projectId, siteId } = useParams();
   const navigate = useNavigate();
   const { toasts, removeToast } = useToast();
   
@@ -47,26 +46,22 @@ const UnverifiedSiteDetailPage = () => {
     const fetchSiteDetails = async () => {
       try {
         setLoading(true);
-        
-        // Fetch the unverified site data
-        const siteResponse = await api.get(`/api/unverified-sites/${siteId}/`);
-        
-        // Fetch field metadata using the category from site data
+        const siteResponse = await api.get(`/api/projects/sites/${siteId}/`);
         const metadataResponse = await api.get(`/api/fields/metadata/${siteResponse.data.category}/`);
         
         setSiteData(siteResponse.data);
         setFieldMetadata(metadataResponse.data);
       } catch (error) {
-        console.error('Error fetching unverified site details:', error);
-        alert('Failed to load site data. Returning to unverified sites list.');
-        navigate('/unverified-sites');
+        console.error('Error fetching site details:', error);
+        alert('Failed to load site data. Returning to project details.');
+        navigate(`/admin/projects/${projectId}`);
       } finally {
         setLoading(false);
       }
     };
 
     fetchSiteDetails();
-  }, [siteId, navigate]);
+  }, [siteId, projectId, navigate]);
 
   // Fetch notes count for badge - FILTER OUT VERIFICATION NOTES
   useEffect(() => {
@@ -122,31 +117,23 @@ const UnverifiedSiteDetailPage = () => {
 
     fetchVerificationHistoryCount();
   }, [siteId]);
-
-  // Get status badge styling
+  
   const getStatusBadge = (status) => {
-    const statusStyles = {
-      'PENDING': 'bg-yellow-100 text-yellow-800',
-      'UNDER_REVIEW': 'bg-blue-100 text-blue-800',
-      'APPROVED': 'bg-green-100 text-green-800',
-      'REJECTED': 'bg-red-100 text-red-800',
-      'NEEDS_REVISION': 'bg-orange-100 text-orange-800',
-      'TRANSFERRED': 'bg-purple-100 text-purple-800'
+    const badges = {
+      PENDING: { bg: 'bg-yellow-100', text: 'text-yellow-800', label: 'Pending', icon: <Clock className="w-3 h-3" /> },
+      UNDER_REVIEW: { bg: 'bg-blue-100', text: 'text-blue-800', label: 'Under Review', icon: <RefreshCw className="w-3 h-3" /> },
+      NEEDS_REVISION: { bg: 'bg-orange-100', text: 'text-orange-800', label: 'Needs Revision', icon: <AlertCircle className="w-3 h-3" /> },
+      APPROVED: { bg: 'bg-green-100', text: 'text-green-800', label: 'Approved', icon: <CheckCircle className="w-3 h-3" /> },
+      REJECTED: { bg: 'bg-red-100', text: 'text-red-800', label: 'Rejected', icon: <XCircle className="w-3 h-3" /> },
+      TRANSFERRED: { bg: 'bg-purple-100', text: 'text-purple-800', label: 'Transferred', icon: <Send className="w-3 h-3" /> },
     };
-    
-    return statusStyles[status] || 'bg-gray-100 text-gray-800';
-  };
-
-  // Get priority badge styling
-  const getPriorityBadge = (priority) => {
-    const priorityStyles = {
-      'URGENT': 'bg-red-100 text-red-800',
-      'HIGH': 'bg-orange-100 text-orange-800',
-      'MEDIUM': 'bg-yellow-100 text-yellow-800',
-      'LOW': 'bg-green-100 text-green-800'
-    };
-    
-    return priorityStyles[priority] || 'bg-gray-100 text-gray-800';
+    const badge = badges[status] || badges.PENDING;
+    return (
+      <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${badge.bg} ${badge.text}`}>
+        {badge.icon}
+        {badge.label}
+      </span>
+    );
   };
 
   if (loading) {
@@ -154,7 +141,7 @@ const UnverifiedSiteDetailPage = () => {
       <DashboardLayout pageTitle="Loading...">
         <div className="flex items-center justify-center h-screen">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
             <p className="text-center mt-4 text-gray-600">Loading site details...</p>
           </div>
         </div>
@@ -169,10 +156,10 @@ const UnverifiedSiteDetailPage = () => {
           <div className="text-center">
             <p className="text-red-600">Failed to load site data</p>
             <button
-              onClick={() => navigate('/unverified-sites')}
-              className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+              onClick={() => navigate(`/admin/projects/${projectId}`)}
+              className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
             >
-              Back to Unverified Sites
+              Back to Project
             </button>
           </div>
         </div>
@@ -189,16 +176,16 @@ const UnverifiedSiteDetailPage = () => {
         {/* Header with navigation buttons */}
         <div className="mb-6 flex justify-between items-center">
           <button
-            onClick={() => navigate('/unverified-sites')}
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+            onClick={() => navigate(`/admin/projects/${projectId}`)}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
           >
             <ArrowLeft className="w-5 h-5" />
-            Back to Unverified Sites
+            Back to Site
           </button>
 
           <button
-            onClick={() => navigate(`/unverified-sites/${siteId}/edit`)}
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+            onClick={() => navigate(`/admin/projects/${projectId}/sites/${siteId}/edit`)}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
           >
             <Edit2 className="w-4 h-4" />
             Edit Site
@@ -213,46 +200,6 @@ const UnverifiedSiteDetailPage = () => {
               <div>
                 <h2 className="text-2xl font-bold text-indigo-900">{siteData.company_name}</h2>
                 <p className="text-sm text-gray-600 mt-1">{siteData.website || 'No website'}</p>
-                
-                {/* Status and Priority Badges */}
-                <div className="flex flex-wrap gap-2 mt-2">
-                  <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusBadge(siteData.verification_status)}`}>
-                    {siteData.verification_status_display}
-                  </span>
-                  {siteData.priority && (
-                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getPriorityBadge(siteData.priority)}`}>
-                      Priority: {siteData.priority_display}
-                    </span>
-                  )}
-                </div>
-
-                {/* Additional Info Bar */}
-                <div className="mt-3 flex flex-wrap gap-4 text-sm text-gray-600">
-                  {siteData.collected_by_info && (
-                    <div className="flex items-center gap-1">
-                      <User className="w-4 h-4" />
-                      <span>Collected by: {siteData.collected_by_info.full_name}</span>
-                    </div>
-                  )}
-                  {siteData.collected_date && (
-                    <div className="flex items-center gap-1">
-                      <Calendar className="w-4 h-4" />
-                      <span>Collected: {new Date(siteData.collected_date).toLocaleDateString()}</span>
-                    </div>
-                  )}
-                  {siteData.data_quality_score !== null && (
-                    <div className="flex items-center gap-1">
-                      <CheckCircle className="w-4 h-4" />
-                      <span>Quality Score: {siteData.data_quality_score}%</span>
-                    </div>
-                  )}
-                  {siteData.is_duplicate && (
-                    <div className="flex items-center gap-1 text-red-600">
-                      <AlertCircle className="w-4 h-4" />
-                      <span>Possible Duplicate</span>
-                    </div>
-                  )}
-                </div>
               </div>
               
               {/* Field Confirmations Legend (Read-only) */}
@@ -287,7 +234,7 @@ const UnverifiedSiteDetailPage = () => {
                 onClick={() => setActiveTab('core')}
                 className={`px-6 py-3 font-medium transition-colors flex items-center gap-2 ${
                   activeTab === 'core'
-                    ? 'border-b-2 border-indigo-600 text-indigo-600'
+                    ? 'border-b-2 border-blue-600 text-blue-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700'
                 }`}
               >
@@ -298,7 +245,7 @@ const UnverifiedSiteDetailPage = () => {
                 onClick={() => setActiveTab('contacts')}
                 className={`px-6 py-3 font-medium transition-colors flex items-center gap-2 ${
                   activeTab === 'contacts'
-                    ? 'border-b-2 border-indigo-600 text-indigo-600'
+                    ? 'border-b-2 border-blue-600 text-blue-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700'
                 }`}
               >
@@ -309,7 +256,7 @@ const UnverifiedSiteDetailPage = () => {
                 onClick={() => setActiveTab('technical')}
                 className={`px-6 py-3 font-medium transition-colors flex items-center gap-2 ${
                   activeTab === 'technical'
-                    ? 'border-b-2 border-indigo-600 text-indigo-600'
+                    ? 'border-b-2 border-blue-600 text-blue-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700'
                 }`}
               >
@@ -320,14 +267,14 @@ const UnverifiedSiteDetailPage = () => {
                 onClick={() => setActiveTab('calling')}
                 className={`px-6 py-3 font-medium transition-colors flex items-center gap-2 ${
                   activeTab === 'calling'
-                    ? 'border-b-2 border-indigo-600 text-indigo-600'
+                    ? 'border-b-2 border-blue-600 text-blue-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700'
                 }`}
               >
                 <Phone className="w-4 h-4" />
                 Calling Workflow
                 {siteData.total_calls > 0 && (
-                  <span className="ml-1 px-2 py-0.5 text-xs font-semibold bg-indigo-600 text-white rounded-full">
+                  <span className="ml-1 px-2 py-0.5 text-xs font-semibold bg-blue-600 text-white rounded-full">
                     {siteData.total_calls}
                   </span>
                 )}
@@ -336,14 +283,14 @@ const UnverifiedSiteDetailPage = () => {
                 onClick={() => setActiveTab('notes')}
                 className={`px-6 py-3 font-medium transition-colors flex items-center gap-2 ${
                   activeTab === 'notes'
-                    ? 'border-b-2 border-indigo-600 text-indigo-600'
+                    ? 'border-b-2 border-blue-600 text-blue-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700'
                 }`}
               >
                 <MessageSquare className="w-4 h-4" />
                 Notes
                 {notesCount > 0 && (
-                  <span className="ml-1 px-2 py-0.5 text-xs font-semibold bg-indigo-600 text-white rounded-full">
+                  <span className="ml-1 px-2 py-0.5 text-xs font-semibold bg-blue-600 text-white rounded-full">
                     {notesCount}
                   </span>
                 )}
@@ -352,14 +299,14 @@ const UnverifiedSiteDetailPage = () => {
                 onClick={() => setActiveTab('verification')}
                 className={`px-6 py-3 font-medium transition-colors flex items-center gap-2 ${
                   activeTab === 'verification'
-                    ? 'border-b-2 border-indigo-600 text-indigo-600'
+                    ? 'border-b-2 border-blue-600 text-blue-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700'
                 }`}
               >
                 <Shield className="w-4 h-4" />
                 Verification Status
                 {verificationHistoryCount > 0 && (
-                  <span className="ml-1 px-2 py-0.5 text-xs font-semibold bg-indigo-600 text-white rounded-full">
+                  <span className="ml-1 px-2 py-0.5 text-xs font-semibold bg-blue-600 text-white rounded-full">
                     {verificationHistoryCount}
                   </span>
                 )}
@@ -396,7 +343,7 @@ const UnverifiedSiteDetailPage = () => {
                   if (!hasData) return null;
                   
                   return (
-                    <div key={num} className="border-l-4 border-indigo-500 pl-6">
+                    <div key={num} className="border-l-4 border-blue-500 pl-6">
                       <h4 className="text-md font-semibold text-gray-800 mb-4">Contact {num}</h4>
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                         {contactFields.map(field => (
@@ -444,7 +391,7 @@ const UnverifiedSiteDetailPage = () => {
                   <div className="border-t border-gray-200 pt-6">
                     <button
                       onClick={() => setShowHistoryModal(true)}
-                      className="flex items-center gap-2 px-4 py-2 bg-indigo-100 text-indigo-700 border border-indigo-300 rounded-lg hover:bg-indigo-200 transition-colors"
+                      className="flex items-center gap-2 px-4 py-2 bg-blue-100 text-blue-700 border border-blue-300 rounded-lg hover:bg-blue-200 transition-colors"
                     >
                       <History className="w-4 h-4" />
                       View Status Change History
@@ -471,41 +418,6 @@ const UnverifiedSiteDetailPage = () => {
             )}
           </div>
         </div>
-
-        {/* Verification History Section */}
-        {siteData.verified_date && (
-          <div className="mt-6 bg-white rounded-lg shadow-lg p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Verification Information</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-              {siteData.verified_by_info && (
-                <div>
-                  <span className="font-medium text-gray-700">Verified By:</span>
-                  <span className="ml-2 text-gray-600">{siteData.verified_by_info.full_name}</span>
-                </div>
-              )}
-              {siteData.verified_date && (
-                <div>
-                  <span className="font-medium text-gray-700">Verified Date:</span>
-                  <span className="ml-2 text-gray-600">
-                    {new Date(siteData.verified_date).toLocaleDateString()}
-                  </span>
-                </div>
-              )}
-              {siteData.assigned_to_info && (
-                <div>
-                  <span className="font-medium text-gray-700">Assigned To:</span>
-                  <span className="ml-2 text-gray-600">{siteData.assigned_to_info.full_name}</span>
-                </div>
-              )}
-              {siteData.source_display && (
-                <div>
-                  <span className="font-medium text-gray-700">Source:</span>
-                  <span className="ml-2 text-gray-600">{siteData.source_display}</span>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Status History Modal */}
@@ -520,7 +432,7 @@ const UnverifiedSiteDetailPage = () => {
   );
 };
 
-// Display Field Component - Only colors the field, NOT the label
+// ✅ FIXED: Display Field Component - Only colors the field, NOT the label
 const DisplayField = ({ 
   label, 
   value, 
@@ -554,47 +466,10 @@ const DisplayField = ({
       // Null/undefined - show blank
       return '-';
     }
-
-    // Handle null or undefined values
-    if (value === null || value === undefined || value === '') {
-      return <span className="text-gray-400">-</span>;
-    }
-
-    // Handle URL fields - make them clickable
-    if (fieldType === 'url' && value) {
-      return (
-        <a 
-          href={value.startsWith('http') ? value : `https://${value}`}
-          target="_blank" 
-          rel="noopener noreferrer"
-          className="text-indigo-600 hover:underline"
-        >
-          {value}
-        </a>
-      );
-    }
-
-    // Handle email fields - make them clickable
-    if (fieldType === 'email' && value) {
-      return (
-        <a 
-          href={`mailto:${value}`}
-          className="text-indigo-600 hover:underline"
-        >
-          {value}
-        </a>
-      );
-    }
-
-    // Handle textarea fields - preserve line breaks
-    if (fieldType === 'textarea' && value) {
-      return <span className="whitespace-pre-wrap">{value}</span>;
-    }
-
-    return value;
+    return value || '-';
   };
 
-  // Calculate styles directly from confirmation data
+  // ✅ Calculate styles directly from confirmation data
   const hasValue = value && value.toString().trim() !== '';
   const confirmation = confirmations[fieldName] || {};
   const fieldStyle = getFieldConfirmationStyle(confirmation, hasValue);
@@ -603,21 +478,21 @@ const DisplayField = ({
     <FieldWithConfirmation
       fieldName={fieldName}
       fieldValue={value}
-      fieldType={fieldType}
+      fieldType={fieldType}  // ← NEW: Pass the field type
       confirmation={confirmation}
       onToggleConfirmation={() => {}} // Read-only, no toggle
       readOnly={true}
       showConfirmations={true}
     >
       <div className={fullWidth ? "md:col-span-2" : ""}>
-        {/* Label is NOT affected by field colors */}
+        {/* ✅ Label is NOT affected by field colors */}
         <label className="block text-sm font-medium text-gray-700 mb-1">
           {label}
         </label>
         
-        {/* Apply inline styles directly */}
+        {/* ✅ Apply inline styles directly */}
         <div 
-          className="text-sm text-gray-900 bg-gray-50 px-3 py-2 rounded border border-gray-200 min-h-[38px] flex items-center"
+          className="text-sm text-gray-900 bg-gray-50 px-3 py-2 rounded border border-gray-200 min-h-[38px]"
           style={fieldStyle}
         >
           {renderValue()}
@@ -627,4 +502,4 @@ const DisplayField = ({
   );
 };
 
-export default UnverifiedSiteDetailPage;
+export default AdminViewSitePage;

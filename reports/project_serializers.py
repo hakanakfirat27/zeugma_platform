@@ -15,28 +15,20 @@ from .models import (
     ProjectStatus
 )
 from .fields import COMMON_FIELDS, CONTACT_FIELDS, ALL_COMMONS
+from accounts.models import UserRole
 
 User = get_user_model()
 
 
-# ============================================================================
-# USER SERIALIZERS
-# ============================================================================
-
 class UserBasicSerializer(serializers.ModelSerializer):
-    """Basic user info for nested serialization"""
-    full_name = serializers.CharField(read_only=True)
-    initials = serializers.CharField(read_only=True)
+    """Basic user info for project serializers"""
+    role_display = serializers.CharField(source='get_role_display', read_only=True)
     
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'full_name', 'initials', 'role']
-        read_only_fields = fields
+        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'role', 'role_display']
+        read_only_fields = ['id', 'username', 'email', 'first_name', 'last_name', 'role', 'role_display']
 
-
-# ============================================================================
-# REVIEW NOTE SERIALIZERS
-# ============================================================================
 
 class ReviewNoteSerializer(serializers.ModelSerializer):
     """Serializer for review notes"""
@@ -64,7 +56,11 @@ class ReviewNoteCreateSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = ReviewNote
-        fields = ['site', 'note_text', 'is_internal', 'attachment']
+        fields = ['note_text', 'is_internal', 'attachment']  # Removed 'site'
+        extra_kwargs = {
+            'is_internal': {'required': False, 'default': False},
+            'attachment': {'required': False, 'allow_null': True},
+}
     
     def validate_note_text(self, value):
         """Ensure note text is not empty"""
@@ -72,10 +68,6 @@ class ReviewNoteCreateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Note text cannot be empty")
         return value.strip()
 
-
-# ============================================================================
-# PROJECT ACTIVITY LOG SERIALIZERS
-# ============================================================================
 
 class ProjectActivityLogSerializer(serializers.ModelSerializer):
     """Serializer for project activity logs"""
@@ -96,10 +88,6 @@ class ProjectActivityLogSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = fields
 
-
-# ============================================================================
-# PROJECT SERIALIZERS
-# ============================================================================
 
 class DataCollectionProjectListSerializer(serializers.ModelSerializer):
     """Serializer for listing projects (lightweight)"""
@@ -195,7 +183,18 @@ class DataCollectionProjectDetailSerializer(serializers.ModelSerializer):
 
 
 class DataCollectionProjectCreateUpdateSerializer(serializers.ModelSerializer):
-    """Serializer for creating/updating projects"""
+    """
+    UPDATED: Serializer for creating/updating projects
+    Now supports admin assigning projects to data collectors
+    """
+    # Admin can assign project to a specific data collector
+    assigned_to = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.filter(role=UserRole.DATA_COLLECTOR),
+        required=False,
+        allow_null=True,
+        source='created_by',
+        help_text="Assign project to a data collector (Admin only)"
+    )
     
     class Meta:
         model = DataCollectionProject
@@ -204,28 +203,36 @@ class DataCollectionProjectCreateUpdateSerializer(serializers.ModelSerializer):
             'description',
             'category',
             'target_region',
-            'status',
-            'assigned_reviewers',
             'target_count',
             'deadline',
+            'status',
+            'assigned_reviewers',
+            'assigned_to',  # NEW: For admin to assign to data collector
         ]
+        
+    def validate(self, data):
+        """Validate project data"""
+        user = self.context['request'].user
+        
+        # If admin is assigning to someone else, ensure they have permission
+        if 'created_by' in data and data['created_by'] != user:
+            if user.role not in [UserRole.SUPERADMIN, UserRole.STAFF_ADMIN]:
+                raise serializers.ValidationError({
+                    'assigned_to': 'Only admins can assign projects to other users'
+                })
+        
+        return data
     
-    def validate_project_name(self, value):
-        """Ensure project name is not empty"""
-        if not value or not value.strip():
-            raise serializers.ValidationError("Project name is required")
-        return value.strip()
-    
-    def validate_target_count(self, value):
-        """Ensure target count is positive"""
-        if value < 0:
-            raise serializers.ValidationError("Target count must be positive")
-        return value
+    def create(self, validated_data):
+        """Create new project"""
+        user = self.context['request'].user
+        
+        # If no assigned_to is specified, assign to current user
+        if 'created_by' not in validated_data:
+            validated_data['created_by'] = user
+        
+        return super().create(validated_data)
 
-
-# ============================================================================
-# ENHANCED UNVERIFIED SITE SERIALIZERS (with project support)
-# ============================================================================
 
 class UnverifiedSiteProjectSerializer(serializers.ModelSerializer):
     """
@@ -353,10 +360,6 @@ class UnverifiedSiteDetailWithNotesSerializer(serializers.ModelSerializer):
             'updated_at',
         ]
 
-
-# ============================================================================
-# ACTION SERIALIZERS
-# ============================================================================
 
 class BulkProjectActionSerializer(serializers.Serializer):
     """Serializer for bulk actions on sites within a project"""

@@ -15,6 +15,7 @@ from .project_views import (
     DeleteSiteFromProjectAPIView,
     SiteDetailAPIView,
     check_duplicate_site,
+    UpdateSiteInProjectAPIView,
     
     # Review workflow
     send_for_revision,
@@ -62,6 +63,8 @@ urlpatterns = [
 
     path('projects/<uuid:project_id>/check-duplicate/', check_duplicate_site, name='check-duplicate-site'),
     
+
+    path('sites/<uuid:site_id>/', UpdateSiteInProjectAPIView.as_view(), name='site-direct-update'),    
     # =========================================================================
     # REVIEW WORKFLOW
     # =========================================================================

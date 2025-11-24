@@ -1,5 +1,5 @@
-// frontend/src/pages/AddSiteToProjectPage.jsx
-// Page for adding new sites to a project - UPDATED with Calling Workflow tab
+// frontend/src/pages/admin/AdminAddSiteToProjectPage.jsx
+
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -8,7 +8,7 @@ import { ArrowLeft, Save, X, Building2, Users, Info, MessageSquare, Phone, Check
 import useToast from '../../hooks/useToast';
 import { ToastContainer } from '../../components/Toast';
 import api from '../../utils/api';
-import DataCollectorLayout from '../../components/layout/DataCollectorLayout';
+import DashboardLayout from '../../components/layout/DashboardLayout';
 import { CATEGORIES } from '../../constants/categories';
 import CountrySelector from '../../components/form/CountrySelector';
 import NotesTab from '../../components/calling/NotesTab';
@@ -16,7 +16,7 @@ import CancelConfirmationModal from '../../components/modals/CancelConfirmationM
 import FieldWithConfirmation from '../../components/calling/FieldWithConfirmation';
 import { useFieldConfirmations } from '../../hooks/useFieldConfirmations';
 
-const AddSiteToProjectPage = () => {
+const AdminAddSiteToProjectPage = () => {
   const { projectId } = useParams();
   const navigate = useNavigate();
   const { success, error: showError } = useToast();
@@ -157,7 +157,7 @@ const AddSiteToProjectPage = () => {
     
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
-      showError('Please fill in all required fields');
+      showError('Please fix the validation errors before saving.');
       // Switch to Core Information tab to show errors
       setActiveTab('core');
       return; // Stop submission
@@ -191,11 +191,11 @@ const AddSiteToProjectPage = () => {
       
       // Switch to notes tab
       setTimeout(() => {
-        navigate(`/projects/${projectId}/sites/${data.site_id}/edit`);
+        navigate(`/admin/projects/${projectId}/sites/${data.site_id}/edit`);
       }, 500);
       
       // Don't navigate away immediately - let user add notes
-      // navigate(`/projects/${projectId}`);
+      // navigate(`/admin/projects/${projectId}`);
     },
     onError: (error) => {
       console.error('Error adding site:', error);
@@ -212,7 +212,7 @@ const AddSiteToProjectPage = () => {
 
   const handleConfirmCancel = () => {
     setShowCancelModal(false);
-    navigate(`/projects/${projectId}`);
+    navigate(`/admin/projects/${projectId}`);
   };
 
   const getCategoryDisplayName = (categoryCode) => {
@@ -242,17 +242,17 @@ const AddSiteToProjectPage = () => {
 
   if (projectLoading || metadataLoading) {
     return (
-      <DataCollectorLayout pageTitle="Add Site">
+      <DashboardLayout  pageTitle="Add Site">
         <div className="flex items-center justify-center h-screen">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
         </div>
-      </DataCollectorLayout>
+      </DashboardLayout >
     );
   }
 
   if (!project) {
     return (
-      <DataCollectorLayout pageTitle="Add Site">
+      <DashboardLayout  pageTitle="Add Site">
         <div className="p-6">
           <div className="bg-red-50 border border-red-200 rounded-lg p-4">
             <h3 className="text-red-800 font-semibold">Project Not Found</h3>
@@ -260,34 +260,31 @@ const AddSiteToProjectPage = () => {
               The project you're trying to add a site to could not be found.
             </p>
             <button
-              onClick={() => navigate('/projects')}
+              onClick={() => navigate('/admin/projects')}
               className="mt-3 text-blue-600 hover:text-blue-800 text-sm font-medium"
             >
               ← Back to Projects
             </button>
           </div>
         </div>
-      </DataCollectorLayout>
+      </DashboardLayout >
     );
   }
 
   const categoryDisplayName = getCategoryDisplayName(selectedCategory);
 
   return (
-    <DataCollectorLayout
+    <DashboardLayout 
       pageTitle="Add Site to Project"
       pageSubtitleBottom={`Adding site to: ${project.project_name}`}
     >
-
       <div className="p-6 max-w-7xl mx-auto">
-
-        
         {/* Header */}
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <button
-                onClick={() => navigate(`/projects/${projectId}`)}
+                onClick={() => navigate(`/admin/projects/${projectId}`)}
                 className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
               >
                 <ArrowLeft className="w-5 h-5" />
@@ -528,7 +525,7 @@ const AddSiteToProjectPage = () => {
             
             {savedSiteId ? (
               <button
-                onClick={() => navigate(`/projects/${projectId}`)}
+                onClick={() => navigate(`/admin/projects/${projectId}`)}
                 className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
               >
                 Done - Return to Project
@@ -554,7 +551,7 @@ const AddSiteToProjectPage = () => {
           message="Are you sure you want to cancel? Any unsaved changes will be lost."
         />
       </div>
-    </DataCollectorLayout>
+    </DashboardLayout >
   );
 };
 
@@ -923,4 +920,4 @@ const FormField = ({
   );
 };
 
-export default AddSiteToProjectPage;
+export default AdminAddSiteToProjectPage;

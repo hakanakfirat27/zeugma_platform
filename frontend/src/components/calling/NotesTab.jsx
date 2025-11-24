@@ -7,6 +7,7 @@
  * - Toast notifications for all actions
  * - DeleteConfirmationModal integration
  * - WhatsApp-style chat layout
+ * - UPDATED: Filters out verification notes (shown only in Verification Status tab)
  */
 
 import React, { useState, useEffect } from 'react';
@@ -21,7 +22,8 @@ import {
   Trash2, 
   Save, 
   X,
-  Clock 
+  Clock,
+  Info 
 } from 'lucide-react';
 
 const NotesTab = ({ 
@@ -104,25 +106,57 @@ const NotesTab = ({
   }, [siteId, queryClient, info]);
 
   // ============================================================================
-  // FETCH NOTES (Sorted by most recent first)
+  // FETCH NOTES - FILTER OUT VERIFICATION NOTES
   // ============================================================================
   
   const { data: notes = [], isLoading, error } = useQuery({
     queryKey: ['site-notes', siteId],
     queryFn: async () => {
       const response = await api.get(`/api/sites/${siteId}/notes/`);
-      console.log('📝 NotesTab - Fetched notes:', response.data);
+      console.log('📝 NotesTab - Fetched all notes:', response.data);
+      
+      // FILTER OUT VERIFICATION NOTES
+      // These notes should ONLY appear in the Verification Status tab
+      const regularNotes = (response.data || []).filter(note => {
+        // Exclude notes with [VERIFICATION] prefix
+        const hasVerificationPrefix = note.note_text.startsWith('[VERIFICATION]');
+        
+        // Exclude notes marked as verification notes by backend (if field exists)
+        const isMarkedAsVerification = note.is_verification_note === true;
+        
+        // Exclude notes with common verification keywords (fallback for old notes)
+        const text = note.note_text.toLowerCase();
+        const hasVerificationKeywords = 
+          text.includes('[verification]') ||
+          text.includes('needs revision') ||  // ✅ Removed "please" requirement
+          text.includes('sent for revision') ||
+          text.includes('marked for revision') ||
+          text.includes('requires revision') ||
+          text.includes('revision needed') ||
+          text.includes('please revise') ||
+          text.includes('verification:') ||
+          text.includes('rejected because') ||
+          text.includes('approved with') ||
+          text.includes('under review');
+        
+        // Return true only for regular notes (exclude all verification-related notes)
+        return !hasVerificationPrefix && !isMarkedAsVerification && !hasVerificationKeywords;
+      });
+      
+      console.log('📝 NotesTab - Filtered to regular notes only:', regularNotes.length, 'of', response.data.length);
+      
       // Sort by created_at descending (most recent first)
-      const sortedNotes = (response.data || []).sort((a, b) => {
+      const sortedNotes = regularNotes.sort((a, b) => {
         return new Date(b.created_at) - new Date(a.created_at);
       });
+      
       return sortedNotes;
     },
     enabled: !!siteId,
   });
 
   // ============================================================================
-  // UPDATE NOTES COUNT WHENEVER NOTES CHANGE
+  // UPDATE NOTES COUNT WHENEVER NOTES CHANGE (only regular notes count)
   // ============================================================================
   
   useEffect(() => {
@@ -149,6 +183,7 @@ const NotesTab = ({
       showError('Failed to add note');
     },
   });
+  
   // ============================================================================
   // UPDATE NOTE MUTATION
   // ============================================================================
@@ -208,8 +243,6 @@ const NotesTab = ({
 
     addNoteMutation.mutate({
       note_text: newNoteText.trim(),
-      site: siteId,
-      is_internal: false,
     });
   };
 
@@ -231,9 +264,7 @@ const NotesTab = ({
 
     updateNoteMutation.mutate({
       noteId,
-      noteData: {
-        note_text: editText.trim(),
-      },
+      noteData: { note_text: editText.trim() }
     });
   };
 
@@ -242,103 +273,67 @@ const NotesTab = ({
     setDeleteModalOpen(true);
   };
 
-  const handleDeleteConfirm = () => {
-    if (noteToDelete) {
-      console.log('Deleting note:', noteToDelete.note_id);
-      deleteNoteMutation.mutate(noteToDelete.note_id);
-    }
-  };
-
   const handleDeleteCancel = () => {
     setDeleteModalOpen(false);
     setNoteToDelete(null);
   };
 
+  const handleDeleteConfirm = () => {
+    if (noteToDelete) {
+      deleteNoteMutation.mutate(noteToDelete.note_id);
+    }
+  };
+
   // ============================================================================
-  // FORMAT DATE - Full date and time in user's timezone
+  // HELPER FUNCTIONS
   // ============================================================================
   
   const formatDate = (dateString) => {
     const date = new Date(dateString);
-    
-    // Format: 14.11.2025 - 22:59
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const year = date.getFullYear();
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    
-    return `${day}.${month}.${year} - ${hours}:${minutes}`;
+    const now = new Date();
+    const diffInSeconds = Math.floor((now - date) / 1000);
+
+    if (diffInSeconds < 60) return 'Just now';
+    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
+    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
+    if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)}d ago`;
+
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined
+    });
   };
 
-  // ============================================================================
-  // GET USER INITIALS
-  // ============================================================================
-  
-  const getUserInitials = (createdByInfo) => {
-    if (createdByInfo?.initials) {
-      return createdByInfo.initials;
+  const getUserInitials = (userInfo) => {
+    if (!userInfo) return '?';
+    const firstName = userInfo.first_name || '';
+    const lastName = userInfo.last_name || '';
+    if (firstName && lastName) {
+      return `${firstName[0]}${lastName[0]}`.toUpperCase();
     }
-    if (createdByInfo?.full_name) {
-      return createdByInfo.full_name
-        .split(' ')
-        .map(n => n[0])
-        .join('')
-        .toUpperCase()
-        .slice(0, 2);
-    }
-    if (createdByInfo?.username) {
-      return createdByInfo.username.substring(0, 2).toUpperCase();
-    }
-    return 'U';
+    return (firstName || lastName || '?')[0].toUpperCase();
   };
 
-  // ============================================================================
-  // CHECK IF USER IS ADMIN
-  // ============================================================================
-  
-  const isAdminUser = (user) => {
-    if (!user || !user.role) return false;
-    return user.role === 'SUPERADMIN' || user.role === 'STAFF_ADMIN';
-  };
-
-  // ============================================================================
-  // CHECK IF NOTE IS FROM ADMIN
-  // ============================================================================
-  
-  const isNoteFromAdmin = (note) => {
-    if (note.created_by_info && note.created_by_info.role) {
-      return note.created_by_info.role === 'SUPERADMIN' || note.created_by_info.role === 'STAFF_ADMIN';
-    }
-    return false;
-  };
-
-  // ============================================================================
-  // CHECK IF NOTE IS OWN
-  // ============================================================================
-  
   const isOwnNote = (note) => {
     if (!currentUser || !note.created_by_info) return false;
-    
-    const noteCreatorId = note.created_by_info.id || note.created_by_info.user_id;
-    const currentUserId = currentUser.id || currentUser.user_id;
-    const noteCreatorInfoId = note.created_by_info.id;
-    
-    const match = noteCreatorId === currentUserId || noteCreatorInfoId === currentUserId;
-    
-    return match;
+    return String(currentUser.user_id) === String(note.created_by_info.user_id);
   };
 
-  const isCurrentUserAdmin = isAdminUser(currentUser);
+  const isNoteFromAdmin = (note) => {
+    if (!note.created_by_info) return false;
+    const role = note.created_by_info.role || '';
+    return role === 'SUPERADMIN' || role === 'STAFF_ADMIN';
+  };
 
   // ============================================================================
-  // RENDER
+  // RENDER CONDITIONS
   // ============================================================================
-
-  if (!siteId) {
+  
+  if (!siteId || siteId === 'temp-id') {
     return (
-      <div className="flex flex-col items-center justify-center py-12 text-gray-500">
-        <MessageSquare className="w-12 h-12 mb-4 opacity-50" />
+      <div className="text-center py-8 text-gray-500">
+        <MessageSquare className="w-12 h-12 mx-auto mb-4 opacity-50" />
         <p>Please save the site first to add notes</p>
       </div>
     );
@@ -371,6 +366,7 @@ const NotesTab = ({
           Notes ({notes.length})
         </h3>
       </div>
+
 
       {/* ======================================================================
           ADD NEW NOTE FORM
@@ -412,8 +408,8 @@ const NotesTab = ({
         {notes.length === 0 ? (
           <div className="text-center py-12 text-gray-500">
             <MessageSquare className="w-12 h-12 mx-auto mb-4 opacity-50" />
-            <p>No notes yet</p>
-            {!readOnly && <p className="text-sm mt-2">Be the first to add a note!</p>}
+            <p className="font-medium">No notes yet</p>
+            {!readOnly && <p className="text-sm mt-2">Add general notes, call logs, or updates here</p>}
           </div>
         ) : (
           notes.map((note) => {

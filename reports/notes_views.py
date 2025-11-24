@@ -15,6 +15,7 @@ from asgiref.sync import async_to_sync
 from .models import ReviewNote, UnverifiedSite
 from .project_serializers import ReviewNoteSerializer, ReviewNoteCreateSerializer
 from .permissions import IsStaffOrDataCollector
+from .project_permissions import user_can_access_site
 from accounts.models import UserRole
 
 
@@ -36,9 +37,13 @@ class SiteReviewNotesListCreateAPIView(generics.ListCreateAPIView):
         site = get_object_or_404(UnverifiedSite, site_id=site_id)
         
         user = self.request.user
+        
+        # Check project-based access
+        if not user_can_access_site(user, site):  # ✅ NEW
+            return ReviewNote.objects.none()
+        
+        # Data collectors don't see internal notes
         if user.role == UserRole.DATA_COLLECTOR:
-            if site.collected_by != user:
-                return ReviewNote.objects.none()
             return site.review_notes.filter(is_internal=False).order_by('-created_at')
         
         return site.review_notes.all().order_by('-created_at')
@@ -49,9 +54,11 @@ class SiteReviewNotesListCreateAPIView(generics.ListCreateAPIView):
         site = get_object_or_404(UnverifiedSite, site_id=site_id)
         
         user = self.request.user
-        if user.role == UserRole.DATA_COLLECTOR and site.collected_by != user:
+        
+        # Check project-based access
+        if not user_can_access_site(user, site):  # ✅ NEW
             from rest_framework.exceptions import PermissionDenied
-            raise PermissionDenied("You can only add notes to your own sites")
+            raise PermissionDenied("You do not have permission to add notes to this site")
         
         is_internal = False
         if user.role in [UserRole.STAFF_ADMIN, UserRole.SUPERADMIN]:
@@ -215,16 +222,15 @@ class ReviewNoteDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated, IsStaffOrDataCollector])
 def get_site_notes_summary(request, site_id):
-    """
-    GET: Get a summary of notes for a site
-    Returns count and whether there are unread notes
-    """
+    """Get a summary of notes for a site"""
     site = get_object_or_404(UnverifiedSite, site_id=site_id)
     
     user = request.user
-    if user.role == UserRole.DATA_COLLECTOR and site.collected_by != user:
+    
+    # Check project-based access
+    if not user_can_access_site(user, site):  # ✅ NEW
         return Response(
-            {'error': 'You can only view notes for your own sites'},
+            {'error': 'You do not have permission to view notes for this site'},
             status=status.HTTP_403_FORBIDDEN
         )
     

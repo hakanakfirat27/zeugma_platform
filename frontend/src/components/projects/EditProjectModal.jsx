@@ -1,13 +1,17 @@
 // frontend/src/components/projects/EditProjectModal.jsx
+// FIXED: Added assignment field for admins to assign projects to data collectors
+
 import React, { useState, useEffect } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { X } from 'lucide-react';
 import api from '../../utils/api';
 import { useToast } from '../../contexts/ToastContext';
+import { useAuth } from '../../contexts/AuthContext';
 
 const EditProjectModal = ({ project, onClose, onSuccess }) => {
   const queryClient = useQueryClient();
   const { success, error: showError } = useToast();
+  const { user } = useAuth();
   
   const [formData, setFormData] = useState({
     project_name: '',
@@ -17,6 +21,19 @@ const EditProjectModal = ({ project, onClose, onSuccess }) => {
     status: '',
     target_count: 0,
     deadline: '',
+    assigned_to: '', // ✅ NEW: Assignment field
+  });
+
+  const isAdmin = user?.role === 'SUPERADMIN' || user?.role === 'STAFF_ADMIN';
+
+  // ✅ NEW: Fetch data collectors for assignment dropdown
+  const { data: dataCollectors } = useQuery({
+    queryKey: ['data-collectors'],
+    queryFn: async () => {
+      const response = await api.get('/accounts/users/?role=DATA_COLLECTOR');
+      return response.data.results || response.data;
+    },
+    enabled: isAdmin
   });
 
   useEffect(() => {
@@ -29,6 +46,7 @@ const EditProjectModal = ({ project, onClose, onSuccess }) => {
         status: project.status || 'ACTIVE',
         target_count: project.target_count || 0,
         deadline: project.deadline ? project.deadline.split('T')[0] : '',
+        assigned_to: project.assigned_to || '', // ✅ NEW: Set assigned_to from project
       });
     }
   }, [project]);
@@ -132,6 +150,31 @@ const EditProjectModal = ({ project, onClose, onSuccess }) => {
                 <option value="COMPOUNDER">Compounders</option>
               </select>
             </div>
+
+            {/* ✅ NEW: Assign To (Only visible for Admins) */}
+            {isAdmin && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Assign To (Optional)
+                </label>
+                <select
+                  name="assigned_to"
+                  value={formData.assigned_to}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="">Unassigned</option>
+                  {dataCollectors && dataCollectors.map(dc => (
+                    <option key={dc.id} value={dc.id}>
+                      {dc.first_name} {dc.last_name} ({dc.username})
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  Assign this project to a specific data collector
+                </p>
+              </div>
+            )}
 
             {/* Target Region */}
             <div>

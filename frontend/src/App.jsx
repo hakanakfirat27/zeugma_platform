@@ -1,4 +1,3 @@
-
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from './contexts/AuthContext';
@@ -46,6 +45,7 @@ import CustomReportsPage from './pages/reports/CustomReportsPage';
 import ReportDetailPage from './pages/reports/ReportDetailPage';
 import UnverifiedSiteDetailPage from './pages/database/UnverifiedSiteDetailPage';
 import UnverifiedSiteEditPage from './pages/database/UnverifiedSiteEditPage';
+import UnverifiedSiteAddPage from './pages/database/UnverifiedSiteAddPage';
 
 import ClientReportsPage from './pages/client/ClientReportsPage';
 import ClientReportViewPage from './pages/client/ClientReportViewPage';
@@ -68,6 +68,7 @@ import StaffNotifications from './pages/StaffNotifications';
 // Chat Pages
 import StaffChatPage from './pages/StaffChatPage';
 import ClientChatPage from './pages/client/ClientChatPage';
+import DataCollectorChatPage from './pages/DataCollectorChatPage';
 
 // Project Management Pages
 import ProjectManagementPage from './pages/projects/ProjectManagementPage';
@@ -75,6 +76,13 @@ import ProjectDetailPage from './pages/projects/ProjectDetailPage';
 import AddSiteToProjectPage from './pages/projects/AddSiteToProjectPage';
 import ViewSitePage from './pages/projects/ViewSitePage'; 
 import EditSitePage from './pages/projects/EditSitePage';   
+
+// Import admin project pages
+import AdminProjectManagementPage from './pages/admin/AdminProjectManagementPage';
+import AdminProjectDetailPage from './pages/admin/AdminProjectDetailPage';
+import AdminAddSiteToProjectPage from './pages/admin/AdminAddSiteToProjectPage';
+import AdminViewSitePage from './pages/admin/AdminViewSitePage';
+import AdminEditSitePage from './pages/admin/AdminEditSitePage';
 
 // Other Pages
 import MyTasksPage from './pages/MyTasksPage';
@@ -155,6 +163,7 @@ function App() {
             {/* Chat Routes */}
             <Route path="/client/chat" element={<ProtectedRoute allowedRoles={['CLIENT']}><ClientChatPage /></ProtectedRoute>}/>
             <Route path="/staff-chat" element={<ProtectedRoute allowedRoles={['SUPERADMIN', 'STAFF_ADMIN']}><StaffChatPage /></ProtectedRoute>} />
+            <Route path="/data-collector-chat" element={<ProtectedRoute allowedRoles={['DATA_COLLECTOR']}><DataCollectorChatPage /></ProtectedRoute>} />
 
             {/* Announcement Routes */}
             <Route path="/announcements-management" element={<ProtectedRoute allowedRoles={['SUPERADMIN', 'STAFF_ADMIN']}><AnnouncementsManagement /></ProtectedRoute>} />
@@ -166,6 +175,7 @@ function App() {
 
             {/* Unverified Sites Routes */}
             <Route path="/unverified-sites" element={<ProtectedRoute><UnverifiedSitesPage /></ProtectedRoute>} />
+            <Route path="/unverified-sites/add" element={<ProtectedRoute><UnverifiedSiteAddPage /></ProtectedRoute>} />
             <Route path="/unverified-sites/:siteId" element={<ProtectedRoute><UnverifiedSiteDetailPage /></ProtectedRoute>} />
             <Route path="/unverified-sites/:siteId/edit" element={<ProtectedRoute><UnverifiedSiteEditPage /></ProtectedRoute>} />
 
@@ -175,6 +185,14 @@ function App() {
             <Route path="/projects/:projectId/add-site" element={<ProtectedRoute><AddSiteToProjectPage /></ProtectedRoute>} />
             <Route path="/projects/:projectId/sites/:siteId/view" element={<ProtectedRoute><ViewSitePage /></ProtectedRoute>} />
             <Route path="/projects/:projectId/sites/:siteId/edit" element={<ProtectedRoute><EditSitePage /></ProtectedRoute>} />
+
+
+            {/* Admin Project Routes */}
+            <Route path="/admin/projects" element={<ProtectedRoute allowedRoles={['SUPERADMIN', 'STAFF_ADMIN']}><AdminProjectManagementPage /></ProtectedRoute>} />
+            <Route path="/admin/projects/:projectId" element={<ProtectedRoute allowedRoles={['SUPERADMIN', 'STAFF_ADMIN']}><AdminProjectDetailPage /></ProtectedRoute>} />
+            <Route path="/admin/projects/:projectId/add-site" element={<ProtectedRoute allowedRoles={['SUPERADMIN', 'STAFF_ADMIN']}><AdminAddSiteToProjectPage /></ProtectedRoute>} />
+            <Route path="/admin/projects/:projectId/sites/:siteId/view" element={<ProtectedRoute allowedRoles={['SUPERADMIN', 'STAFF_ADMIN']}><AdminViewSitePage /></ProtectedRoute>} />
+            <Route path="/admin/projects/:projectId/sites/:siteId/edit" element={<ProtectedRoute allowedRoles={['SUPERADMIN', 'STAFF_ADMIN']}><AdminEditSitePage /></ProtectedRoute>} />            
 
             <Route path="/my-tasks" element={<ProtectedRoute><MyTasksPage /></ProtectedRoute>} />
             <Route path="/company-research" element={<ProtectedRoute allowedRoles={['DATA_COLLECTOR', 'STAFF_ADMIN', 'SUPERADMIN']}><CompanyResearchPage /></ProtectedRoute>} />
