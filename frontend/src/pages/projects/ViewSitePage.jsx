@@ -2,8 +2,9 @@
 // ✅ FIXED VERSION - Only colors fields, NOT labels
 
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import api from '../../utils/api';
+import { getBreadcrumbs } from '../../utils/breadcrumbConfig';
 import DataCollectorLayout from '../../components/layout/DataCollectorLayout';
 import NotesTab from '../../components/calling/NotesTab';
 import CallingStatusSelector from '../../components/calling/CallingStatusSelector';
@@ -26,13 +27,13 @@ const ViewSitePage = () => {
   const { projectId, siteId } = useParams();
   const navigate = useNavigate();
   const { toasts, removeToast } = useToast();
-  
   const [activeTab, setActiveTab] = useState('core');
   const [notesCount, setNotesCount] = useState(0);
   const [verificationHistoryCount, setVerificationHistoryCount] = useState(0);
   const [siteData, setSiteData] = useState(null);
   const [fieldMetadata, setFieldMetadata] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [projectData, setProjectData] = useState(null);  
 
   const [showHistoryModal, setShowHistoryModal] = useState(false);
 
@@ -46,6 +47,10 @@ const ViewSitePage = () => {
     const fetchSiteDetails = async () => {
       try {
         setLoading(true);
+
+        const projectResponse = await api.get(`/api/projects/${projectId}/`);
+        setProjectData(projectResponse.data);
+
         const siteResponse = await api.get(`/api/projects/sites/${siteId}/`);
         const metadataResponse = await api.get(`/api/fields/metadata/${siteResponse.data.category}/`);
         
@@ -63,6 +68,13 @@ const ViewSitePage = () => {
     fetchSiteDetails();
   }, [siteId, projectId, navigate]);
 
+
+  const location = useLocation();  // ADD THIS
+  const breadcrumbs = getBreadcrumbs(location.pathname, {
+    projectName: projectData?.project_name,  
+    siteName: siteData?.company_name        
+  }); 
+  
   // Fetch notes count for badge - FILTER OUT VERIFICATION NOTES
   useEffect(() => {
     const fetchNotesCount = async () => {
@@ -153,6 +165,7 @@ const ViewSitePage = () => {
     <DataCollectorLayout
     pageTitle={siteData.company_name || 'Site Details'}
     pageSubtitleBottom={siteData.country}
+    breadcrumbs={breadcrumbs}
     >
       <div className="p-6 max-w-7xl mx-auto">
         {/* Header with navigation buttons */}

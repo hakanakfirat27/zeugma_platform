@@ -2,7 +2,8 @@
 
 
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { getBreadcrumbs } from '../../utils/breadcrumbConfig';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { ArrowLeft, Save, X, Building2, Users, Info, MessageSquare, Phone, CheckCircle, PlusCircle, FileText } from 'lucide-react';
 import useToast from '../../hooks/useToast';
@@ -50,6 +51,11 @@ const AdminAddSiteToProjectPage = () => {
       const response = await api.get(`/api/projects/${projectId}/`);
       return response.data;
     },
+  });
+
+  const location = useLocation();
+  const breadcrumbs = getBreadcrumbs(location.pathname, {
+    projectName: project?.project_name 
   });
 
   // Fetch field metadata from backend
@@ -277,6 +283,7 @@ const AdminAddSiteToProjectPage = () => {
     <DashboardLayout 
       pageTitle="Add Site to Project"
       pageSubtitleBottom={`Adding site to: ${project.project_name}`}
+      breadcrumbs={breadcrumbs}
     >
       <div className="p-6 max-w-7xl mx-auto">
         {/* Header */}
@@ -285,7 +292,7 @@ const AdminAddSiteToProjectPage = () => {
             <div className="flex items-center gap-4">
               <button
                 onClick={() => navigate(`/admin/projects/${projectId}`)}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                className="p-2 bg-blue-500 text-white hover:bg-blue-600 rounded-lg transition-colors"
               >
                 <ArrowLeft className="w-5 h-5" />
               </button>
@@ -293,7 +300,7 @@ const AdminAddSiteToProjectPage = () => {
                 <h2 className="text-xl font-semibold text-gray-900">
                   Add New Site
                 </h2>
-                <p className="text-sm text-gray-600 mt-1">
+                <p className="text-sm text-gray-600 font-bold mt-1">
                   Project: {project.project_name} ({project.category_display})
                 </p>
               </div>
@@ -339,7 +346,7 @@ const AdminAddSiteToProjectPage = () => {
               
               <button
                 onClick={handleCancel}
-                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                className="px-4 py-2 border border-gray-300 rounded-lg text-red-700 hover:bg-red-50 transition-colors"
               >
                 <X className="w-4 h-4 inline mr-2" />
                 Cancel

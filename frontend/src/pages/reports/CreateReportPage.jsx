@@ -1,8 +1,8 @@
 // frontend/src/pages/CreateReportPage.jsx
-// UPDATED: Added Filter Groups (OR logic) while maintaining 3-step form design
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation, useParams } from 'react-router-dom';
+import { getBreadcrumbs } from '../../utils/breadcrumbConfig';
 import { ArrowLeft, X, Search, ChevronRight, CheckCircle2, Filter, BarChart3, Globe, Layers, SlidersHorizontal } from 'lucide-react';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import LoadingSpinner from '../../components/LoadingSpinner';
@@ -15,7 +15,7 @@ import FilterSidebarWithGroups from '../../components/database/FilterSidebarWith
 
 const CreateReportPage = () => {
   const navigate = useNavigate();
-  const location = useLocation();
+  const location = useLocation(); 
   const { reportId } = useParams();
   const isEditMode = !!reportId;
   const { toasts, success, error: showError, warning, removeToast } = useToast();
@@ -32,6 +32,10 @@ const CreateReportPage = () => {
     description: '',
     is_active: true,
     filter_criteria: {}
+  });
+
+  const breadcrumbs = getBreadcrumbs(location.pathname, {
+    reportName: isEditMode ? formData.title : undefined
   });
 
   const [availableFilters, setAvailableFilters] = useState([]);
@@ -537,6 +541,7 @@ const CreateReportPage = () => {
           {isEditMode ? 'Update your custom report settings' : 'Define filters to create a custom database report'}
         </p>
       }
+      breadcrumbs={breadcrumbs}      
     >
       <ToastContainer toasts={toasts} removeToast={removeToast} />
 

@@ -6,6 +6,8 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../contexts/AuthContext';
 import api from '../../utils/api';
+import { useLocation } from 'react-router-dom';
+import { getBreadcrumbs } from '../../utils/breadcrumbConfig';
 import DataCollectorLayout from '../../components/layout/DataCollectorLayout';
 import ProjectCardView from '../../components/projects/ProjectCardView';
 import ProjectListView from '../../components/projects/ProjectListView';
@@ -22,6 +24,8 @@ import {
 
 const ProjectManagementPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();  // ADD THIS
+  const breadcrumbs = getBreadcrumbs(location.pathname);  // ADD THIS
   const queryClient = useQueryClient();
   const { success, error: showError, info } = useToast();
   
@@ -259,6 +263,7 @@ const ProjectManagementPage = () => {
     <DataCollectorLayout
       pageTitle="All Projects"
       pageSubtitleBottom="Manage and track your data collection projects"
+      breadcrumbs={breadcrumbs}
     >
       <div className="p-6 max-w-7xl mx-auto">
         {/* Header Actions */}

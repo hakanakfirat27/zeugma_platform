@@ -2,7 +2,8 @@
 // REDESIGNED: Table-based view matching UserManagementPage design with enhanced modals
 
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { getBreadcrumbs } from '../utils/breadcrumbConfig';
 import { useAuth } from '../contexts/AuthContext';
 import DashboardLayout from '../components/layout/DashboardLayout';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -495,6 +496,8 @@ const SubscriptionDetailModal = ({ subscription, onClose, onEdit, onRenew, onCan
 const SubscriptionManagementPage = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();  
+  const breadcrumbs = getBreadcrumbs(location.pathname);    
   const { toasts, removeToast, success, error: showError } = useToast();
   const isStaff = ['SUPERADMIN', 'STAFF_ADMIN'].includes(user?.role);
 
@@ -688,6 +691,7 @@ const SubscriptionManagementPage = () => {
     <DashboardLayout
       pageTitle="Subscription Management"
       pageSubtitleBottom={pageSubtitle}
+      breadcrumbs={breadcrumbs}
     >
       <ToastContainer toasts={toasts} removeToast={removeToast} />
 

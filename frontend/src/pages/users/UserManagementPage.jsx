@@ -1,7 +1,8 @@
 // frontend/src/pages/UserManagementPage.jsx
 
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { getBreadcrumbs } from '../../utils/breadcrumbConfig';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import UsernameInput from '../../components/auth/UsernameInput';
 import EmailInput from '../../components/auth/EmailInput';
@@ -777,6 +778,8 @@ const ColumnSettingsModal = ({ isOpen, onClose, columns, onColumnsChange, onRese
 
 const UserManagementPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();  
+  const breadcrumbs = getBreadcrumbs(location.pathname);    
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [search, setSearch] = useState('');
@@ -1054,6 +1057,7 @@ const handleEditedDataChange = (field, value) => {
     <DashboardLayout
         pageTitle="User Management"
         pageSubtitleBottom={pageSubtitle}
+        breadcrumbs={breadcrumbs}
     >
       {/* Toast Notifications */}
       <ToastContainer toasts={toasts} removeToast={removeToast} />

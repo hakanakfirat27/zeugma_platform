@@ -1,8 +1,9 @@
 // frontend/src/pages/admin/AdminProjectDetailPage.jsx
 
 import React, { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { getBreadcrumbs } from '../../utils/breadcrumbConfig';
 import api from '../../utils/api';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import { useToast } from '../../contexts/ToastContext';
@@ -58,6 +59,11 @@ const AdminProjectDetailPage = () => {
       const response = await api.get(`/api/projects/${projectId}/`);
       return response.data;
     },
+  });
+
+  const location = useLocation();
+  const breadcrumbs = getBreadcrumbs(location.pathname, {
+    projectName: project?.project_name 
   });
 
   // Fetch project sites with pagination and sorting
@@ -270,6 +276,7 @@ const AdminProjectDetailPage = () => {
     <DashboardLayout
       pageTitle={project?.project_name || 'Project Details'}
       pageSubtitleBottom={project?.description}
+      breadcrumbs={breadcrumbs}
     >
 
       <div className="p-6 max-w-7xl mx-auto">
@@ -278,13 +285,7 @@ const AdminProjectDetailPage = () => {
         {/* Header with Action Buttons */}
         <div className="mb-6">
           <div className="flex justify-between items-center gap-3 mb-4">
-            <button
-              onClick={() => navigate('/admin/projects')}
-              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
-            >
-              <ArrowLeft className="w-5 h-5" />
-              Back to All Projects
-            </button>
+            <div></div>
             
             {/* Import/Export Buttons - Right aligned */}
             <div className="flex gap-3">

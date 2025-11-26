@@ -1,10 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import axios from 'axios';
+import { useLocation } from 'react-router-dom';
+import { getBreadcrumbs } from '../../utils/breadcrumbConfig';
 import { Bell, Check, X, Trash2, CheckCheck, Filter, Search } from 'lucide-react';
 
 const ClientNotifications = () => {
   const { user } = useAuth();
+  const location = useLocation();  
+  const breadcrumbs = getBreadcrumbs(location.pathname);    
   const [notifications, setNotifications] = useState([]);
   const [filteredNotifications, setFilteredNotifications] = useState([]);
   const [loading, setLoading] = useState(false);

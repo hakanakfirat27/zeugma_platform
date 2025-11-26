@@ -1,7 +1,8 @@
 // frontend/src/pages/EditSitePage.jsx
 
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { getBreadcrumbs } from '../../utils/breadcrumbConfig';
 import { useQueryClient } from '@tanstack/react-query';
 import api from '../../utils/api';
 import DataCollectorLayout from '../../components/layout/DataCollectorLayout';
@@ -41,6 +42,7 @@ const EditSitePage = () => {
   const [originalCompanyName, setOriginalCompanyName] = useState('');
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
+  const [projectData, setProjectData] = useState(null);  
 
   // Field confirmations hook
   const {
@@ -71,6 +73,10 @@ const EditSitePage = () => {
   const fetchData = async () => {
     try {
       setIsLoadingData(true);
+
+      const projectResponse = await api.get(`/api/projects/${projectId}/`);
+      setProjectData(projectResponse.data);
+
       const siteResponse = await api.get(`/api/projects/sites/${siteId}/`);
       const metadataResponse = await api.get(`/api/fields/metadata/${siteResponse.data.category}/`);
       
@@ -90,6 +96,12 @@ const EditSitePage = () => {
   useEffect(() => {
     fetchData();
   }, [siteId, projectId, navigate, showError]);
+
+  const location = useLocation();  
+  const breadcrumbs = getBreadcrumbs(location.pathname, {
+    projectName: projectData?.project_name,  
+    siteName: formData?.company_name       
+  }); 
 
   // Fetch notes count for badge - FILTER OUT VERIFICATION NOTES
   useEffect(() => {
@@ -336,7 +348,10 @@ const EditSitePage = () => {
   }
 
   return (
-    <DataCollectorLayout pageTitle={`Edit: ${originalCompanyName}`}>
+    <DataCollectorLayout 
+    pageTitle={`Edit: ${originalCompanyName}`}
+    breadcrumbs={breadcrumbs}
+    >
       <div className="p-6 max-w-7xl mx-auto">
 
         {/* Header with navigation */}
@@ -593,7 +608,7 @@ const EditSitePage = () => {
               <button
                 type="button"
                 onClick={handleCancel}
-                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                className="px-4 py-2 border border-gray-300 rounded-lg text-red-700 hover:bg-gray-50"
               >
                 Cancel
               </button>

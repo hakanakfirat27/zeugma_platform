@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
+import { getBreadcrumbs } from '../../utils/breadcrumbConfig';
 import { useAuth } from '../../contexts/AuthContext';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -14,6 +16,8 @@ import api from '../../utils/api';
 
 const DataCollectorDashboard = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const breadcrumbs = getBreadcrumbs(location.pathname);  
   const { user } = useAuth();
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -95,6 +99,7 @@ const DataCollectorDashboard = () => {
     <DataCollectorLayout
       pageTitle="Data Collection Dashboard"
       pageSubtitleBottom={dashboardSubtitleBottom}
+      breadcrumbs={breadcrumbs}
     >
       <div className="flex-1 overflow-auto bg-gray-50">
         <div className="max-w-7xl mx-auto p-8">

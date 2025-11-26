@@ -1,10 +1,9 @@
 // frontend/src/pages/database/UnverifiedSiteDetailPage.jsx
-// Standalone page for viewing unverified site details (ADMIN SIDE)
-// Uses DashboardLayout for admin interface
 
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import api from '../../utils/api';
+import { getBreadcrumbs } from '../../utils/breadcrumbConfig';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import NotesTab from '../../components/calling/NotesTab';
 import CallingStatusSelector from '../../components/calling/CallingStatusSelector';
@@ -33,7 +32,7 @@ const UnverifiedSiteDetailPage = () => {
   const [verificationHistoryCount, setVerificationHistoryCount] = useState(0);
   const [siteData, setSiteData] = useState(null);
   const [fieldMetadata, setFieldMetadata] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true); 
 
   const [showHistoryModal, setShowHistoryModal] = useState(false);
 
@@ -48,10 +47,7 @@ const UnverifiedSiteDetailPage = () => {
       try {
         setLoading(true);
         
-        // Fetch the unverified site data
-        const siteResponse = await api.get(`/api/unverified-sites/${siteId}/`);
-        
-        // Fetch field metadata using the category from site data
+        const siteResponse = await api.get(`/api/unverified-sites/${siteId}/`);      
         const metadataResponse = await api.get(`/api/fields/metadata/${siteResponse.data.category}/`);
         
         setSiteData(siteResponse.data);
@@ -67,6 +63,11 @@ const UnverifiedSiteDetailPage = () => {
 
     fetchSiteDetails();
   }, [siteId, navigate]);
+
+  const location = useLocation(); 
+  const breadcrumbs = getBreadcrumbs(location.pathname, { 
+    siteName: siteData?.company_name         
+  }); 
 
   // Fetch notes count for badge - FILTER OUT VERIFICATION NOTES
   useEffect(() => {
@@ -184,18 +185,12 @@ const UnverifiedSiteDetailPage = () => {
     <DashboardLayout 
     pageTitle={siteData.company_name || 'Site Details'}
     pageSubtitleBottom={siteData.country}
+    breadcrumbs={breadcrumbs}
     >
       <div className="p-6 max-w-7xl mx-auto">
         {/* Header with navigation buttons */}
         <div className="mb-6 flex justify-between items-center">
-          <button
-            onClick={() => navigate('/unverified-sites')}
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
-          >
-            <ArrowLeft className="w-5 h-5" />
-            Back to Unverified Sites
-          </button>
-
+          <div></div>
           <button
             onClick={() => navigate(`/unverified-sites/${siteId}/edit`)}
             className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"

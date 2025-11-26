@@ -1,7 +1,8 @@
 // frontend/src/pages/client/ClientChatPage.jsx
-// WhatsApp-style design with your existing colors and ClientDashboardLayout
 
 import { useState, useEffect, useRef, Fragment } from 'react';
+import { useLocation } from 'react-router-dom';
+import { getBreadcrumbs } from '../../utils/breadcrumbConfig';
 import {
   MessageSquare, Send, Paperclip, X, Image, File, Download,
   Loader2, CheckCheck, Check, Search, MoreVertical, ArrowLeft, Video, Music, Archive,
@@ -13,6 +14,8 @@ import { useAuth } from '../../contexts/AuthContext';
 
 const ClientChatPage = () => {
   const { user } = useAuth();
+  const location = useLocation();  
+  const breadcrumbs = getBreadcrumbs(location.pathname);    
 
   // State
   const [room, setRoom] = useState(null);
@@ -411,7 +414,9 @@ const ClientChatPage = () => {
   // filteredAdmins variable removed
 
   return (
-    <ClientDashboardLayout>
+    <ClientDashboardLayout
+    breadcrumbs={breadcrumbs}
+    >
       <div className="flex h-[calc(100vh-4rem)] bg-gray-100">
         {/* Sidebar */}
         <div className={`${showSidebar ? 'w-full md:w-96' : 'hidden md:block md:w-96'} bg-white border-r flex flex-col`}>

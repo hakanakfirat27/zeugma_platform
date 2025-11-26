@@ -1,8 +1,8 @@
 // frontend/src/pages/ReportDetailPage.jsx
-// UPDATED: Now uses FilterSidebarWithGroups instead of FilterSidebar
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
+import { getBreadcrumbs } from '../../utils/breadcrumbConfig';
 import { useAuth } from '../../contexts/AuthContext';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import LoadingSpinner from '../../components/LoadingSpinner';
@@ -63,6 +63,11 @@ const ReportDetailPage = () => {
 
   // Fetch report details using React Query
   const { data: report, isLoading: loading } = useCustomReportDetail(reportId);
+
+  const location = useLocation();
+  const breadcrumbs = getBreadcrumbs(location.pathname, {
+    reportName: report?.title
+  });  
 
   // Build query filters for React Query
   const queryFilters = useMemo(() => ({
@@ -471,6 +476,7 @@ const ReportDetailPage = () => {
       pageTitle={report.title}
       pageSubtitleBottom={pageSubtitle}
       headerActions={pageHeaderActions}
+      breadcrumbs={breadcrumbs}
     >
       {/* Content */}
       <div className="flex-1 overflow-auto bg-white">

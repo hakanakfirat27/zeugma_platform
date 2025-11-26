@@ -1,6 +1,8 @@
 // frontend/src/pages/announcements/AnnouncementsManagement.jsx
+
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { getBreadcrumbs } from '../../utils/breadcrumbConfig';
 import {
   Bell, Plus, Search, Filter, Edit, Trash2, Eye, Calendar,
   Users, AlertCircle, CheckCircle, Clock, Archive, Send,
@@ -13,6 +15,8 @@ import { ToastContainer } from '../../components/Toast';
 
 const AnnouncementsManagement = () => {
   const navigate = useNavigate();
+  const location = useLocation();  
+  const breadcrumbs = getBreadcrumbs(location.pathname);   
   const { toasts, removeToast, success, error: showError, info, warning } = useToast();
   const [announcements, setAnnouncements] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -147,6 +151,7 @@ const AnnouncementsManagement = () => {
     <DashboardLayout
       pageTitle="Announcements Management"
       pageSubtitleBottom="Create and manage system announcements"
+      breadcrumbs={breadcrumbs}
     >
       <ToastContainer toasts={toasts} removeToast={removeToast} />
 

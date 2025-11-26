@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
+import Breadcrumb from '../Breadcrumb';
 import axios from 'axios';
 import {
   LayoutDashboard, FileText, CreditCard, MessageSquare, HelpCircle,
@@ -13,13 +14,11 @@ import {
 import useChatUnreadCount from '../../hooks/useChatUnreadCount';
 import useAnnouncementBadge from '../../hooks/useAnnouncementBadge';
 
-const ClientDashboardLayout = ({ children, pageTitle, pageSubtitleTop, pageSubtitleBottom }) => {
+const ClientDashboardLayout = ({ children, pageTitle, pageSubtitleTop, pageSubtitleBottom, breadcrumbs }) => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
-  // ============= NEW: Sidebar Lock State =============
-  // Check localStorage for saved sidebar state (locked or not)
   const getSavedSidebarState = () => {
     const saved = localStorage.getItem('clientSidebarLocked');
     return saved === 'true'; // Returns true if locked (closed)
@@ -27,7 +26,7 @@ const ClientDashboardLayout = ({ children, pageTitle, pageSubtitleTop, pageSubti
 
   const [isSidebarLocked, setIsSidebarLocked] = useState(getSavedSidebarState());
   const [isSidebarOpen, setIsSidebarOpen] = useState(!getSavedSidebarState());
-  // ===================================================
+
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState([]);
@@ -828,15 +827,6 @@ const ClientDashboardLayout = ({ children, pageTitle, pageSubtitleTop, pageSubti
                 )}
               </div>
 
-              {/* Settings */}
-              <button
-                className="p-2 hover:bg-gray-100 rounded-xl transition-colors"
-                onClick={() => navigate('/profile-settings')}
-                title="Profile Settings"
-              >
-                <Settings className="w-5 h-5 text-gray-600" />
-              </button>
-
                 {/* User Avatar Dropdown */}
                 <div className="relative" ref={avatarMenuRef}>
                   <button
@@ -982,6 +972,14 @@ const ClientDashboardLayout = ({ children, pageTitle, pageSubtitleTop, pageSubti
 
         {/* MAIN CONTENT AREA */}
         <main className="flex-1 overflow-y-auto bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50">
+          {/* Breadcrumb Section - Just below header */}
+          {breadcrumbs && breadcrumbs.length > 0 && (
+            <div className="bg-white border-b border-gray-200 px-6 py-3 shadow-sm">
+              <Breadcrumb items={breadcrumbs} showHome={true} />
+            </div>
+          )}
+          
+          {/* Page Content */}          
           {children}
         </main>
       </div>

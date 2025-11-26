@@ -1,11 +1,17 @@
 import { HelpCircle, Search } from 'lucide-react';
 import ClientDashboardLayout from '../../components/layout/ClientDashboardLayout';
+import { useLocation } from 'react-router-dom';
+import { getBreadcrumbs } from '../../utils/breadcrumbConfig';
 
 const ClientFAQPage = () => {
+  const location = useLocation();  
+  const breadcrumbs = getBreadcrumbs(location.pathname);  
+    
   return (
     <ClientDashboardLayout
       pageTitle="FAQ"
       pageSubtitleBottom="Searchable FAQ, video tutorials, documentation, and quick answers."
+      breadcrumbs={breadcrumbs}
     >
       <div className="p-6 flex items-center justify-center h-full">
         <div className="text-center max-w-md">

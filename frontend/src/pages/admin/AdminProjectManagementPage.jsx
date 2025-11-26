@@ -3,7 +3,8 @@
 
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { getBreadcrumbs } from '../../utils/breadcrumbConfig';
 import api from '../../utils/api';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import { useToast } from '../../contexts/ToastContext';
@@ -21,11 +22,13 @@ import { CATEGORIES } from '../../constants/categories';
 
 const AdminProjectManagementPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();  
+  const breadcrumbs = getBreadcrumbs(location.pathname);    
   const queryClient = useQueryClient();
   const { toasts, removeToast, success, error: showError } = useToast();
 
   // State
-  const [viewMode, setViewMode] = useState('list'); // 'card' or 'list'
+  const [viewMode, setViewMode] = useState('list'); 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [categoryFilter, setCategoryFilter] = useState('ALL');
@@ -156,6 +159,7 @@ const AdminProjectManagementPage = () => {
     <DashboardLayout
     pageTitle="All Projects"
     pageSubtitleBottom="Manage all data collection projects across the platform" 
+    breadcrumbs={breadcrumbs}
     >
       <div className="p-6 max-w-7xl mx-auto">
         <ToastContainer toasts={toasts} removeToast={removeToast} />

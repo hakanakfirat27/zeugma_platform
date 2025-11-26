@@ -3,7 +3,8 @@
 // Uses DashboardLayout for admin interface
 
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { getBreadcrumbs } from '../../utils/breadcrumbConfig';
 import { useQueryClient } from '@tanstack/react-query';
 import api from '../../utils/api';
 import DashboardLayout from '../../components/layout/DashboardLayout';
@@ -43,6 +44,7 @@ const UnverifiedSiteEditPage = () => {
   const [originalCompanyName, setOriginalCompanyName] = useState('');
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
+  const [projectData, setProjectData] = useState(null); 
 
   // Field confirmations hook
   const {
@@ -112,6 +114,11 @@ const UnverifiedSiteEditPage = () => {
 
     fetchNotesCount();
   }, [siteId]);
+
+  const location = useLocation(); 
+  const breadcrumbs = getBreadcrumbs(location.pathname, { 
+    siteName: formData?.company_name         
+  }); 
 
   // Function to refetch site data and update counts
   const refetchSiteData = async () => {
@@ -280,14 +287,17 @@ const UnverifiedSiteEditPage = () => {
   }
 
   return (
-    <DashboardLayout pageTitle={`Edit: ${originalCompanyName}`}>
+    <DashboardLayout 
+    pageTitle={`Edit: ${originalCompanyName}`}
+    breadcrumbs={breadcrumbs}
+    >
       <div className="p-6 max-w-7xl mx-auto">
 
         {/* Header with navigation */}
         <div className="mb-6 flex justify-between items-center">
           <button
             onClick={handleCancel}
-            className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-gray-700"
           >
             <ArrowLeft className="w-5 h-5" />
             Cancel & Go Back
@@ -536,7 +546,7 @@ const UnverifiedSiteEditPage = () => {
               <button
                 type="button"
                 onClick={handleCancel}
-                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                className="px-4 py-2 border border-gray-300 rounded-lg text-red-700 hover:bg-gray-50"
               >
                 Cancel
               </button>

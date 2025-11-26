@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { getBreadcrumbs } from '../../utils/breadcrumbConfig';
 import {
   FileText, Calendar, CheckCircle, AlertCircle, ArrowRight,
   BarChart3, TrendingUp, Eye, Search, Filter, LayoutGrid, List, X
@@ -10,6 +11,8 @@ import api from '../../utils/api';
 
 const ClientReportsPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();  
+  const breadcrumbs = getBreadcrumbs(location.pathname);   
   const [loading, setLoading] = useState(true);
   const [reports, setReports] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -62,6 +65,7 @@ const ClientReportsPage = () => {
     <ClientDashboardLayout
       pageTitle="My Reports"
       pageSubtitleBottom="Access and manage your subscribed reports"
+      breadcrumbs={breadcrumbs}
     >
       <div className="p-6">
         {/* Filters and Search */}

@@ -2,7 +2,8 @@
 // Dedicated page for ADDING new unverified sites
 
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { getBreadcrumbs } from '../../utils/breadcrumbConfig';
 import api from '../../utils/api';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import CountrySelector from '../../components/form/CountrySelector';
@@ -16,6 +17,8 @@ import {
 
 const UnverifiedSiteAddPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();  
+  const breadcrumbs = getBreadcrumbs(location.pathname);   
   const { toasts, removeToast, success, error: showError } = useToast();
   
   const [formData, setFormData] = useState({
@@ -185,7 +188,10 @@ const UnverifiedSiteAddPage = () => {
   };
 
   return (
-    <DashboardLayout pageTitle="Add New Site">
+    <DashboardLayout 
+    pageTitle="Add New Site"
+    breadcrumbs={breadcrumbs}
+    >
       <div className="p-6 max-w-7xl mx-auto">
         {/* Toast Container */}
         <ToastContainer toasts={toasts} removeToast={removeToast} />
@@ -194,7 +200,7 @@ const UnverifiedSiteAddPage = () => {
         <div className="mb-6 flex justify-between items-center">
           <button
             onClick={handleCancel}
-            className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
           >
             <ArrowLeft className="w-5 h-5" />
             Cancel & Go Back
@@ -332,7 +338,7 @@ const UnverifiedSiteAddPage = () => {
                   <button
                     type="button"
                     onClick={handleCancel}
-                    className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                    className="px-4 py-2 border border-gray-300 rounded-lg text-red-700 hover:bg-gray-50 transition-colors"
                   >
                     Cancel
                   </button>

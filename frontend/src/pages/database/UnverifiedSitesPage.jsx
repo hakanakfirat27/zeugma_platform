@@ -1,13 +1,8 @@
 // frontend/src/pages/database/UnverifiedSitesPage.jsx
-/**
- * Unverified Sites Management Page
- * Main page for managing unverified company data before verification
- * UPDATED: Added pagination, Add Site button, Edit and Delete buttons
- * UPDATED: Single debounced search, column sorting, refresh button
- */
 
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { getBreadcrumbs } from '../../utils/breadcrumbConfig';
 import {
   Eye, EyeOff, CheckCircle, XCircle, Edit2, Trash2, MoreVertical,
   Upload, Download, Filter, Search, RefreshCw, AlertTriangle, Plus,
@@ -23,6 +18,8 @@ import { CATEGORIES, CATEGORY_COLORS } from '../../constants/categories';
 
 const UnverifiedSitesPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();  
+  const breadcrumbs = getBreadcrumbs(location.pathname);    
   
   // State
   const [activeTab, setActiveTab] = useState('ALL');
@@ -294,7 +291,8 @@ const UnverifiedSitesPage = () => {
   return (
     <DashboardLayout
       pageTitle="Unverified Sites"
-      pageSubtitleBottom={pageSubtitle}  
+      pageSubtitleBottom={pageSubtitle} 
+      breadcrumbs={breadcrumbs} 
     >
       <div className="p-6">
         

@@ -64,6 +64,7 @@ import AnnouncementDetail from './pages/announcements/AnnouncementDetail';
 // Notifications Management Pages
 import ClientNotifications from './pages/client/ClientNotifications';
 import StaffNotifications from './pages/StaffNotifications';
+import DataCollectorNotifications from './pages/DataCollectorNotifications';
 
 // Chat Pages
 import StaffChatPage from './pages/StaffChatPage';
@@ -159,6 +160,7 @@ function App() {
             {/* Notifications Routes */}
             <Route path="/client/notifications" element={<ProtectedRoute><ClientDashboardLayout><ClientNotifications /></ClientDashboardLayout></ProtectedRoute>}/>
             <Route path="/staff/notifications" element={<ProtectedRoute><DashboardLayout><StaffNotifications /></DashboardLayout></ProtectedRoute>}/>
+            <Route path="/notifications" element={<ProtectedRoute allowedRoles={['DATA_COLLECTOR']}><DataCollectorNotifications /></ProtectedRoute>}/>
 
             {/* Chat Routes */}
             <Route path="/client/chat" element={<ProtectedRoute allowedRoles={['CLIENT']}><ClientChatPage /></ProtectedRoute>}/>

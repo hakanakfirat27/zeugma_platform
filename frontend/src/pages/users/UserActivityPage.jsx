@@ -3,12 +3,15 @@
 
 import { useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { getBreadcrumbs } from '../../utils/breadcrumbConfig';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import UserActivityDashboard from '../../components/userActivity/UserActivityDashboard';
 
 const UserActivityPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();  
+  const breadcrumbs = getBreadcrumbs(location.pathname);    
 
   const pageSubtitle = (
     <p className="text-sm text-white-500">Monitor user login activity and engagement metrics</p>
@@ -18,6 +21,7 @@ const UserActivityPage = () => {
     <DashboardLayout
         pageTitle="User Activity Dashboard"
         pageSubtitleBottom={pageSubtitle}
+        breadcrumbs={breadcrumbs}
     >
       <div className="p-6">
         {/* Header with Back Button */}

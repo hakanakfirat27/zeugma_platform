@@ -1,9 +1,9 @@
 // frontend/src/pages/DataCollectorChatPage.jsx
-// Chat page for DATA COLLECTORS - can only message admin users
 
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { getBreadcrumbs } from '../utils/breadcrumbConfig';
 import api from '../utils/api';
 import { useChatWebSocket } from '../hooks/useChatWebSocket';
 import DataCollectorLayout from '../components/layout/DataCollectorLayout';
@@ -15,6 +15,8 @@ import {
 const DataCollectorChatPage = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();  
+  const breadcrumbs = getBreadcrumbs(location.pathname);    
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
   const isInitialLoadRef = useRef(true); // Track if this is the first load
@@ -379,7 +381,9 @@ const DataCollectorChatPage = () => {
   }
 
   return (
-    <DataCollectorLayout>
+    <DataCollectorLayout
+    breadcrumbs={breadcrumbs}  
+    >
       <div className="h-[calc(100vh-4rem)] flex flex-col bg-white">
         <div className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-6 py-4 shadow-lg">
           <div className="flex items-center justify-between">

@@ -1,6 +1,7 @@
 // frontend/src/pages/announcements/AnnouncementDetail.jsx
 import { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
+import { getBreadcrumbs } from '../../utils/breadcrumbConfig';
 import {
   ArrowLeft, Edit, Trash2, Archive, Send, Eye, Users, Calendar,
   Clock, AlertCircle, CheckCircle, Bell, Pin, ExternalLink, TrendingUp
@@ -34,6 +35,9 @@ const AnnouncementDetail = () => {
       setLoading(false);
     }
   };
+
+  const location = useLocation();  
+  const breadcrumbs = getBreadcrumbs(location.pathname)
 
   const handlePublish = async () => {
     try {
@@ -148,18 +152,11 @@ const AnnouncementDetail = () => {
     <DashboardLayout
       pageTitle="Announcement Details"
       pageSubtitleBottom="View and manage announcement details"
+      breadcrumbs={breadcrumbs}
     >
       <ToastContainer toasts={toasts} removeToast={removeToast} />
 
-      <div className="max-w-5xl mx-auto p-8">
-        {/* Back Button */}
-        <button
-          onClick={() => navigate('/announcements-management')}
-          className="mb-6 flex items-center gap-2 text-gray-600 hover:text-gray-900 font-medium transition-colors"
-        >
-          <ArrowLeft className="w-5 h-5" />
-          Back to Announcements
-        </button>
+      <div className="max-w-7xl mx-auto p-8">
 
         {/* Header Card */}
         <div className={`bg-gradient-to-r ${getTypeColor(announcement.announcement_type)} text-white rounded-xl p-8 mb-6 shadow-lg`}>

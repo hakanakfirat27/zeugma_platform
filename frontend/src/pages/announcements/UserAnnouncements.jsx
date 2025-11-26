@@ -1,6 +1,7 @@
 // frontend/src/pages/announcements/UserAnnouncements.jsx
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { getBreadcrumbs } from '../../utils/breadcrumbConfig';
 import {
   Bell, Calendar, CheckCircle, AlertCircle, Info, Megaphone,
   Pin, ExternalLink, Eye, Filter, Search, RefreshCw, Trash2, X
@@ -14,6 +15,8 @@ import { ToastContainer } from '../../components/Toast';
 
 const UserAnnouncements = () => {
   const navigate = useNavigate();
+  const location = useLocation();  
+  const breadcrumbs = getBreadcrumbs(location.pathname);    
   const { user } = useAuth();
   const { toasts, removeToast, success, error: showError } = useToast();
   const [announcements, setAnnouncements] = useState([]);
@@ -283,6 +286,7 @@ const UserAnnouncements = () => {
     <Layout
       pageTitle="Announcements"
       pageSubtitleBottom="Stay updated with the latest news and updates"
+      breadcrumbs={breadcrumbs}
     >
       <div className="p-6">
         <ToastContainer toasts={toasts} removeToast={removeToast} />

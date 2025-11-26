@@ -1,11 +1,11 @@
 // frontend/src/pages/CustomReportsPage.jsx
-// UPDATED: Added pagination, fixed sorting, Create Subscription button, and multi-user subscription modal
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { getBreadcrumbs } from '../../utils/breadcrumbConfig';
 import {
   Search, X, FileText, Users, Calendar, Plus, Edit, Trash2, Eye,
-  Grid, List, ChevronDown, User, Save, CheckCircle2, Database
+  Grid, List, ChevronDown, CheckCircle2, Database
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import DashboardLayout from '../../components/layout/DashboardLayout';
@@ -90,433 +90,12 @@ const SortableHeader = ({ label, field, currentSort, onSort }) => {
   );
 };
 
-// Multi-User Subscription Modal Component
-const MultiUserSubscriptionModal = ({ onClose, onSuccess, reports }) => {
-  const { success: showSuccess, error: showError } = useToast();
-  const [loading, setLoading] = useState(false);
-  const [clients, setClients] = useState([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filteredClients, setFilteredClients] = useState([]);
-  const [selectedUsers, setSelectedUsers] = useState([]);
-  const [showDropdown, setShowDropdown] = useState(false);
-  const dropdownRef = useRef(null);
-  const searchInputRef = useRef(null);
-
-  const [formData, setFormData] = useState({
-    report: '',
-    plan: 'MONTHLY',
-    status: 'ACTIVE',
-    start_date: new Date().toISOString().split('T')[0],
-    end_date: '',
-    notes: ''
-  });
-
-  useEffect(() => {
-    fetchClients();
-  }, []);
-
-  // Auto-calculate end date based on start date and plan
-  useEffect(() => {
-    if (formData.start_date && formData.plan) {
-      const startDate = new Date(formData.start_date);
-      const endDate = new Date(startDate);
-
-      if (formData.plan === 'MONTHLY') {
-        endDate.setMonth(endDate.getMonth() + 1);
-      } else if (formData.plan === 'ANNUAL') {
-        endDate.setFullYear(endDate.getFullYear() + 1);
-      }
-
-      setFormData(prev => ({
-        ...prev,
-        end_date: endDate.toISOString().split('T')[0]
-      }));
-    }
-  }, [formData.start_date, formData.plan]);
-
-  // Filter clients based on search term
-  useEffect(() => {
-    if (!searchTerm) {
-      setFilteredClients([]);
-      return;
-    }
-
-    const searchLower = searchTerm.toLowerCase();
-    const filtered = clients.filter(client => {
-      const alreadySelected = selectedUsers.some(user => user.id === client.id);
-      if (alreadySelected) return false;
-
-      const fullName = client.full_name || '';
-      const username = client.username || '';
-      const email = client.email || '';
-      const company = client.company_name || '';
-
-      return (
-        fullName.toLowerCase().includes(searchLower) ||
-        username.toLowerCase().includes(searchLower) ||
-        email.toLowerCase().includes(searchLower) ||
-        company.toLowerCase().includes(searchLower)
-      );
-    });
-
-    setFilteredClients(filtered);
-    setShowDropdown(filtered.length > 0);
-  }, [searchTerm, clients, selectedUsers]);
-
-  // Handle clicks outside dropdown
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setShowDropdown(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  const fetchClients = async () => {
-    try {
-      const response = await api.get('/api/users/?role=CLIENT');
-      setClients(response.data.results || response.data);
-    } catch (error) {
-      console.error('Error fetching clients:', error);
-      showError('Failed to load clients');
-    }
-  };
-
-  const handleAddUser = (client) => {
-    setSelectedUsers(prev => [...prev, client]);
-    setSearchTerm('');
-    setShowDropdown(false);
-    if (searchInputRef.current) {
-      searchInputRef.current.focus();
-    }
-  };
-
-  const handleRemoveUser = (clientId) => {
-    setSelectedUsers(prev => prev.filter(user => user.id !== clientId));
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-
-    if (selectedUsers.length === 0) {
-      showError('Please select at least one user');
-      return;
-    }
-
-    if (!formData.report) {
-      showError('Please select a report');
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const subscriptions = selectedUsers.map(user => ({
-        client: user.id,
-        report: formData.report,
-        plan: formData.plan,
-        status: formData.status,
-        start_date: formData.start_date,
-        end_date: formData.end_date,
-        notes: formData.notes
-      }));
-
-      // Create subscriptions in batch
-      const promises = subscriptions.map(sub =>
-        api.post('/api/subscriptions/', sub)
-      );
-
-      await Promise.all(promises);
-      showSuccess(`Successfully created ${subscriptions.length} subscription(s)!`);
-      onSuccess();
-      onClose();
-    } catch (error) {
-      console.error('Error creating subscriptions:', error);
-      showError(error.response?.data?.error || 'Failed to create subscriptions');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        {/* Header */}
-        <div className="sticky top-0 bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-6 py-4 rounded-t-xl z-10">
-          <div className="flex justify-between items-center">
-            <div>
-              <h2 className="text-xl font-bold">Create Subscriptions</h2>
-              <p className="text-sm text-indigo-100 mt-1">Assign a report to multiple users</p>
-            </div>
-            <button
-              onClick={onClose}
-              className="text-white hover:bg-white/20 p-2 rounded-lg transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
-
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-5">
-          {/* Multi-User Selection with Tags */}
-          <div ref={dropdownRef}>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Select Users <span className="text-red-500">*</span>
-            </label>
-
-            {/* Search Input */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <input
-                ref={searchInputRef}
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                onFocus={() => searchTerm && setShowDropdown(filteredClients.length > 0)}
-                placeholder="Search by name, email, or company..."
-                className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
-              />
-              {searchTerm && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSearchTerm('');
-                    setShowDropdown(false);
-                  }}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              )}
-            </div>
-
-            {/* Dropdown */}
-            {showDropdown && (
-              <div className="absolute z-50 w-full mt-2 bg-white border-2 border-gray-200 rounded-lg shadow-xl max-h-64 overflow-y-auto">
-                {filteredClients.map(client => (
-                  <button
-                    key={client.id}
-                    type="button"
-                    onClick={() => handleAddUser(client)}
-                    className="w-full px-4 py-3 text-left hover:bg-indigo-50 transition-colors border-b border-gray-100 last:border-b-0"
-                  >
-                    <div className="flex items-start gap-3">
-                      <div className="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center flex-shrink-0">
-                        <User className="w-4 h-4 text-indigo-600" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="font-medium text-gray-900 truncate">
-                          {client.full_name || client.username}
-                        </div>
-                        <div className="text-sm text-gray-500 truncate">{client.email}</div>
-                        {client.company_name && (
-                          <div className="text-xs text-gray-400 truncate">{client.company_name}</div>
-                        )}
-                      </div>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {/* Selected Users Tags */}
-            {selectedUsers.length > 0 && (
-              <div className="mt-3 flex flex-wrap gap-2">
-                {selectedUsers.map(user => (
-                  <div
-                    key={user.id}
-                    className="inline-flex items-center gap-2 px-3 py-2 bg-indigo-100 text-indigo-800 rounded-lg border border-indigo-200"
-                  >
-                    <User className="w-4 h-4" />
-                    <span className="text-sm font-medium">
-                      {user.full_name || user.username}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveUser(user.id)}
-                      className="ml-1 text-indigo-600 hover:text-indigo-800 hover:bg-indigo-200 rounded-full p-0.5 transition-colors"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {selectedUsers.length > 0 && (
-              <p className="mt-2 text-sm text-gray-600">
-                {selectedUsers.length} user(s) selected
-              </p>
-            )}
-          </div>
-
-          {/* Report Selection */}
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Report <span className="text-red-500">*</span>
-            </label>
-            <select
-              value={formData.report}
-              onChange={(e) => setFormData(prev => ({ ...prev, report: e.target.value }))}
-              required
-              className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
-            >
-              <option value="">Select a report</option>
-              {reports.map(report => (
-                <option key={report.report_id} value={report.report_id}>
-                  {report.title} ({report.record_count} records)
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Subscription Plan */}
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Subscription Plan <span className="text-red-500">*</span>
-            </label>
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => setFormData(prev => ({ ...prev, plan: 'MONTHLY' }))}
-                className={`p-4 rounded-lg border-2 transition-all ${
-                  formData.plan === 'MONTHLY'
-                    ? 'border-indigo-500 bg-indigo-50 ring-2 ring-indigo-200'
-                    : 'border-gray-200 hover:border-gray-300'
-                }`}
-              >
-                <div className="text-center">
-                  <div className={`text-lg font-bold ${
-                    formData.plan === 'MONTHLY' ? 'text-indigo-700' : 'text-gray-900'
-                  }`}>
-                    Monthly
-                  </div>
-                  <div className="text-xs text-gray-500 mt-1">1 month access</div>
-                </div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setFormData(prev => ({ ...prev, plan: 'ANNUAL' }))}
-                className={`p-4 rounded-lg border-2 transition-all ${
-                  formData.plan === 'ANNUAL'
-                    ? 'border-indigo-500 bg-indigo-50 ring-2 ring-indigo-200'
-                    : 'border-gray-200 hover:border-gray-300'
-                }`}
-              >
-                <div className="text-center">
-                  <div className={`text-lg font-bold ${
-                    formData.plan === 'ANNUAL' ? 'text-indigo-700' : 'text-gray-900'
-                  }`}>
-                    Annual
-                  </div>
-                  <div className="text-xs text-gray-500 mt-1">1 year access</div>
-                </div>
-              </button>
-            </div>
-          </div>
-
-          {/* Status */}
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Status <span className="text-red-500">*</span>
-            </label>
-            <select
-              value={formData.status}
-              onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value }))}
-              required
-              className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
-            >
-              <option value="ACTIVE">Active</option>
-              <option value="PENDING">Pending</option>
-            </select>
-          </div>
-
-          {/* Date Range */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Start Date <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="date"
-                value={formData.start_date}
-                onChange={(e) => setFormData(prev => ({ ...prev, start_date: e.target.value }))}
-                required
-                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                End Date <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="date"
-                value={formData.end_date}
-                onChange={(e) => setFormData(prev => ({ ...prev, end_date: e.target.value }))}
-                required
-                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
-              />
-            </div>
-          </div>
-
-          {/* Notes */}
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Notes
-            </label>
-            <textarea
-              value={formData.notes}
-              onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
-              rows={3}
-              placeholder="Add any additional notes about these subscriptions..."
-              className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all resize-none"
-            />
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex gap-3 pt-4 border-t border-gray-200">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={loading}
-              className="flex-1 px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-all font-medium disabled:opacity-50"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={loading}
-              className="flex-1 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed shadow-lg flex items-center justify-center gap-2"
-            >
-              {loading ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  Creating...
-                </>
-              ) : (
-                <>
-                  <Save className="w-4 h-4" />
-                  Create Subscriptions
-                </>
-              )}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-};
-
-
 
 const CustomReportsPage = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const breadcrumbs = getBreadcrumbs(location.pathname);      
   const { toasts, success, error: showError, removeToast } = useToast();
 
   const [reports, setReports] = useState([]);
@@ -536,7 +115,6 @@ const CustomReportsPage = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [reportToDelete, setReportToDelete] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
 
   const isStaff = user?.role === 'SUPERADMIN' || user?.role === 'STAFF_ADMIN';
 
@@ -544,22 +122,22 @@ const CustomReportsPage = () => {
     fetchReports();
   }, [searchTerm, sortField, sortDirection, page, pageSize]);
 
-    // Check for toast message from navigation
-    useEffect(() => {
-      if (location.state?.toastMessage) {
-        const { toastMessage, toastType } = location.state;
+  // Check for toast message from navigation
+  useEffect(() => {
+    if (location.state?.toastMessage) {
+      const { toastMessage, toastType } = location.state;
 
-        // Show toast with 7 second duration
-        if (toastType === 'success') {
-          success(toastMessage, 7000);
-        } else if (toastType === 'error') {
-          showError(toastMessage, 7000);
-        }
-
-        // Clear state so toast doesn't show again on refresh
-        window.history.replaceState({}, document.title);
+      // Show toast with 7 second duration
+      if (toastType === 'success') {
+        success(toastMessage, 7000);
+      } else if (toastType === 'error') {
+        showError(toastMessage, 7000);
       }
-    }, [location, success, showError]);
+
+      // Clear state so toast doesn't show again on refresh
+      window.history.replaceState({}, document.title);
+    }
+  }, [location, success, showError]);
 
   const fetchReports = async () => {
     try {
@@ -648,32 +226,26 @@ const CustomReportsPage = () => {
     }
   };
 
-  const handleSubscriptionSuccess = () => {
-    setShowSubscriptionModal(false);
-    // Optionally refresh reports to update subscription counts
-    fetchReports();
-  };
-
-    // Calculate stats from reports data
-    const stats = React.useMemo(() => {
-      if (viewMode === 'list') {
-        return {
-          totalReports: totalCount,
-          activeReports: reports.filter(r => r.is_active).length,
-          totalRecords: reports.reduce((sum, r) => sum + (r.record_count || 0), 0),
-          totalSubscribers: reports.reduce((sum, r) => sum + (r.subscription_count || 0), 0),
-          showWarning: true
-        };
-      } else {
-        return {
-          totalReports: reports.length,
-          activeReports: reports.filter(r => r.is_active).length,
-          totalRecords: reports.reduce((sum, r) => sum + (r.record_count || 0), 0),
-          totalSubscribers: reports.reduce((sum, r) => sum + (r.subscription_count || 0), 0),
-          showWarning: false
-        };
-      }
-    }, [reports, totalCount, viewMode]);
+  // Calculate stats from reports data
+  const stats = React.useMemo(() => {
+    if (viewMode === 'list') {
+      return {
+        totalReports: totalCount,
+        activeReports: reports.filter(r => r.is_active).length,
+        totalRecords: reports.reduce((sum, r) => sum + (r.record_count || 0), 0),
+        totalSubscribers: reports.reduce((sum, r) => sum + (r.subscription_count || 0), 0),
+        showWarning: true
+      };
+    } else {
+      return {
+        totalReports: reports.length,
+        activeReports: reports.filter(r => r.is_active).length,
+        totalRecords: reports.reduce((sum, r) => sum + (r.record_count || 0), 0),
+        totalSubscribers: reports.reduce((sum, r) => sum + (r.subscription_count || 0), 0),
+        showWarning: false
+      };
+    }
+  }, [reports, totalCount, viewMode]);
 
   if (loading && reports.length === 0) {
     return (
@@ -697,6 +269,7 @@ const CustomReportsPage = () => {
     <DashboardLayout
       pageTitle="Custom Reports"
       pageSubtitleBottom={pageSubtitle}
+      breadcrumbs={breadcrumbs}
     >
       <ToastContainer toasts={toasts} removeToast={removeToast} />
 
@@ -797,24 +370,15 @@ const CustomReportsPage = () => {
                 </button>
               </div>
 
-              {/* Action Buttons */}
+              {/* Create Report Button */}
               {isStaff && (
-                <>
-                  <button
-                    onClick={() => setShowSubscriptionModal(true)}
-                    className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition flex items-center gap-2 shadow-md text-sm"
-                  >
-                    <Users className="w-5 h-5" />
-                    Create Subscription
-                  </button>
-                  <button
-                    onClick={handleCreateReport}
-                    className="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition flex items-center gap-2 shadow-md text-sm"
-                  >
-                    <Plus className="w-5 h-5" />
-                    Create New Report
-                  </button>
-                </>
+                <button
+                  onClick={handleCreateReport}
+                  className="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition flex items-center gap-2 shadow-md text-sm"
+                >
+                  <Plus className="w-5 h-5" />
+                  Create New Report
+                </button>
               )}
             </div>
           </div>
@@ -878,7 +442,7 @@ const CustomReportsPage = () => {
                       <tbody className="divide-y divide-gray-200">
                         {loading ? (
                           <tr>
-                            <td colSpan={6} className="px-6 py-12">
+                            <td colSpan={5} className="px-6 py-12">
                               <LoadingSpinner />
                             </td>
                           </tr>
@@ -1102,15 +666,6 @@ const CustomReportsPage = () => {
         itemName={reportToDelete?.title}
         isDeleting={isDeleting}
       />
-
-      {/* Multi-User Subscription Modal */}
-      {showSubscriptionModal && (
-        <MultiUserSubscriptionModal
-          onClose={() => setShowSubscriptionModal(false)}
-          onSuccess={handleSubscriptionSuccess}
-          reports={reports}
-        />
-      )}
     </DashboardLayout>
   );
 };

@@ -5,6 +5,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import useChatUnreadCount from '../../hooks/useChatUnreadCount';
+import Breadcrumb from '../Breadcrumb';
 import {
   LayoutDashboard, Database, FileText, CreditCard, Users, Settings, MessageSquare, Bell,
   LogOut, ChevronDown, Menu, X, User, Maximize, Minimize, Calendar, MapPin, Phone, Mail,
@@ -12,7 +13,7 @@ import {
   FolderOpen, AlertCircle, ChevronRight, ArrowRight, Check, Trash2, CheckCheck, FolderKanban 
 } from 'lucide-react';
 
-const DashboardLayout = ({ children, pageTitle, headerActions, pageSubtitleTop, pageSubtitleBottom }) => {
+const DashboardLayout = ({ children, pageTitle, headerActions, pageSubtitleTop, pageSubtitleBottom, breadcrumbs }) => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -750,6 +751,12 @@ const navLinks = [
 
         {/* MAIN CONTENT AREA */}
         <main className="flex-1 overflow-y-auto bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50">
+          {/* BREADCRUMB SECTION */}
+          {breadcrumbs && breadcrumbs.length > 0 && (
+            <div className="bg-white border-b border-gray-200 px-6 py-3">
+              <Breadcrumb items={breadcrumbs} showHome={true} />
+            </div>
+          )}
           {children}
         </main>
       </div>

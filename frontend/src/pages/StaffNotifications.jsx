@@ -1,10 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useLocation } from 'react-router-dom';
+import { getBreadcrumbs } from '../utils/breadcrumbConfig';
 import axios from 'axios';
 import { Bell, Check, X, Trash2, CheckCheck, Search } from 'lucide-react';
 
 const StaffNotifications = () => {
   const { user } = useAuth();
+  const location = useLocation();  
+  const breadcrumbs = getBreadcrumbs(location.pathname);    
   const [notifications, setNotifications] = useState([]);
   const [filteredNotifications, setFilteredNotifications] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -208,6 +212,7 @@ const StaffNotifications = () => {
   };
 
   return (
+    
     <div className="p-6 max-w-7xl mx-auto">
       {/* Header */}
       <div className="mb-6">

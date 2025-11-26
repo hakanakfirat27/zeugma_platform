@@ -1,8 +1,8 @@
 // frontend/src/pages/StaffChatPage.jsx
-// WhatsApp-style design with your existing colors and DashboardLayout
 
 import { useState, useEffect, useRef, Fragment } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { getBreadcrumbs } from '../utils/breadcrumbConfig';
 import {
   MessageSquare, Send, Paperclip, X, Search, UserPlus, CheckCheck,
   Check, Download, Image, File, Video, Music, Archive, Loader2,
@@ -206,6 +206,8 @@ const UserInfoDrawer = ({ isOpen, onClose, user, subscriptions, loading }) => {
 const StaffChatPage = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();  
+  const breadcrumbs = getBreadcrumbs(location.pathname);   
 
   // State
   const [rooms, setRooms] = useState([]);
@@ -628,7 +630,9 @@ const fetchAvailableUsers = async () => {
   const filteredItems = getFilteredItems();
 
   return (
-    <DashboardLayout>
+    <DashboardLayout
+    breadcrumbs={breadcrumbs}  
+    >
       <div className="flex h-[calc(100vh-4rem)] bg-gray-100">
         {/* Sidebar */}
         <div className={`${showSidebar ? 'w-full md:w-96' : 'hidden md:block md:w-96'} bg-white border-r flex flex-col`}>

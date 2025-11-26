@@ -3,7 +3,8 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { getBreadcrumbs } from '../../utils/breadcrumbConfig';
 import {
   User, Mail, Phone, Building, Shield, Key, Save, ArrowLeft,
   CheckCircle, AlertCircle, Eye, EyeOff, Download, Copy, Check,
@@ -18,6 +19,8 @@ import api from '../../utils/api';
 const ProfileSettingsPage = () => {
   const { user, checkAuth } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();  
+  const breadcrumbs = getBreadcrumbs(location.pathname);    
 
   const [activeTab, setActiveTab] = useState('profile');
   const [loading, setLoading] = useState(false);
@@ -256,6 +259,7 @@ const ProfileSettingsPage = () => {
     // --- MODIFIED: Pass pageTitle and potentially subtitle props ---
     <LayoutComponent
       pageTitle="Profile Settings"
+      breadcrumbs={breadcrumbs}
       // Conditionally pass subtitles only if it's DashboardLayout
       {...(LayoutComponent === DashboardLayout && { pageSubtitleBottom: pageSubtitle })}
     >

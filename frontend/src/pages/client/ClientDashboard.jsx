@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation  } from 'react-router-dom';
+import { getBreadcrumbs } from '../../utils/breadcrumbConfig';
 import { useAuth } from '../../contexts/AuthContext';
 import {
   FileText, CreditCard, TrendingUp, Calendar, AlertCircle, CheckCircle,
@@ -15,6 +16,8 @@ const COLORS = ['#8B5CF6', '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#EC4899'
 
 const ClientDashboard = () => {
   const navigate = useNavigate();
+  const location = useLocation();  
+  const breadcrumbs = getBreadcrumbs(location.pathname); 
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
@@ -94,6 +97,7 @@ const ClientDashboard = () => {
   return (
     <ClientDashboardLayout
       pageTitle="Dashboard Overview"
+      breadcrumbs={breadcrumbs}
       pageSubtitleBottom={
         <p className="text-gray-600">
           Welcome back, <span className="font-semibold text-purple-950">{getDisplayName()}</span>! Here's your subscription summary

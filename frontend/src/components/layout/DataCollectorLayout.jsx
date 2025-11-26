@@ -5,6 +5,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import useChatUnreadCount from '../../hooks/useChatUnreadCount';
+import Breadcrumb from '../Breadcrumb';
 import {
   LayoutDashboard, FolderOpen, AlertCircle, Plus, LogOut, ChevronDown, 
   Menu, X, User, Settings, Bell, Calendar, MapPin, Phone, Mail, Building,
@@ -12,7 +13,7 @@ import {
   Minimize, CheckCheck, Trash2, Check, ChevronRight, MessageCircle
 } from 'lucide-react';
 
-const DataCollectorLayout = ({ children, pageTitle, headerActions, pageSubtitleTop, pageSubtitleBottom }) => {
+const DataCollectorLayout = ({ children, pageTitle, headerActions, pageSubtitleTop, pageSubtitleBottom, breadcrumbs }) => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -634,6 +635,21 @@ const DataCollectorLayout = ({ children, pageTitle, headerActions, pageSubtitleT
                         ))
                       )}
                     </div>
+
+                    {/* Footer */}
+                    {notifications.length > 0 && (
+                      <div className="p-3 border-t border-gray-200 bg-gray-50">
+                        <button
+                          onClick={() => {
+                            navigate('/notifications');
+                            setShowNotifications(false);
+                          }}
+                          className="w-full text-center text-sm text-blue-600 hover:text-blue-700 font-medium"
+                        >
+                          View All Notifications
+                        </button>
+                      </div>
+                    )}                    
                   </div>
                 )}
               </div>
@@ -709,6 +725,14 @@ const DataCollectorLayout = ({ children, pageTitle, headerActions, pageSubtitleT
 
         {/* MAIN CONTENT AREA */}
         <main className="flex-1 overflow-y-auto bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50">
+          {/* Breadcrumb Section - Just below header */}
+          {breadcrumbs && breadcrumbs.length > 0 && (
+            <div className="bg-white border-b border-gray-200 px-6 py-3 shadow-sm">
+              <Breadcrumb items={breadcrumbs} showHome={true} />
+            </div>
+          )}
+          
+          {/* Page Content */}
           {children}
         </main>
       </div>

@@ -1,6 +1,7 @@
 // frontend/src/pages/announcements/AnnouncementForm.jsx
 import { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
+import { getBreadcrumbs } from '../../utils/breadcrumbConfig';
 import {
   Save, X, Calendar, Users, Bell, AlertCircle, Info, Link as LinkIcon
 } from 'lucide-react';
@@ -11,6 +12,8 @@ import { ToastContainer } from '../../components/Toast';
 
 const AnnouncementForm = () => {
   const navigate = useNavigate();
+  const location = useLocation();  
+  const breadcrumbs = getBreadcrumbs(location.pathname);    
   const { id } = useParams();
   const isEdit = Boolean(id);
   const { toasts, removeToast, success, error: showError } = useToast();
@@ -113,10 +116,11 @@ const AnnouncementForm = () => {
     <DashboardLayout
       pageTitle={isEdit ? 'Edit Announcement' : 'Create Announcement'}
       pageSubtitleBottom="Create engaging announcements for your users"
+      breadcrumbs={breadcrumbs}
     >
       <ToastContainer toasts={toasts} removeToast={removeToast} />
 
-      <div className="max-w-4xl mx-auto p-8">
+      <div className="max-w-7xl mx-auto p-8">
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Basic Information */}
           <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">

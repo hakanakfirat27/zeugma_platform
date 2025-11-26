@@ -2,7 +2,8 @@
 // Page for adding new sites to a project - UPDATED with Calling Workflow tab
 
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { getBreadcrumbs } from '../../utils/breadcrumbConfig';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { ArrowLeft, Save, X, Building2, Users, Info, MessageSquare, Phone, CheckCircle, PlusCircle, FileText } from 'lucide-react';
 import useToast from '../../hooks/useToast';
@@ -50,6 +51,11 @@ const AddSiteToProjectPage = () => {
       const response = await api.get(`/api/projects/${projectId}/`);
       return response.data;
     },
+  });
+
+  const location = useLocation();
+  const breadcrumbs = getBreadcrumbs(location.pathname, {
+    projectName: project?.project_name 
   });
 
   // Fetch field metadata from backend
@@ -277,11 +283,11 @@ const AddSiteToProjectPage = () => {
     <DataCollectorLayout
       pageTitle="Add Site to Project"
       pageSubtitleBottom={`Adding site to: ${project.project_name}`}
+      breadcrumbs={breadcrumbs}
     >
 
       <div className="p-6 max-w-7xl mx-auto">
 
-        
         {/* Header */}
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
           <div className="flex items-center justify-between">
@@ -342,7 +348,7 @@ const AddSiteToProjectPage = () => {
               
               <button
                 onClick={handleCancel}
-                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                className="px-4 py-2 border border-gray-300 rounded-lg text-red-700 hover:bg-gray-50 transition-colors"
               >
                 <X className="w-4 h-4 inline mr-2" />
                 Cancel
@@ -521,7 +527,7 @@ const AddSiteToProjectPage = () => {
           <div className="flex justify-between items-center">
             <button
               onClick={handleCancel}
-              className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+              className="px-4 py-2 border border-gray-300 rounded-lg text-red-700 hover:bg-gray-50 transition-colors"
             >
               Cancel
             </button>

@@ -1,8 +1,9 @@
 // frontend/src/pages/ProjectDetailPage.jsx
 
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'; 
+import { getBreadcrumbs } from '../../utils/breadcrumbConfig';
 import api from '../../utils/api';
 import DataCollectorLayout from '../../components/layout/DataCollectorLayout';
 import DeleteConfirmationModal from '../../components/modals/DeleteConfirmationModal';
@@ -69,6 +70,11 @@ const ProjectDetailPage = () => {
       const response = await api.get(`/api/projects/${projectId}/`);
       return response.data;
     }
+  });
+
+  const location = useLocation();
+  const breadcrumbs = getBreadcrumbs(location.pathname, {
+    projectName: project?.project_name 
   });
 
   // Fetch sites in project WITH PAGINATION AND SORTING
@@ -242,6 +248,7 @@ const ProjectDetailPage = () => {
     <DataCollectorLayout
       pageTitle={project?.project_name || 'Project Details'}
       pageSubtitleBottom={project?.description}
+      breadcrumbs={breadcrumbs} 
     >
       <div className="p-6 max-w-7xl mx-auto">
         {/* Toast Container */}

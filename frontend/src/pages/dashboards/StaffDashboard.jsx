@@ -3,6 +3,8 @@
 
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
+import { getBreadcrumbs } from '../../utils/breadcrumbConfig';
 import { Settings, RefreshCw, Lock, Unlock, GripVertical } from 'lucide-react';
 import {
   DndContext,
@@ -70,6 +72,8 @@ const SortableWidget = ({ widget, stats, onRefresh, isLocked }) => {
 
 const StaffDashboard = () => {
   const navigate = useNavigate();
+  const location = useLocation();  // ADD THIS
+  const breadcrumbs = getBreadcrumbs(location.pathname);  // ADD THIS  
   const [widgets, setWidgets] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -268,6 +272,7 @@ const StaffDashboard = () => {
       headerActions={dashboardHeaderActions}
       //pageSubtitleTop={dashboardSubtitleTop}
       pageSubtitleBottom={dashboardSubtitleBottom}
+      breadcrumbs={breadcrumbs}
     >
       {/* Main Content */}
       <div className="flex-1 overflow-auto bg-gray-50">

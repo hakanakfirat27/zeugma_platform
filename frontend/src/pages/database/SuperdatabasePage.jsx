@@ -1,9 +1,9 @@
 // frontend/src/pages/SuperdatabasePage.jsx
-// MODIFIED: Merged header by removing secondary header and adding props to DashboardLayout
 
 import { FileText } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { getBreadcrumbs } from '../../utils/breadcrumbConfig';
 import { Search, SlidersHorizontal, Download, Upload, Trash2, Edit, Plus, BarChart3, TrendingUp, Users, X, ArrowLeft } from 'lucide-react';
 import { useRecords, useFilterOptions, useTechnicalFilterOptions } from '../../hooks/useDatabase';
 import { CATEGORIES } from '../../constants/categories';
@@ -19,8 +19,8 @@ import FilterSidebarWithGroups from '../../components/database/FilterSidebarWith
 const SuperdatabasePage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-
-  // UPDATED: Multi-category selection with Set
+  const location = useLocation();  
+  const breadcrumbs = getBreadcrumbs(location.pathname);  
   const [selectedCategories, setSelectedCategories] = useState(new Set(['ALL']));
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -215,6 +215,7 @@ const SuperdatabasePage = () => {
     <DashboardLayout
       pageTitle="Superdatabase Management"
       pageSubtitleBottom={pageSubtitle}
+      breadcrumbs={breadcrumbs}
     >
       {/* --- REMOVED: The secondary gradient header div --- */}
 

@@ -1,8 +1,8 @@
 // frontend/src/pages/WidgetManagement.jsx
-// MODIFIED: Merged header by removing secondary header and adding props to DashboardLayout
 
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { getBreadcrumbs } from '../../utils/breadcrumbConfig';
 import {
   Settings, Save, RefreshCw, Eye, EyeOff, GripVertical,
   ArrowLeft, Check, X, BarChart3, Activity, AlertTriangle,
@@ -67,6 +67,8 @@ const StatCard = ({ label, value, subtitle, icon, color = 'gray' }) => {
 
 const WidgetManagement = () => {
   const navigate = useNavigate();
+  const location = useLocation();  
+  const breadcrumbs = getBreadcrumbs(location.pathname);    
   const [widgets, setWidgets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -206,6 +208,7 @@ const WidgetManagement = () => {
       pageTitle="Widget Management"
       pageSubtitleBottom={pageSubtitle}
       headerActions={headerActions}
+      breadcrumbs={breadcrumbs}
     >
       {/* --- REMOVED: The secondary gradient header div --- */}
 

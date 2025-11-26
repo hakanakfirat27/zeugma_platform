@@ -1,7 +1,8 @@
 // frontend/src/pages/client/ClientReportViewPage.jsx
 
 import { useState, useEffect, useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { getBreadcrumbs } from '../../utils/breadcrumbConfig';
 import {
   Database, Search, X, Filter, Download, ArrowLeft, FileText,
   Globe, BarChart3, PieChart, TrendingUp, Calendar, AlertCircle,
@@ -51,7 +52,8 @@ const ClientReportViewPage = () => {
   const [exportLoading, setExportLoading] = useState(false);
   const [defaultSearchLoaded, setDefaultSearchLoaded] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
-
+  const location = useLocation();  
+  const breadcrumbs = getBreadcrumbs(location.pathname);   
 
   // REACT QUERY HOOKS
   const { data: reportAccess, isLoading: accessLoading } = useClientReportAccess(reportId);
@@ -426,6 +428,7 @@ const ClientReportViewPage = () => {
     <ClientDashboardLayout
       pageTitle={reportAccess?.report_title || 'Report View'}
       pageSubtitleBottom={reportAccess?.report_description || 'View and analyze report data'}
+      breadcrumbs={breadcrumbs}
     >
       <div className="p-6">
         {/* STATS CARDS */}

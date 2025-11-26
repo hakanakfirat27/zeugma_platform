@@ -2,7 +2,8 @@
 // MODIFIED: Uses the dynamic 'Layout' component instead of hardcoding ClientDashboardLayout
 
 import { useAuth } from '../../contexts/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { getBreadcrumbs } from '../../utils/breadcrumbConfig';
 import {
   User, Mail, Phone, Building, Calendar, Shield, Edit, ArrowLeft
 } from 'lucide-react';
@@ -14,6 +15,8 @@ import DataCollectorLayout from '../../components/layout/DataCollectorLayout';
 const MyProfilePage = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();  
+  const breadcrumbs = getBreadcrumbs(location.pathname);    
 
   const getUserInitials = () => {
     if (user?.full_name) {
@@ -55,7 +58,10 @@ const MyProfilePage = () => {
 
   return (
     // --- MODIFIED: Use the dynamic 'Layout' component here ---
-    <Layout pageTitle="My Profile">
+    <Layout 
+    pageTitle="My Profile"
+    breadcrumbs={breadcrumbs}
+    >
       <div className="max-w-7xl mx-auto p-6 space-y-6">
         {/* Header with Back Button */}
         <div className="flex items-center justify-between">

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { getBreadcrumbs } from '../../utils/breadcrumbConfig';
 import {
   CreditCard, Calendar, CheckCircle, X, AlertCircle, Clock, DollarSign,
   TrendingUp, FileText, Search, Filter as FilterIcon
@@ -10,6 +11,8 @@ import api from '../../utils/api';
 
 const ClientSubscriptionsPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();  
+  const breadcrumbs = getBreadcrumbs(location.pathname);    
   const [loading, setLoading] = useState(true);
   const [subscriptions, setSubscriptions] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -87,6 +90,7 @@ const ClientSubscriptionsPage = () => {
     <ClientDashboardLayout
       pageTitle="My Subscriptions"
       pageSubtitleBottom="Manage and track all your report subscriptions"
+      breadcrumbs={breadcrumbs}
     >
       <div className="p-6">
         {/* Stats Cards */}

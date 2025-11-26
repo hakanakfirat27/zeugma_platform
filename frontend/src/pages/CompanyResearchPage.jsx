@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
+import { getBreadcrumbs } from '../utils/breadcrumbConfig';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
@@ -11,6 +13,8 @@ import Pagination from '../components/database/Pagination';
 
 const CompanyResearchPage = () => {
   const { user } = useAuth();
+  const location = useLocation();  
+  const breadcrumbs = getBreadcrumbs(location.pathname);    
   const [formData, setFormData] = useState({
     company_name: '',
     country: ''
@@ -271,25 +275,17 @@ const CompanyResearchPage = () => {
     setPageSize(newSize);
     setCurrentPage(1); // Reset to first page when changing page size
   };
-
+  // --- NEW: Define the header subtitle ---
+  const pageSubtitle = (
+    <p className="text-sm text-white-700">AI-powered company information lookup for preliminary research</p>
+  );
   return (
-    <Layout>
+    <Layout
+      pageTitle="Company Research"
+      pageSubtitleBottom={pageSubtitle}    
+      breadcrumbs={breadcrumbs}
+    >
       <div className="p-6">
-        
-        {/* Header */}
-        <div className="mb-6 flex items-start space-x-3">
-          <div className="bg-gradient-to-r from-purple-600 to-indigo-600 p-2.5 rounded-lg flex-shrink-0">
-            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Company Research</h1>
-            <p className="text-sm text-gray-600 mt-1">
-              AI-powered company information lookup for preliminary research
-            </p>
-          </div>
-        </div>
 
         {/* Quota Display */}
         {quota && (
