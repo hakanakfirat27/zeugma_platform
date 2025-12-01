@@ -49,8 +49,11 @@ def get_field_metadata(model_class, field_name):
         
         if isinstance(field, django_models.BooleanField):
             field_type = 'checkbox'
-        elif isinstance(field, django_models.IntegerField):
+        elif isinstance(field, (django_models.IntegerField, django_models.PositiveIntegerField, 
+                                  django_models.SmallIntegerField, django_models.BigIntegerField)):
             field_type = 'number'
+        elif isinstance(field, (django_models.FloatField, django_models.DecimalField)):
+            field_type = 'number'  # Also number, but allows decimals
         elif isinstance(field, django_models.EmailField):
             field_type = 'email'
         elif isinstance(field, django_models.URLField):

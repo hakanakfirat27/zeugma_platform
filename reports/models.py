@@ -12,6 +12,25 @@ from django.db.models import Q
 User = get_user_model()
 
 
+# =============================================================================
+# IMPORT NEW COMPANY-CENTRIC MODELS
+# =============================================================================
+# This import makes Django detect the new models for migrations
+# Note: Placed here to avoid circular imports - imports at end of module
+try:
+    from .company_models import (
+        Company,
+        ProductionSite,
+        ProductionSiteVersion,
+        CompanyNote,
+        CompanyHistory,
+        CompanyStatus,
+        # Note: CompanyCategory is defined in both files to avoid circular import
+    )
+except ImportError:
+    pass  # Will be available after first migration
+
+
 # --- Company Category Class ---
 # This class defines the 10 main categories for a company record.
 class CompanyCategory(models.TextChoices):
@@ -2182,6 +2201,20 @@ class UnverifiedSite(models.Model):
             self.calculate_data_quality_score()
             self.check_for_duplicates()
         super().save(*args, **kwargs)
+
+
+# =============================================================================
+# IMPORT NEW COMPANY-CENTRIC MODELS
+# =============================================================================
+# This import makes Django detect the new models for migrations
+from .company_models import (
+    Company,
+    ProductionSite,
+    ProductionSiteVersion,
+    CompanyNote,
+    CompanyHistory,
+    CompanyStatus,
+)
 
 
 # --- Verification History Class ---

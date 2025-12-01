@@ -157,6 +157,15 @@ export const getBreadcrumbs = (pathname, dynamicData = {}) => {
       { label: 'Staff Dashboard', path: '/staff-dashboard' },
       { label: 'Widget Management', path: '/widget-management' }
     ],
+
+    // Company Database
+    '/company-database': [
+      { label: 'Company Database', path: '/company-database' }
+    ],
+    '/company-database/new': [
+      { label: 'Company Database', path: '/company-database' },
+      { label: 'Add Company', path: '/company-database/new' }
+    ],
   };
 
   // Check for exact match first
@@ -343,6 +352,28 @@ export const getBreadcrumbs = (pathname, dynamicData = {}) => {
       { label: 'Announcements Management', path: '/announcements-management' },
       { label: announcementTitle, path: `/announcements-management/${announcementId}` },
       { label: 'Edit', path: `/announcements/edit/${announcementId}` }
+    ];
+  }
+
+  // Company Database - Company Detail
+  if (path.match(/^\/companies\/[^/]+$/)) {
+    const companyId = path.split('/')[2];
+    const companyName = dynamicData.companyName || 'Company Details';
+    return [
+      { label: 'Company Database', path: '/company-database' },
+      { label: companyName, path: `/companies/${companyId}` }
+    ];
+  }
+
+  // Company Database - Versions Page
+  if (path.match(/^\/companies\/[^/]+\/sites\/[^/]+\/versions$/)) {
+    const [, , companyId, , siteId] = path.split('/');
+    const companyName = dynamicData.companyName || 'Company Details';
+    const categoryName = dynamicData.categoryName || 'Version History';
+    return [
+      { label: 'Company Database', path: '/company-database' },
+      { label: companyName, path: `/companies/${companyId}` },
+      { label: categoryName, path: `/companies/${companyId}/sites/${siteId}/versions` }
     ];
   }
 

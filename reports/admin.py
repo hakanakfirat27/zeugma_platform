@@ -35,6 +35,11 @@ from .fields import (
     COMPOUNDER_FIELDS
 )
 
+from .company_models import (
+    Company, ProductionSite, ProductionSiteVersion,
+    CompanyNote, CompanyHistory
+)
+
 @admin.register(SuperdatabaseRecord)
 class SuperdatabaseRecordAdmin(admin.ModelAdmin):
     class Media:
@@ -547,3 +552,39 @@ class FieldConfirmationAdmin(admin.ModelAdmin):
     
     def get_queryset(self, request):
         return super().get_queryset(request).select_related('site', 'confirmed_by')    
+    
+
+
+@admin.register(Company)
+class CompanyAdmin(admin.ModelAdmin):
+    list_display = ['unique_key', 'company_name', 'country', 'status', 'updated_at']
+    list_filter = ['status', 'country']
+    search_fields = ['company_name', 'unique_key']
+    readonly_fields = ['company_id', 'unique_key', 'company_name_normalized', 
+                       'created_at', 'updated_at', 'legacy_factory_ids']
+
+
+@admin.register(ProductionSite)
+class ProductionSiteAdmin(admin.ModelAdmin):
+    list_display = ['company', 'category', 'is_active', 'version_count', 'created_at']
+    list_filter = ['category']
+    search_fields = ['company__company_name']
+
+
+@admin.register(ProductionSiteVersion)
+class ProductionSiteVersionAdmin(admin.ModelAdmin):
+    list_display = ['production_site', 'version_number', 'is_current', 'is_active', 'created_at']
+    list_filter = ['is_current', 'is_active']
+
+
+@admin.register(CompanyNote)
+class CompanyNoteAdmin(admin.ModelAdmin):
+    list_display = ['company', 'note_type', 'created_by', 'created_at', 'is_pinned']
+    list_filter = ['note_type', 'is_pinned']
+
+
+@admin.register(CompanyHistory)
+class CompanyHistoryAdmin(admin.ModelAdmin):
+    list_display = ['company', 'action', 'performed_by', 'timestamp']
+    list_filter = ['action']
+    readonly_fields = ['history_id', 'timestamp', 'changes']    

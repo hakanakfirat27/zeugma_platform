@@ -90,6 +90,12 @@ import MyTasksPage from './pages/MyTasksPage';
 import ClientFAQPage from './pages/client/ClientFAQPage';
 import CompanyResearchPage from './pages/CompanyResearchPage';
 
+import CompanyDatabasePage from './pages/database/CompanyDatabasePage';
+import CompanyDetailPage from './pages/database/CompanyDetailPage';
+import AddCompanyPage from './pages/database/AddCompanyPage';
+import VersionsPage from './pages/database/VersionsPage';
+
+
 
 
 const queryClient = new QueryClient({
@@ -199,6 +205,11 @@ function App() {
             <Route path="/my-tasks" element={<ProtectedRoute><MyTasksPage /></ProtectedRoute>} />
             <Route path="/company-research" element={<ProtectedRoute allowedRoles={['DATA_COLLECTOR', 'STAFF_ADMIN', 'SUPERADMIN']}><CompanyResearchPage /></ProtectedRoute>} />
 
+
+            <Route path="/company-database" element={<ProtectedRoute><CompanyDatabasePage /></ProtectedRoute>} />
+            <Route path="/company-database/new" element={<ProtectedRoute><AddCompanyPage /></ProtectedRoute>} />
+            <Route path="/companies/:id" element={<ProtectedRoute><CompanyDetailPage /></ProtectedRoute>} />
+            <Route path="/companies/:id/sites/:siteId/versions" element={<ProtectedRoute><VersionsPage /></ProtectedRoute>} />
 
             {/* Catch all */}
             <Route path="*" element={<Navigate to="/" replace />} />

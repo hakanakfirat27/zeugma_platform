@@ -10,7 +10,7 @@ import {
   LayoutDashboard, Database, FileText, CreditCard, Users, Settings, MessageSquare, Bell,
   LogOut, ChevronDown, Menu, X, User, Maximize, Minimize, Calendar, MapPin, Phone, Mail,
   Building, Shield, CheckCircle, Clock, TrendingUp, Activity, RefreshCw, Search, Filter,
-  FolderOpen, AlertCircle, ChevronRight, ArrowRight, Check, Trash2, CheckCheck, FolderKanban 
+  FolderOpen, AlertCircle, ChevronRight, ArrowRight, Check, Trash2, CheckCheck, FolderKanban, Building2 
 } from 'lucide-react';
 
 const DashboardLayout = ({ children, pageTitle, headerActions, pageSubtitleTop, pageSubtitleBottom, breadcrumbs }) => {
@@ -44,6 +44,13 @@ const navLinks = [
   { name: 'Dashboard', path: '/staff-dashboard', icon: LayoutDashboard, roles: ['SUPERADMIN', 'STAFF_ADMIN'], color: 'text-blue-500',},
   { name: 'Superdatabase', path: '/superdatabase', icon: Database, roles: ['SUPERADMIN', 'STAFF_ADMIN'], color: 'text-teal-500' },  
   { name: 'Unverified Sites', path: '/unverified-sites', icon: Database, roles: ['SUPERADMIN', 'STAFF_ADMIN'], color: 'text-teal-500' },
+  { 
+  name: 'Company Database', 
+  path: '/company-database', 
+  icon: Building2, 
+  roles: ['SUPERADMIN', 'STAFF_ADMIN'], 
+  color: 'text-emerald-500' 
+},
   { name: 'All Projects', path: '/admin/projects', icon: FolderKanban, roles: ['SUPERADMIN', 'STAFF_ADMIN'], color: 'text-indigo-500' },
   { name: 'Review Queue', path: '/my-tasks', icon: AlertCircle, roles: ['SUPERADMIN', 'STAFF_ADMIN'], color: 'text-orange-500' },
   { name: 'Custom Reports', path: '/custom-reports', icon: FileText, roles: ['SUPERADMIN', 'STAFF_ADMIN'], color: 'text-purple-500' },

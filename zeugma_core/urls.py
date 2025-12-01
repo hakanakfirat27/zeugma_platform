@@ -23,6 +23,8 @@ urlpatterns = [
     path('api/announcements/', include('announcements.urls')),
     path('api/', include('reports.project_urls')),
     path('api/', include('reports.research_urls')),
+
+    path('api/companies/', include('reports.company_urls', namespace='companies')),
 ]
 
 # Serve static and media files in development
