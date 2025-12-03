@@ -9,14 +9,36 @@ Generates report of potential duplicates for manual review.
 
 import re
 import hashlib
+import time
 import openpyxl
 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
-from django.db import transaction
+from django.db import transaction, OperationalError
 from django.utils import timezone
 from reports.company_models import (
     Company, ProductionSite, ProductionSiteVersion,
     CompanyStatus, CompanyHistory
 )
+
+
+# =============================================================================
+# RETRY HELPER FOR SQLITE LOCKING
+# =============================================================================
+
+def retry_on_locked(func, max_retries=5, base_delay=0.1):
+    """
+    Retry a function if database is locked (SQLite limitation).
+    Uses exponential backoff.
+    """
+    for attempt in range(max_retries):
+        try:
+            return func()
+        except OperationalError as e:
+            if 'database is locked' in str(e) and attempt < max_retries - 1:
+                delay = base_delay * (2 ** attempt)  # Exponential backoff
+                time.sleep(delay)
+            else:
+                raise
+    return None
 
 
 # =============================================================================
@@ -472,14 +494,18 @@ class CompanyImportService:
                         company_data['last_modified_by'] = user
                         company_data['status'] = CompanyStatus.COMPLETE
                         
-                        with transaction.atomic():
-                            company = Company.objects.create(**company_data)
-                            CompanyHistory.objects.create(
-                                company=company,
-                                action='CREATED',
-                                performed_by=user,
-                                description=f'Imported from Excel sheet: {sheet_name}'
-                            )
+                        def create_company():
+                            with transaction.atomic():
+                                comp = Company.objects.create(**company_data)
+                                CompanyHistory.objects.create(
+                                    company=comp,
+                                    action='CREATED',
+                                    performed_by=user,
+                                    description=f'Imported from Excel sheet: {sheet_name}'
+                                )
+                                return comp
+                        
+                        company = retry_on_locked(create_company)
                         
                         # Add to caches
                         exact_match_cache[comp_hash] = (company, company_data)
@@ -496,33 +522,58 @@ class CompanyImportService:
                     ).first()
                     
                     if existing_site:
-                        # Update existing version
+                        # Update existing version with retry
                         current_version = existing_site.versions.filter(is_current=True).first()
                         if current_version:
                             version_data = cls._extract_version_data(row_data, valid_version_fields)
                             for field, value in version_data.items():
                                 if value is not None:
                                     setattr(current_version, field, value)
-                            current_version.save()
+                            
+                            def save_version():
+                                current_version.save()
+                            retry_on_locked(save_version)
                     else:
-                        # Create new production site and version
-                        with transaction.atomic():
-                            site = ProductionSite.objects.create(
-                                company=company,
-                                category=category,
-                                created_by=user
-                            )
+                        # Create new production site and Initial Version (version_number=0)
+                        def create_site_and_version():
+                            with transaction.atomic():
+                                site = ProductionSite.objects.create(
+                                    company=company,
+                                    category=category,
+                                    created_by=user
+                                )
+                                
+                                version_data = cls._extract_version_data(row_data, valid_version_fields)
+                                version_data['production_site'] = site
+                                version_data['version_number'] = 0  # Initial Version
+                                version_data['is_current'] = True
+                                version_data['is_active'] = True
+                                version_data['is_initial'] = True  # Mark as initial version
+                                version_data['created_by'] = user
+                                version_data['version_notes'] = 'Initial Version'
+                                
+                                # Build snapshot data for the Initial Version
+                                # Company data snapshot
+                                company_snapshot = {}
+                                for field in COMMON_FIELDS:
+                                    company_snapshot[field] = getattr(company, field, '') or ''
+                                version_data['company_data_snapshot'] = company_snapshot
+                                
+                                # Contact data snapshot
+                                contact_snapshot = {}
+                                for field in CONTACT_FIELDS:
+                                    contact_snapshot[field] = getattr(company, field, '') or ''
+                                version_data['contact_data_snapshot'] = contact_snapshot
+                                
+                                # Notes snapshot (empty for new imports)
+                                version_data['notes_snapshot'] = []
+                                
+                                ProductionSiteVersion.objects.create(**version_data)
+                                return site
+                        
+                        site = retry_on_locked(create_site_and_version)
+                        if site:
                             results['sites_created'] += 1
-                            
-                            version_data = cls._extract_version_data(row_data, valid_version_fields)
-                            version_data['production_site'] = site
-                            version_data['version_number'] = 1
-                            version_data['is_current'] = True
-                            version_data['is_active'] = True
-                            version_data['created_by'] = user
-                            version_data['version_notes'] = f'Imported from {sheet_name}'
-                            
-                            ProductionSiteVersion.objects.create(**version_data)
                             results['versions_created'] += 1
                 
                 except Exception as e:

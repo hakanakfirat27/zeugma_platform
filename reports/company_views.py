@@ -19,15 +19,19 @@ All endpoints follow REST conventions:
 """
 
 from rest_framework import generics, status, filters
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, parser_classes
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
+from rest_framework.parsers import MultiPartParser, FormParser
 from django_filters.rest_framework import DjangoFilterBackend
 from django.shortcuts import get_object_or_404
-from django.http import Http404
+from django.http import Http404, FileResponse
 from django.db.models import Q, Count, Prefetch
 from django.utils import timezone
+from django.conf import settings
+import os
+import tempfile
 
 from .company_models import (
     Company, ProductionSite, ProductionSiteVersion,
@@ -68,7 +72,7 @@ class CompanyListCreateAPIView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
     pagination_class = CustomPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    search_fields = ['company_name', 'unique_key', 'country', 'region']
+    search_fields = ['company_name']
     ordering_fields = ['company_name', 'country', 'created_at', 'updated_at', 'unique_key']
     ordering = ['-updated_at']
     
@@ -78,6 +82,8 @@ class CompanyListCreateAPIView(generics.ListCreateAPIView):
         return CompanyListSerializer
     
     def get_queryset(self):
+        import json
+        
         queryset = Company.objects.prefetch_related(
             'production_sites'
         ).select_related('created_by', 'last_modified_by')
@@ -88,10 +94,14 @@ class CompanyListCreateAPIView(generics.ListCreateAPIView):
             statuses = [s.strip().upper() for s in status_param.split(',')]
             queryset = queryset.filter(status__in=statuses)
         
-        # Filter by country
+        # Filter by country (supports multiple, comma-separated)
         country = self.request.query_params.get('country')
         if country:
-            queryset = queryset.filter(country__iexact=country)
+            countries = [c.strip() for c in country.split(',')]
+            if len(countries) == 1:
+                queryset = queryset.filter(country__iexact=countries[0])
+            else:
+                queryset = queryset.filter(country__in=countries)
         
         # Filter by category (companies that have production in this category)
         category = self.request.query_params.get('category')
@@ -108,6 +118,117 @@ class CompanyListCreateAPIView(generics.ListCreateAPIView):
                 production_sites__versions__is_current=True,
                 production_sites__versions__is_active=True
             ).distinct()
+        
+        # Handle filter groups (material and technical filters)
+        # Filter groups use OR logic within a group, AND logic between groups
+        # This filters companies based on their production site versions
+        filter_groups_param = self.request.query_params.get('filter_groups')
+        if filter_groups_param:
+            try:
+                filter_groups = json.loads(filter_groups_param)
+                if isinstance(filter_groups, list):
+                    for group in filter_groups:
+                        if not isinstance(group, dict):
+                            continue
+                        
+                        # Build OR query for all filters within this group
+                        group_query = Q()
+                        
+                        # Handle boolean/material filters
+                        filters = group.get('filters', {})
+                        if filters:
+                            for field_name, field_value in filters.items():
+                                # Check if field exists on ProductionSiteVersion model
+                                try:
+                                    ProductionSiteVersion._meta.get_field(field_name)
+                                    
+                                    if field_value is True:
+                                        # Include: find versions where field is True
+                                        group_query |= Q(**{
+                                            f'production_sites__versions__is_current': True,
+                                            f'production_sites__versions__{field_name}': True
+                                        })
+                                    elif field_value is False:
+                                        # Exclude: find versions where field is False or null
+                                        group_query |= Q(**{
+                                            f'production_sites__versions__is_current': True,
+                                            f'production_sites__versions__{field_name}': False
+                                        }) | Q(**{
+                                            f'production_sites__versions__is_current': True,
+                                            f'production_sites__versions__{field_name}__isnull': True
+                                        })
+                                except Exception:
+                                    continue
+                        
+                        # Handle technical filters (with equals and range modes)
+                        technical_filters = group.get('technicalFilters', {})
+                        if technical_filters:
+                            for field_name, filter_config in technical_filters.items():
+                                if not isinstance(filter_config, dict):
+                                    continue
+                                
+                                try:
+                                    field = ProductionSiteVersion._meta.get_field(field_name)
+                                    mode = filter_config.get('mode', 'range')
+                                    
+                                    if mode == 'equals':
+                                        # EQUALS MODE: field = exact_value
+                                        equals_val = filter_config.get('equals', '')
+                                        
+                                        if equals_val != '' and equals_val is not None:
+                                            try:
+                                                if field.get_internal_type() == 'FloatField':
+                                                    equals_val = float(equals_val)
+                                                else:
+                                                    equals_val = int(equals_val)
+                                                
+                                                group_query |= Q(**{
+                                                    f'production_sites__versions__is_current': True,
+                                                    f'production_sites__versions__{field_name}': equals_val
+                                                })
+                                            except (ValueError, TypeError):
+                                                pass
+                                    
+                                    elif mode == 'range':
+                                        # RANGE MODE: field >= min AND field <= max
+                                        min_val = filter_config.get('min', '')
+                                        max_val = filter_config.get('max', '')
+                                        
+                                        range_query = Q(**{
+                                            f'production_sites__versions__is_current': True
+                                        })
+                                        
+                                        if min_val != '' and min_val is not None:
+                                            try:
+                                                if field.get_internal_type() == 'FloatField':
+                                                    min_val = float(min_val)
+                                                else:
+                                                    min_val = int(min_val)
+                                                range_query &= Q(**{f'production_sites__versions__{field_name}__gte': min_val})
+                                            except (ValueError, TypeError):
+                                                pass
+                                        
+                                        if max_val != '' and max_val is not None:
+                                            try:
+                                                if field.get_internal_type() == 'FloatField':
+                                                    max_val = float(max_val)
+                                                else:
+                                                    max_val = int(max_val)
+                                                range_query &= Q(**{f'production_sites__versions__{field_name}__lte': max_val})
+                                            except (ValueError, TypeError):
+                                                pass
+                                        
+                                        group_query |= range_query
+                                
+                                except Exception:
+                                    continue
+                        
+                        # AND this group with the queryset
+                        if group_query:
+                            queryset = queryset.filter(group_query).distinct()
+            
+            except json.JSONDecodeError:
+                pass  # Invalid JSON, ignore
         
         return queryset
     
@@ -904,37 +1025,186 @@ class CompanyHistoryAPIView(generics.ListAPIView):
 def company_stats(request):
     """
     GET: Get statistics about companies
+    
+    Supports filters (same as company list):
+    - status: Complete, Incomplete, Deleted (comma-separated)
+    - country: Country name (comma-separated)
+    - category: Filter by production category (comma-separated)
+    - search: Search company name
+    - filter_groups: JSON array of filter groups for material/technical filters
     """
+    import json
     from django.db.models import Count
     
-    total = Company.objects.count()
+    # Start with base queryset
+    queryset = Company.objects.all()
+    
+    # Apply filters (same logic as CompanyListCreateAPIView)
+    
+    # Filter by status
+    status_param = request.query_params.get('status')
+    if status_param:
+        statuses = [s.strip().upper() for s in status_param.split(',')]
+        queryset = queryset.filter(status__in=statuses)
+    
+    # Filter by country
+    country = request.query_params.get('country')
+    if country:
+        countries = [c.strip() for c in country.split(',')]
+        if len(countries) == 1:
+            queryset = queryset.filter(country__iexact=countries[0])
+        else:
+            queryset = queryset.filter(country__in=countries)
+    
+    # Filter by category
+    category = request.query_params.get('category')
+    if category:
+        categories = [c.strip().upper() for c in category.split(',')]
+        queryset = queryset.filter(
+            production_sites__category__in=categories
+        ).distinct()
+    
+    # Filter by search (company name only)
+    search = request.query_params.get('search')
+    if search:
+        queryset = queryset.filter(company_name__icontains=search)
+    
+    # Handle filter groups (material and technical filters)
+    filter_groups_param = request.query_params.get('filter_groups')
+    if filter_groups_param:
+        try:
+            filter_groups = json.loads(filter_groups_param)
+            if isinstance(filter_groups, list):
+                for group in filter_groups:
+                    if not isinstance(group, dict):
+                        continue
+                    
+                    group_query = Q()
+                    
+                    # Handle boolean/material filters
+                    filters = group.get('filters', {})
+                    if filters:
+                        for field_name, field_value in filters.items():
+                            try:
+                                ProductionSiteVersion._meta.get_field(field_name)
+                                
+                                if field_value is True:
+                                    group_query |= Q(**{
+                                        f'production_sites__versions__is_current': True,
+                                        f'production_sites__versions__{field_name}': True
+                                    })
+                                elif field_value is False:
+                                    group_query |= Q(**{
+                                        f'production_sites__versions__is_current': True,
+                                        f'production_sites__versions__{field_name}': False
+                                    }) | Q(**{
+                                        f'production_sites__versions__is_current': True,
+                                        f'production_sites__versions__{field_name}__isnull': True
+                                    })
+                            except Exception:
+                                continue
+                    
+                    # Handle technical filters
+                    technical_filters = group.get('technicalFilters', {})
+                    if technical_filters:
+                        for field_name, filter_config in technical_filters.items():
+                            if not isinstance(filter_config, dict):
+                                continue
+                            
+                            try:
+                                field = ProductionSiteVersion._meta.get_field(field_name)
+                                mode = filter_config.get('mode', 'range')
+                                
+                                if mode == 'equals':
+                                    equals_val = filter_config.get('equals', '')
+                                    if equals_val != '' and equals_val is not None:
+                                        try:
+                                            if field.get_internal_type() == 'FloatField':
+                                                equals_val = float(equals_val)
+                                            else:
+                                                equals_val = int(equals_val)
+                                            
+                                            group_query |= Q(**{
+                                                f'production_sites__versions__is_current': True,
+                                                f'production_sites__versions__{field_name}': equals_val
+                                            })
+                                        except (ValueError, TypeError):
+                                            pass
+                                
+                                elif mode == 'range':
+                                    min_val = filter_config.get('min', '')
+                                    max_val = filter_config.get('max', '')
+                                    
+                                    range_query = Q(**{
+                                        f'production_sites__versions__is_current': True
+                                    })
+                                    
+                                    if min_val != '' and min_val is not None:
+                                        try:
+                                            if field.get_internal_type() == 'FloatField':
+                                                min_val = float(min_val)
+                                            else:
+                                                min_val = int(min_val)
+                                            range_query &= Q(**{f'production_sites__versions__{field_name}__gte': min_val})
+                                        except (ValueError, TypeError):
+                                            pass
+                                    
+                                    if max_val != '' and max_val is not None:
+                                        try:
+                                            if field.get_internal_type() == 'FloatField':
+                                                max_val = float(max_val)
+                                            else:
+                                                max_val = int(max_val)
+                                            range_query &= Q(**{f'production_sites__versions__{field_name}__lte': max_val})
+                                        except (ValueError, TypeError):
+                                            pass
+                                    
+                                    group_query |= range_query
+                            
+                            except Exception:
+                                continue
+                    
+                    if group_query:
+                        queryset = queryset.filter(group_query).distinct()
+        
+        except json.JSONDecodeError:
+            pass
+    
+    # Now calculate stats based on filtered queryset
+    total = queryset.count()
     
     by_status = dict(
-        Company.objects.values('status')
+        queryset.values('status')
         .annotate(count=Count('id'))
         .values_list('status', 'count')
     )
     
     by_country = list(
-        Company.objects.values('country')
+        queryset.values('country')
         .annotate(count=Count('id'))
-        .order_by('-count')[:10]
+        .order_by('-count')
     )
     
-    # Categories with most companies
+    # Categories with most companies (from filtered set)
+    company_ids = queryset.values_list('id', flat=True)
     by_category = list(
-        ProductionSite.objects.values('category')
+        ProductionSite.objects.filter(company_id__in=company_ids)
+        .values('category')
         .annotate(count=Count('company', distinct=True))
         .order_by('-count')
     )
     
     # Companies with multiple categories
-    multi_category = Company.objects.annotate(
+    multi_category = queryset.annotate(
         site_count=Count('production_sites')
     ).filter(site_count__gt=1).count()
     
+    # Calculate unique countries count
+    countries_count = queryset.exclude(country__isnull=True).exclude(country='').values('country').distinct().count()
+    
     return Response({
         'total_companies': total,
+        'countries_count': countries_count,
         'by_status': {
             'complete': by_status.get('COMPLETE', 0),
             'incomplete': by_status.get('INCOMPLETE', 0),
@@ -944,3 +1214,239 @@ def company_stats(request):
         'by_category': by_category,
         'multi_category_companies': multi_category
     })
+
+
+# =============================================================================
+# IMPORT COMPANIES VIEW
+# =============================================================================
+
+class ImportCompaniesAPIView(APIView):
+    """
+    POST: Import companies from an Excel file
+    
+    The Excel file can have multiple sheets, one per category:
+    - Injection Moulders
+    - Blow Moulders
+    - Roto Moulders
+    - PE Film Extruders
+    - Sheet Extruders
+    - Pipe Extruders
+    - Tube & Hose Extruders
+    - Profile Extruders
+    - Cable Extruders
+    - Compounders
+    
+    Import Logic:
+    1. If ALL 29 company fields (COMMON_FIELDS + CONTACT_FIELDS) match exactly:
+       - If company already has this category → Skip (no update)
+       - If company doesn't have this category → Add the category/process
+    2. If company fields don't match but same name+address+country exists:
+       - Mark as potential duplicate, create new company
+    3. If company doesn't exist → Create new company with all fields
+    
+    Returns:
+    - Import statistics
+    - List of potential duplicates (for manual review)
+    - Path to duplicates report Excel file
+    """
+    permission_classes = [IsAuthenticated, IsStaffOnly]
+    parser_classes = [MultiPartParser, FormParser]
+    
+    def post(self, request):
+        import uuid
+        import logging
+        import traceback
+        from .services.company_import import CompanyImportService
+        
+        logger = logging.getLogger(__name__)
+        logger.info("Import request received")
+        
+        # Check if file was provided
+        if 'file' not in request.FILES:
+            return Response(
+                {'error': 'No file provided. Please upload an Excel file.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        uploaded_file = request.FILES['file']
+        logger.info(f"Uploaded file: {uploaded_file.name}, size: {uploaded_file.size}")
+        
+        # Validate file extension
+        if not uploaded_file.name.endswith(('.xlsx', '.xls')):
+            return Response(
+                {'error': 'Invalid file format. Please upload an Excel file (.xlsx or .xls)'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Save uploaded file to temp location
+        temp_dir = os.path.join(settings.MEDIA_ROOT, 'temp_imports')
+        os.makedirs(temp_dir, exist_ok=True)
+        
+        # Generate unique filename
+        unique_id = str(uuid.uuid4())[:8]
+        temp_filename = f'import_{unique_id}_{uploaded_file.name}'
+        temp_filepath = os.path.join(temp_dir, temp_filename)
+        
+        # Write uploaded file to temp location
+        with open(temp_filepath, 'wb+') as destination:
+            for chunk in uploaded_file.chunks():
+                destination.write(chunk)
+        
+        logger.info(f"File saved to: {temp_filepath}")
+        
+        # Generate report path for potential duplicates
+        report_filename = f'potential_duplicates_{unique_id}.xlsx'
+        report_filepath = os.path.join(temp_dir, report_filename)
+        
+        try:
+            # Run the import
+            logger.info("Starting import...")
+            result = CompanyImportService.import_from_excel(
+                file_path=temp_filepath,
+                user=request.user,
+                report_path=report_filepath
+            )
+            logger.info(f"Import completed. Companies created: {result.get('companies_created', 0)}")
+            
+            # Build response
+            response_data = {
+                'success': True,
+                'message': 'Import completed successfully',
+                'statistics': {
+                    'total_rows_processed': result.get('total_rows', 0),
+                    'companies_created': result.get('companies_created', 0),
+                    'companies_updated': result.get('companies_updated', 0),
+                    'exact_matches_merged': result.get('merged_count', 0),
+                    'production_sites_created': result.get('sites_created', 0),
+                    'versions_created': result.get('versions_created', 0),
+                },
+                'sheets_processed': result.get('sheets_processed', []),
+                'potential_duplicates_count': len(result.get('potential_duplicates', [])),
+                'errors_count': len(result.get('errors', [])),
+                'errors': result.get('errors', [])[:50],  # Limit to first 50 errors
+            }
+            
+            # Include report download info if duplicates were found
+            if result.get('potential_duplicates'):
+                response_data['duplicates_report'] = {
+                    'filename': report_filename,
+                    'download_url': f'/api/companies/import/download-report/{report_filename}/',
+                    'message': 'Potential duplicates found. Download the report for manual review.'
+                }
+                # Include first 10 duplicates in response
+                response_data['potential_duplicates_sample'] = [
+                    {
+                        'new_company': dup['new_record']['data'].get('company_name', 'Unknown'),
+                        'new_category': dup['new_record']['category'],
+                        'existing_key': dup['existing_record']['unique_key'],
+                        'existing_categories': dup['existing_record']['categories'],
+                        'different_fields': [d['field'] for d in dup['differences']]
+                    }
+                    for dup in result.get('potential_duplicates', [])[:10]
+                ]
+            
+            # Clean up temp import file (keep report file for download)
+            if os.path.exists(temp_filepath):
+                os.remove(temp_filepath)
+            
+            logger.info("Returning response")
+            return Response(response_data, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            logger.error(f"Import error: {e}")
+            logger.error(traceback.format_exc())
+            
+            # Clean up temp files on error
+            if os.path.exists(temp_filepath):
+                os.remove(temp_filepath)
+            if os.path.exists(report_filepath):
+                os.remove(report_filepath)
+            
+            return Response(
+                {
+                    'success': False,
+                    'error': str(e),
+                    'traceback': traceback.format_exc()
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class DownloadImportReportAPIView(APIView):
+    """
+    GET: Download the potential duplicates report from an import
+    """
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request, filename):
+        # Security: Only allow downloading from temp_imports directory
+        temp_dir = os.path.join(settings.MEDIA_ROOT, 'temp_imports')
+        file_path = os.path.join(temp_dir, filename)
+        
+        # Validate filename (prevent directory traversal)
+        if '..' in filename or '/' in filename or '\\' in filename:
+            return Response(
+                {'error': 'Invalid filename'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if not os.path.exists(file_path):
+            return Response(
+                {'error': 'Report file not found. It may have expired.'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Return file for download
+        response = FileResponse(
+            open(file_path, 'rb'),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        return response
+
+
+class ImportTemplateAPIView(APIView):
+    """
+    GET: Get information about the expected Excel import template
+    
+    Returns the expected sheet names and column headers for each category.
+    """
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request):
+        from .services.company_import import (
+            COMMON_FIELDS, CONTACT_FIELDS, CATEGORY_FIELDS, SHEET_TO_CATEGORY
+        )
+        
+        # Build template info
+        template_info = {
+            'common_fields': COMMON_FIELDS,
+            'contact_fields': CONTACT_FIELDS,
+            'total_company_fields': len(COMMON_FIELDS) + len(CONTACT_FIELDS),
+            'sheets': []
+        }
+        
+        # Category info
+        categories = [
+            ('Injection Moulders', 'INJECTION'),
+            ('Blow Moulders', 'BLOW'),
+            ('Roto Moulders', 'ROTO'),
+            ('PE Film Extruders', 'PE_FILM'),
+            ('Sheet Extruders', 'SHEET'),
+            ('Pipe Extruders', 'PIPE'),
+            ('Tube & Hose Extruders', 'TUBE_HOSE'),
+            ('Profile Extruders', 'PROFILE'),
+            ('Cable Extruders', 'CABLE'),
+            ('Compounders', 'COMPOUNDER'),
+        ]
+        
+        for sheet_name, category_code in categories:
+            category_fields = CATEGORY_FIELDS.get(category_code, [])
+            template_info['sheets'].append({
+                'sheet_name': sheet_name,
+                'category_code': category_code,
+                'category_specific_fields': category_fields,
+                'total_fields': len(COMMON_FIELDS) + len(CONTACT_FIELDS) + len(category_fields)
+            })
+        
+        return Response(template_info)

@@ -243,10 +243,16 @@ export const companyService = {
   },
   
   /**
-   * Get statistics
+   * Get statistics (supports filtering)
+   * @param {Object} params - Filter parameters (same as getCompanies)
+   * @param {string} params.status - Filter by status
+   * @param {string} params.country - Filter by country
+   * @param {string} params.category - Filter by category
+   * @param {string} params.search - Search term
+   * @param {string} params.filter_groups - JSON string of filter groups
    */
-  async getStats() {
-    const response = await api.get(`${BASE_URL}/stats/`);
+  async getStats(params = {}) {
+    const response = await api.get(`${BASE_URL}/stats/`, { params });
     return response.data;
   },
   
@@ -254,20 +260,48 @@ export const companyService = {
   
   /**
    * Import companies from Excel file
-   * @param {File} file - Excel file
-   * @param {string} category - Category code (INJECTION, BLOW, etc.)
+   * @param {File} file - Excel file (with sheets for each category)
+   * @param {Function} onProgress - Optional progress callback
    */
-  async importFromExcel(file, category) {
+  async importFromExcel(file, onProgress = null) {
     const formData = new FormData();
     formData.append('file', file);
-    formData.append('category', category);
     
-    const response = await api.post(`${BASE_URL}/import/`, formData, {
+    const config = {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
-    });
+      // Set a very long timeout for large imports (30 minutes)
+      timeout: 1800000,
+    };
+    
+    // Add progress tracking if callback provided
+    if (onProgress) {
+      config.onUploadProgress = (progressEvent) => {
+        const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+        onProgress(percentCompleted);
+      };
+    }
+    
+    const response = await api.post(`${BASE_URL}/import/`, formData, config);
     return response.data;
+  },
+  
+  /**
+   * Get import template info
+   * Returns expected sheet names and column headers for each category
+   */
+  async getImportTemplate() {
+    const response = await api.get(`${BASE_URL}/import/template/`);
+    return response.data;
+  },
+  
+  /**
+   * Get URL to download import report
+   * @param {string} filename - Report filename from import response
+   */
+  getImportReportUrl(filename) {
+    return `${BASE_URL}/import/download-report/${filename}/`;
   },
 };
 

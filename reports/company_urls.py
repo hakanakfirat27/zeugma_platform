@@ -70,6 +70,11 @@ from .company_views import (
     DuplicateCheckAPIView,
     BulkStatusUpdateAPIView,
     company_stats,
+    
+    # Import views
+    ImportCompaniesAPIView,
+    DownloadImportReportAPIView,
+    ImportTemplateAPIView,
 )
 
 app_name = 'companies'
@@ -167,6 +172,19 @@ urlpatterns = [
     
     # Company statistics
     path('stats/', company_stats, name='company-stats'),
+    
+    # ==========================================================================
+    # IMPORT ENDPOINTS
+    # ==========================================================================
+    
+    # Import companies from Excel
+    path('import/', ImportCompaniesAPIView.as_view(), name='import-companies'),
+    
+    # Get import template info
+    path('import/template/', ImportTemplateAPIView.as_view(), name='import-template'),
+    
+    # Download potential duplicates report
+    path('import/download-report/<str:filename>/', DownloadImportReportAPIView.as_view(), name='import-report'),
 ]
 
 
