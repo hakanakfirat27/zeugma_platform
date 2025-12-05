@@ -13,7 +13,7 @@ import BulkImportModal from '../../components/modals/BulkImportModal';
 import BulkExportModal from '../../components/modals/BulkExportModal';
 import BulkActionModal from '../../components/modals/BulkActionModal';
 import Pagination from '../../components/database/Pagination';
-import QualityScore from '../../components/projects/QualityScore';
+
 import {
   ArrowLeft, Plus, Search, Filter, Eye, Edit2, Trash2, Calendar,
   Building2, TrendingUp, Users, Clock, Target, AlertCircle,
@@ -285,7 +285,15 @@ const AdminProjectDetailPage = () => {
         {/* Header with Action Buttons */}
         <div className="mb-6">
           <div className="flex justify-between items-center gap-3 mb-4">
-            <div></div>
+            <div>
+              <button
+                onClick={() => navigate(`/admin/projects`)}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                <ArrowLeft className="w-5 h-5" />
+                Back to Projects
+              </button>            
+            </div>
             
             {/* Import/Export Buttons - Right aligned */}
             <div className="flex gap-3">
@@ -314,7 +322,7 @@ const AdminProjectDetailPage = () => {
           {/* Project Header Card */}
           <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
             {/* Project Info Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mt-4">
               <div className="flex items-center gap-3">
                 <Building2 className="w-5 h-5 text-gray-400" />
                 <div>
@@ -329,6 +337,20 @@ const AdminProjectDetailPage = () => {
                   <p className="text-sm text-gray-600">Created By</p>
                   <p className="text-sm font-semibold text-gray-900">
                     {project.created_by_info?.first_name} {project.created_by_info?.last_name}
+                  </p>
+                </div>
+              </div>
+
+              {/* NEW: Assigned To field */}
+              <div className="flex items-center gap-3">
+                <Users className="w-5 h-5 text-gray-400" />
+                <div>
+                  <p className="text-sm text-gray-600">Assigned To</p>
+                  <p className="text-sm font-semibold text-gray-900">
+                    {project.assigned_to_info 
+                      ? `${project.assigned_to_info.first_name} ${project.assigned_to_info.last_name}`
+                      : <span className="text-gray-400">Unassigned</span>
+                    }
                   </p>
                 </div>
               </div>
@@ -567,18 +589,7 @@ const AdminProjectDetailPage = () => {
                         </div>
                       </th>
                       
-                      {/* ✅ NEW: Sortable Quality Score column */}
-                      <th 
-                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100 transition-colors"
-                        onClick={() => handleSort('data_quality_score')}
-                      >
-                        <div className="flex items-center gap-2">
-                          Quality Score
-                          {getSortIcon('data_quality_score')}
-                        </div>
-                      </th>
-                      
-                      {/* ✅ NEW: Collected By column */}
+                      {/* Collected By column */}
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                         Collected By
                       </th>
@@ -623,17 +634,7 @@ const AdminProjectDetailPage = () => {
                           {getStatusBadge(site.verification_status)}
                         </td>
                         
-                        <td className="px-6 py-4">
-                          <div className="min-w-[180px]">
-                            {site.data_quality_score ? (
-                              <QualityScore score={site.data_quality_score} />
-                            ) : (
-                              <span className="text-sm text-gray-400">N/A</span>
-                            )}
-                          </div>
-                        </td>
-                        
-                        {/* ✅ NEW: Collected By cell */}
+                        {/* Collected By cell */}
                         <td className="px-6 py-4">
                           <span className="text-sm font-medium text-gray-900">
                             {site.collected_by_name || 'N/A'}

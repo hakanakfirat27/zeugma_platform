@@ -247,7 +247,7 @@ class UnverifiedSiteDeleteAPIView(generics.DestroyAPIView):
 class ApproveUnverifiedSiteAPIView(APIView):
     """
     Approve an unverified site.
-    Optionally transfer to Superdatabase immediately.
+    Optionally transfer to Company Database immediately.
     
     POST body:
     {
@@ -283,15 +283,16 @@ class ApproveUnverifiedSiteAPIView(APIView):
             notes=request.data.get('comments', '')
         )
         
-        # Transfer to Superdatabase if requested
+        # Transfer to Company Database if requested
         transfer_immediately = request.data.get('transfer_immediately', False)
         if transfer_immediately:
             try:
-                self._transfer_to_superdatabase(site)
+                company, production_site, version = site.transfer_to_company_database(transferred_by=request.user)
                 return Response({
                     'success': True,
-                    'message': 'Site approved and transferred to Superdatabase',
-                    'site': UnverifiedSiteDetailSerializer(site).data
+                    'message': 'Site approved and transferred to Company Database',
+                    'site': UnverifiedSiteDetailSerializer(site).data,
+                    'company_key': company.unique_key
                 })
             except Exception as e:
                 return Response(
@@ -304,37 +305,6 @@ class ApproveUnverifiedSiteAPIView(APIView):
             'message': 'Site approved successfully',
             'site': UnverifiedSiteDetailSerializer(site).data
         })
-    
-    def _transfer_to_superdatabase(self, site):
-        """Helper method to transfer approved site to Superdatabase"""
-        # Get all field names from UnverifiedSite except verification fields
-        exclude_fields = {
-            'site_id', 'verification_status', 'collected_by', 'verified_by',
-            'collected_date', 'verified_date', 'source', 'priority',
-            'notes', 'rejection_reason', 'data_quality_score',
-            'assigned_to', 'is_duplicate', 'duplicate_of',
-            'created_at', 'updated_at'
-        }
-        
-        # Build data dict for SuperdatabaseRecord
-        transfer_data = {}
-        for field in UnverifiedSite._meta.fields:
-            field_name = field.name
-            if field_name not in exclude_fields:
-                transfer_data[field_name] = getattr(site, field_name)
-        
-        # Create SuperdatabaseRecord
-        superdatabase_record = SuperdatabaseRecord.objects.create(**transfer_data)
-        
-        # Create history entry
-        VerificationHistory.objects.create(
-            site=site,
-            action='TRANSFERRED',
-            performed_by=self.request.user,
-            notes=f'Transferred to Superdatabase (ID: {superdatabase_record.factory_id})'
-        )
-        
-        return superdatabase_record
 
 
 class RejectUnverifiedSiteAPIView(APIView):
@@ -426,6 +396,7 @@ class AssignReviewerAPIView(APIView):
 
 class TransferToSuperdatabaseAPIView(APIView):
     """
+    DEPRECATED: Use TransferToCompanyDatabaseAPIView instead.
     Transfer an approved unverified site to Superdatabase.
     Only works for APPROVED sites.
     """
@@ -466,6 +437,58 @@ class TransferToSuperdatabaseAPIView(APIView):
         except Exception as e:
             return Response(
                 {'error': f'Transfer failed: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class TransferToCompanyDatabaseAPIView(APIView):
+    """
+    Transfer an approved unverified site to Company Database.
+    Creates or updates Company with ProductionSite and ProductionSiteVersion.
+    Only works for APPROVED sites.
+    """
+    permission_classes = [IsAuthenticated, CanTransferSites]
+    
+    def post(self, request, site_id):
+        site = get_object_or_404(UnverifiedSite, site_id=site_id)
+        
+        # Check if already transferred
+        if site.verification_status == VerificationStatus.TRANSFERRED:
+            return Response(
+                {'error': 'This site has already been transferred'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Check if approved
+        if site.verification_status != VerificationStatus.APPROVED:
+            return Response(
+                {'error': 'Site must be approved before transfer'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            # Use the model's transfer method which handles everything
+            company, production_site, version = site.transfer_to_company_database(transferred_by=request.user)
+            
+            return Response({
+                'success': True,
+                'message': 'Site transferred to Company Database',
+                'company_id': str(company.company_id),
+                'company_key': company.unique_key,
+                'company_name': company.company_name,
+                'production_site_id': str(production_site.site_id),
+                'category': production_site.category
+            })
+            
+        except ValueError as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        except Exception as e:
+            import traceback
+            return Response(
+                {'error': f'Transfer failed: {str(e)}', 'traceback': traceback.format_exc()},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
@@ -563,9 +586,9 @@ class UnverifiedSiteBulkActionAPIView(APIView):
                         results['errors'].append(f"Site '{site.company_name}' not approved")
                         continue
                     
-                    # Transfer to superdatabase (model method handles status update and history)
+                    # Transfer to Company Database (model method handles status update and history)
                     try:
-                        site.transfer_to_superdatabase(transferred_by=request.user)
+                        site.transfer_to_company_database(transferred_by=request.user)
                         # Skip history entry creation - model method already handles it
                         results['success'] += 1
                         continue

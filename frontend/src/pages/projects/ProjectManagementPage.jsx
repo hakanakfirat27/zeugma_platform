@@ -1,5 +1,5 @@
-// frontend/src/pages/ProjectManagementPage.jsx
-// UPDATED VERSION - Added pagination like ProjectDetailPage
+// frontend/src/pages/projects/ProjectManagementPage.jsx
+// UPDATED VERSION - Simplified design matching admin page
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -9,34 +9,33 @@ import api from '../../utils/api';
 import { useLocation } from 'react-router-dom';
 import { getBreadcrumbs } from '../../utils/breadcrumbConfig';
 import DataCollectorLayout from '../../components/layout/DataCollectorLayout';
-import ProjectCardView from '../../components/projects/ProjectCardView';
 import ProjectListView from '../../components/projects/ProjectListView';
 import CreateProjectModal from '../../components/projects/CreateProjectModal';
 import DeleteConfirmationModal from '../../components/modals/DeleteConfirmationModal';
 import EditProjectModal from '../../components/projects/EditProjectModal';
-import Pagination from '../../components/database/Pagination';  // NEW: Import Pagination component
+import Pagination from '../../components/database/Pagination';
 import { useToast } from '../../contexts/ToastContext';
 import { 
   FolderOpen, Plus, Search, TrendingUp, 
-  Clock, CheckCircle, AlertCircle, LayoutGrid, List, X,
+  Clock, AlertCircle, RefreshCw, X,
   ArrowUpDown, ArrowUp, ArrowDown 
 } from 'lucide-react';
+import { CATEGORIES } from '../../constants/categories';
 
 const ProjectManagementPage = () => {
   const navigate = useNavigate();
-  const location = useLocation();  // ADD THIS
-  const breadcrumbs = getBreadcrumbs(location.pathname);  // ADD THIS
+  const location = useLocation();
+  const breadcrumbs = getBreadcrumbs(location.pathname);
   const queryClient = useQueryClient();
-  const { success, error: showError, info } = useToast();
+  const { success, error: showError } = useToast();
+  const { user } = useAuth();
   
-  // Search states - separate immediate input from debounced search
-  const [searchQuery, setSearchQuery] = useState(''); // What user types
-  const [debouncedSearch, setDebouncedSearch] = useState(''); // What actually searches
-  
-  const [statusFilter, setStatusFilter] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('');
+  // State
+  const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [categoryFilter, setCategoryFilter] = useState('ALL');
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [viewMode, setViewMode] = useState('list'); // 'list' or 'card'
   const [deletingProject, setDeletingProject] = useState(null);
   const [editingProject, setEditingProject] = useState(null);
   
@@ -44,7 +43,7 @@ const ProjectManagementPage = () => {
   const [sortField, setSortField] = useState('created_at');
   const [sortDirection, setSortDirection] = useState('desc');
 
-  // NEW: Pagination state
+  // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
@@ -52,50 +51,65 @@ const ProjectManagementPage = () => {
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearch(searchQuery);
-      setCurrentPage(1); // NEW: Reset to first page when search changes
+      setCurrentPage(1);
     }, 500);
-
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  // UPDATED: Fetch projects with pagination parameters
-  const { data: projectsData, isLoading: projectsLoading, error: projectsError } = useQuery({
+  // Check if any filters are active
+  const hasActiveFilters = debouncedSearch || statusFilter !== 'ALL' || categoryFilter !== 'ALL';
+
+  // Clear all filters
+  const clearAllFilters = () => {
+    setSearchQuery('');
+    setDebouncedSearch('');
+    setStatusFilter('ALL');
+    setCategoryFilter('ALL');
+    setCurrentPage(1);
+  };
+
+  // Fetch projects with pagination parameters
+  const { data: projectsData, isLoading: projectsLoading, refetch } = useQuery({
     queryKey: [
       'projects', 
       statusFilter, 
       categoryFilter, 
       debouncedSearch, 
-      currentPage,      // NEW: Include current page
-      pageSize,         // NEW: Include page size
-      sortField,        // NEW: Include sort field
-      sortDirection     // NEW: Include sort direction
+      currentPage,
+      pageSize,
+      sortField,
+      sortDirection
     ],
     queryFn: async () => {
       const params = new URLSearchParams();
       
       // Filters
-      if (statusFilter) params.append('status', statusFilter);
-      if (categoryFilter) params.append('category', categoryFilter);
+      if (statusFilter && statusFilter !== 'ALL') {
+        params.append('status', statusFilter);
+      }
+      if (categoryFilter && categoryFilter !== 'ALL') {
+        params.append('category', categoryFilter);
+      }
       if (debouncedSearch && debouncedSearch.trim()) {
         params.append('search', debouncedSearch.trim());
       }
       
-      // NEW: Pagination parameters
+      // Pagination parameters
       params.append('page', currentPage.toString());
       params.append('page_size', pageSize.toString());
       
-      // NEW: Sorting parameter (backend expects 'ordering' with format: 'field' or '-field')
+      // Sorting parameter
       const ordering = sortDirection === 'desc' ? `-${sortField}` : sortField;
       params.append('ordering', ordering);
       
       const response = await api.get(`/api/projects/?${params.toString()}`);
       return response.data;
     },
-    keepPreviousData: true  // NEW: Keep previous data while fetching new page
+    keepPreviousData: true
   });
 
   // Fetch statistics
-  const { data: stats, isLoading: statsLoading, error: statsError } = useQuery({
+  const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ['project-stats'],
     queryFn: async () => {
       const response = await api.get('/api/projects/stats/overview/');
@@ -103,7 +117,7 @@ const ProjectManagementPage = () => {
     }
   });
 
-  // Delete project mutation with toast
+  // Delete project mutation
   const deleteProjectMutation = useMutation({
     mutationFn: async (projectId) => {
       await api.delete(`/api/projects/${projectId}/`);
@@ -120,18 +134,7 @@ const ProjectManagementPage = () => {
     }
   });
 
-  // Log any errors
-  useEffect(() => {
-    if (projectsError) {
-      console.error('Projects error:', projectsError);
-      showError('Failed to load projects');
-    }
-    if (statsError) {
-      console.error('Stats error:', statsError);
-      showError('Failed to load statistics');
-    }
-  }, [projectsError, statsError, showError]);
-
+  // Handlers
   const handleViewProject = (projectId) => {
     navigate(`/projects/${projectId}`);
   };
@@ -140,9 +143,6 @@ const ProjectManagementPage = () => {
     const project = projectsData?.results?.find(p => p.project_id === projectId);
     if (project) {
       setEditingProject(project);
-    } else {
-      console.error('Project not found:', projectId);
-      showError('Project not found');
     }
   };
 
@@ -151,59 +151,25 @@ const ProjectManagementPage = () => {
   };
 
   const handleDeleteConfirm = () => {
-    if (!deletingProject || !deletingProject.project_id) {
-      showError('Invalid project selected for deletion');
-      return;
+    if (deletingProject?.project_id) {
+      deleteProjectMutation.mutate(deletingProject.project_id);
     }
-
-    deleteProjectMutation.mutate(deletingProject.project_id);
   };
 
   const handleAddSite = (projectId) => {
     navigate(`/projects/${projectId}/add-site`);
   };
 
-  const handleCreateProjectSuccess = () => {
-    setShowCreateModal(false);
-    queryClient.invalidateQueries(['projects']);
-    queryClient.invalidateQueries(['project-stats']);
-    success('Project created successfully!');
-  };
-
-  const handleEditProjectSuccess = () => {
-    setEditingProject(null);
-  };
-
-  // Clear search
-  const handleClearSearch = () => {
-    setSearchQuery('');
-    setDebouncedSearch('');
-    setCurrentPage(1); // NEW: Reset to first page
-  };
-
-  // Clear all filters
-  const handleClearAllFilters = () => {
-    setSearchQuery('');
-    setDebouncedSearch('');
-    setStatusFilter('');
-    setCategoryFilter('');
-    setCurrentPage(1); // NEW: Reset to first page
-  };
-
-  // UPDATED: Handle sorting - also reset to first page
   const handleSort = (field) => {
     if (sortField === field) {
-      // Toggle direction if same field
       setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
     } else {
-      // New field, start with ascending
       setSortField(field);
-      setSortDirection('asc');
+      setSortDirection('desc');
     }
-    setCurrentPage(1); // NEW: Reset to first page when sorting
+    setCurrentPage(1);
   };
 
-  // Get sort icon for column header
   const getSortIcon = (field) => {
     if (sortField !== field) {
       return <ArrowUpDown className="w-4 h-4 text-gray-400" />;
@@ -213,51 +179,30 @@ const ProjectManagementPage = () => {
       : <ArrowDown className="w-4 h-4 text-blue-600" />;
   };
 
-  // NEW: Handle page changes
   const handlePageChange = (newPage) => {
     setCurrentPage(newPage);
-    window.scrollTo({ top: 0, behavior: 'smooth' }); // Scroll to top when page changes
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // NEW: Handle page size changes
   const handlePageSizeChange = (newSize) => {
     setPageSize(newSize);
-    setCurrentPage(1); // Reset to first page when changing page size
+    setCurrentPage(1);
   };
 
-  // REMOVED: Sort projects function - now handled by backend
-  // We no longer need client-side sorting since backend handles it
-  
-  // Get projects from API response (backend already sorted and paginated)
   const projects = projectsData?.results || [];
 
   if (projectsLoading || statsLoading) {
     return (
       <DataCollectorLayout pageTitle="All Projects">
         <div className="flex items-center justify-center h-screen">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-        </div>
-      </DataCollectorLayout>
-    );
-  }
-
-  if (projectsError || statsError) {
-    return (
-      <DataCollectorLayout pageTitle="All Projects">
-        <div className="p-6">
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-            <h3 className="text-red-800 font-semibold">Error Loading Projects</h3>
-            <p className="text-red-600 text-sm mt-1">
-              {projectsError?.message || statsError?.message || 'Failed to load data'}
-            </p>
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+            <p className="mt-4 text-gray-600">Loading projects...</p>
           </div>
         </div>
       </DataCollectorLayout>
     );
   }
-
-  // Check if any filters are active
-  const hasActiveFilters = searchQuery || statusFilter || categoryFilter;
 
   return (
     <DataCollectorLayout
@@ -266,222 +211,200 @@ const ProjectManagementPage = () => {
       breadcrumbs={breadcrumbs}
     >
       <div className="p-6 max-w-7xl mx-auto">
-        {/* Header Actions */}
+        {/* Header */}
         <div className="mb-6">
-          <div className="flex justify-between items-center mb-4">
+          <div className="flex items-center justify-between mb-4">
+            <div></div>
             <button
               onClick={() => setShowCreateModal(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
             >
               <Plus className="w-5 h-5" />
-              New Project
+              Create Project
             </button>
-
-            {/* View Toggle */}
-            <div className="flex items-center gap-2 bg-white border border-gray-300 rounded-lg p-1">
-              <button
-                onClick={() => setViewMode('list')}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded transition-colors ${
-                  viewMode === 'list'
-                    ? 'bg-blue-600 text-white'
-                    : 'text-gray-600 hover:bg-gray-100'
-                }`}
-                title="List View"
-              >
-                <List className="w-4 h-4" />
-                <span className="text-sm font-medium">List</span>
-              </button>
-              <button
-                onClick={() => setViewMode('card')}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded transition-colors ${
-                  viewMode === 'card'
-                    ? 'bg-blue-600 text-white'
-                    : 'text-gray-600 hover:bg-gray-100'
-                }`}
-                title="Card View"
-              >
-                <LayoutGrid className="w-4 h-4" />
-                <span className="text-sm font-medium">Cards</span>
-              </button>
-            </div>
           </div>
 
           {/* Statistics Cards */}
           {stats && (
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-              <StatCard
-                title="Total Projects"
-                value={stats.total_projects || 0}
-                icon={<FolderOpen className="w-6 h-6" />}
-                color="blue"
-              />
-              <StatCard
-                title="Active Projects"
-                value={stats.active_projects || 0}
-                icon={<TrendingUp className="w-6 h-6" />}
-                color="green"
-              />
-              <StatCard
-                title="Pending Review"
-                value={stats.pending_review_sites || 0}
-                icon={<Clock className="w-6 h-6" />}
-                color="yellow"
-              />
-              <StatCard
-                title="Needs Revision"
-                value={stats.needs_revision_sites || 0}
-                icon={<AlertCircle className="w-6 h-6" />}
-                color="red"
-              />
-            </div>
-          )}
-        </div>
+              <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600">Total Projects</p>
+                    <p className="text-2xl font-bold text-gray-900">{stats.total_projects || 0}</p>
+                  </div>
+                  <FolderOpen className="w-8 h-8 text-blue-600" />
+                </div>
+              </div>
 
-        {/* Filters */}
-        <div className="bg-white rounded-lg shadow-sm p-4 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Search with clear button */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-              <input
-                type="text"
-                placeholder="Search projects..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-              {searchQuery && (
-                <button
-                  onClick={handleClearSearch}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                  title="Clear search"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              )}
-            </div>
+              <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600">Active Projects</p>
+                    <p className="text-2xl font-bold text-green-600">{stats.active_projects || 0}</p>
+                  </div>
+                  <TrendingUp className="w-8 h-8 text-green-600" />
+                </div>
+              </div>
 
-            {/* Status Filter */}
-            <select
-              value={statusFilter}
-              onChange={(e) => {
-                setStatusFilter(e.target.value);
-                setCurrentPage(1); // NEW: Reset to first page when filter changes
-              }}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="">All Statuses</option>
-              <option value="ACTIVE">Active</option>
-              <option value="COMPLETED">Completed</option>
-              <option value="ON_HOLD">On Hold</option>
-              <option value="CANCELLED">Cancelled</option>
-            </select>
+              <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600">Pending Review</p>
+                    <p className="text-2xl font-bold text-yellow-600">{stats.pending_review_sites || 0}</p>
+                  </div>
+                  <Clock className="w-8 h-8 text-yellow-600" />
+                </div>
+              </div>
 
-            {/* Category Filter */}
-            <select
-              value={categoryFilter}
-              onChange={(e) => {
-                setCategoryFilter(e.target.value);
-                setCurrentPage(1); // NEW: Reset to first page when filter changes
-              }}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="">All Categories</option>
-              <option value="INJECTION">Injection Moulders</option>
-              <option value="BLOW">Blow Moulders</option>
-              <option value="ROTO">Roto Moulders</option>
-              <option value="PE_FILM">PE Film Extruders</option>
-              <option value="SHEET">Sheet Extruders</option>
-              <option value="PIPE">Pipe Extruders</option>
-              <option value="TUBE_HOSE">Tube & Hose Extruders</option>
-              <option value="PROFILE">Profile Extruders</option>
-              <option value="CABLE">Cable Extruders</option>
-              <option value="COMPOUNDER">Compounders</option>
-            </select>
-          </div>
-
-          {/* Active Search Indicator */}
-          {debouncedSearch && (
-            <div className="mt-3 flex items-center gap-2">
-              <span className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-full text-sm border border-blue-200">
-                <Search className="w-4 h-4" />
-                Search: "{debouncedSearch}"
-                <button
-                  onClick={handleClearSearch}
-                  className="hover:bg-blue-100 rounded-full p-0.5 transition-colors"
-                  title="Clear search"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              </span>
+              <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600">Needs Revision</p>
+                    <p className="text-2xl font-bold text-red-600">{stats.needs_revision_sites || 0}</p>
+                  </div>
+                  <AlertCircle className="w-8 h-8 text-red-600" />
+                </div>
+              </div>
             </div>
           )}
 
-          {/* Clear All Filters Button */}
-          {hasActiveFilters && (
-            <div className="mt-3 flex justify-end">
+          {/* Filters and Controls */}
+          <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200">
+            <div className="flex flex-col md:flex-row gap-4">
+              {/* Search */}
+              <div className="flex-1">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Search projects..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+
+              {/* Status Filter */}
+              <div className="w-full md:w-48">
+                <select
+                  value={statusFilter}
+                  onChange={(e) => {
+                    setStatusFilter(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="ALL">All Statuses</option>
+                  <option value="ACTIVE">Active</option>
+                  <option value="ON_HOLD">On Hold</option>
+                  <option value="COMPLETED">Completed</option>
+                  <option value="CANCELLED">Cancelled</option>
+                </select>
+              </div>
+
+              {/* Category Filter */}
+              <div className="w-full md:w-48">
+                <select
+                  value={categoryFilter}
+                  onChange={(e) => {
+                    setCategoryFilter(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  {CATEGORIES.map(cat => (
+                    <option key={cat.value} value={cat.value}>{cat.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Refresh */}
               <button
-                onClick={handleClearAllFilters}
-                className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                onClick={() => refetch()}
+                className="p-2 border border-gray-300 rounded-lg text-blue-600 hover:bg-blue-50 transition-colors"
+                title="Refresh"
               >
-                Clear All Filters
+                <RefreshCw className="w-5 h-5" />
               </button>
             </div>
-          )}
+
+            {/* Active Filters Tags */}
+            {hasActiveFilters && (
+              <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-gray-200">
+                {/* Search Tag */}
+                {debouncedSearch && (
+                  <span className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
+                    Search: "{debouncedSearch}"
+                    <button
+                      onClick={() => {
+                        setSearchQuery('');
+                        setDebouncedSearch('');
+                      }}
+                      className="ml-1 hover:text-blue-600"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </span>
+                )}
+
+                {/* Status Tag */}
+                {statusFilter !== 'ALL' && (
+                  <span className="inline-flex items-center gap-1 px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium">
+                    Status: {statusFilter}
+                    <button
+                      onClick={() => setStatusFilter('ALL')}
+                      className="ml-1 hover:text-green-600"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </span>
+                )}
+
+                {/* Category Tag */}
+                {categoryFilter !== 'ALL' && (
+                  <span className="inline-flex items-center gap-1 px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-sm font-medium">
+                    Category: {CATEGORIES.find(c => c.value === categoryFilter)?.label || categoryFilter}
+                    <button
+                      onClick={() => setCategoryFilter('ALL')}
+                      className="ml-1 hover:text-purple-600"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </span>
+                )}
+
+                {/* Clear All */}
+                <button
+                  onClick={clearAllFilters}
+                  className="text-sm text-red-600 hover:text-red-800 font-medium ml-2"
+                >
+                  Clear all
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Projects Display */}
-        {!projects || projects.length === 0 ? (
-          <div className="text-center py-12 bg-white rounded-lg">
-            <FolderOpen className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+        {/* Projects Display - List View Only */}
+        {projects.length === 0 ? (
+          <div className="bg-white rounded-lg shadow-sm p-12 text-center border border-gray-200">
+            <FolderOpen className="w-16 h-16 text-gray-300 mx-auto mb-4" />
             <h3 className="text-lg font-semibold text-gray-900 mb-2">No projects found</h3>
             <p className="text-gray-600 mb-4">
-              {hasActiveFilters
-                ? 'Try adjusting your filters'
-                : 'Create your first data collection project to get started'}
+              {hasActiveFilters ? 'Try adjusting your search filters' : 'Create your first data collection project to get started'}
             </p>
-            {hasActiveFilters ? (
-              <button
-                onClick={handleClearAllFilters}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 mr-2"
-              >
-                Clear Filters
-              </button>
-            ) : (
+            {!hasActiveFilters && (
               <button
                 onClick={() => setShowCreateModal(true)}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               >
                 <Plus className="w-5 h-5" />
                 Create Project
               </button>
             )}
           </div>
-        ) : viewMode === 'card' ? (
-          <>
-            <ProjectCardView
-              projects={projects}
-              onViewProject={handleViewProject}
-              onEditProject={handleEditProject}
-              onDeleteProject={handleDeleteClick}
-              onAddSite={handleAddSite}
-            />
-            
-            {/* NEW: Pagination for Card View */}
-            {projectsData && projectsData.count > 0 && (
-              <div className="mt-6">
-                <Pagination
-                  currentPage={currentPage}
-                  totalPages={Math.ceil(projectsData.count / pageSize)}
-                  totalCount={projectsData.count}
-                  pageSize={pageSize}
-                  onPageChange={handlePageChange}
-                  onPageSizeChange={handlePageSizeChange}
-                  showFirstLast={true}
-                />
-              </div>
-            )}
-          </>
         ) : (
           <>
             <ProjectListView
@@ -494,9 +417,11 @@ const ProjectManagementPage = () => {
               sortDirection={sortDirection}
               onSort={handleSort}
               getSortIcon={getSortIcon}
+              currentUserId={user?.id}
+              isAdmin={false}
             />
             
-            {/* NEW: Pagination for List View */}
+            {/* Pagination */}
             {projectsData && projectsData.count > 0 && (
               <div className="mt-6">
                 <Pagination
@@ -517,7 +442,12 @@ const ProjectManagementPage = () => {
         {showCreateModal && (
           <CreateProjectModal
             onClose={() => setShowCreateModal(false)}
-            onSuccess={handleCreateProjectSuccess}
+            onSuccess={() => {
+              setShowCreateModal(false);
+              queryClient.invalidateQueries(['projects']);
+              queryClient.invalidateQueries(['project-stats']);
+              success('Project created successfully!');
+            }}
           />
         )}
 
@@ -526,7 +456,10 @@ const ProjectManagementPage = () => {
           <EditProjectModal
             project={editingProject}
             onClose={() => setEditingProject(null)}
-            onSuccess={handleEditProjectSuccess}
+            onSuccess={() => {
+              setEditingProject(null);
+              refetch();
+            }}
           />
         )}
 
@@ -544,30 +477,6 @@ const ProjectManagementPage = () => {
         )}
       </div>
     </DataCollectorLayout>
-  );
-};
-
-// StatCard Component
-const StatCard = ({ title, value, icon, color }) => {
-  const colorClasses = {
-    blue: 'bg-blue-50 text-blue-600',
-    green: 'bg-green-50 text-green-600',
-    yellow: 'bg-yellow-50 text-yellow-600',
-    red: 'bg-red-50 text-red-600',
-  };
-
-  return (
-    <div className="bg-white rounded-lg shadow-sm p-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm text-gray-600 mb-1">{title}</p>
-          <p className="text-2xl font-bold text-gray-900">{value}</p>
-        </div>
-        <div className={`p-3 rounded-lg ${colorClasses[color]}`}>
-          {icon}
-        </div>
-      </div>
-    </div>
   );
 };
 

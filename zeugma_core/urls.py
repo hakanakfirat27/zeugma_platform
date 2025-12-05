@@ -21,8 +21,7 @@ urlpatterns = [
     path('api/client/', include('reports.client_api_urls')),
     path('api/chat/', include('chat.urls')),
     path('api/announcements/', include('announcements.urls')),
-    path('api/', include('reports.project_urls')),
-    path('api/', include('reports.research_urls')),
+    # NOTE: project_urls and research_urls are already included via api_urls.py
 
     path('api/companies/', include('reports.company_urls', namespace='companies')),
 ]

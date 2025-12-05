@@ -3,7 +3,7 @@
 /**
  * Comprehensive Bulk Action Modal
  * Allows admins to perform various verification actions on multiple sites
- * Actions: Under Review, Needs Revision, Approve, Reject, Transfer to Superdatabase
+ * Actions: Under Review, Needs Revision, Approve, Reject, Transfer to Company Database
  */
 
 import React, { useState } from 'react';
@@ -73,8 +73,8 @@ const BulkActionModal = ({
     },
     {
       value: 'transfer',
-      label: 'Transfer to Superdatabase',
-      description: 'Transfer approved sites to main database',
+      label: 'Transfer to Company Database',
+      description: 'Transfer approved sites to company database',
       icon: Database,
       color: 'purple',
       requiresNote: false,

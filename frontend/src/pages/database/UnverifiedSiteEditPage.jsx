@@ -191,7 +191,7 @@ const UnverifiedSiteEditPage = () => {
       
       // Navigate back to detail page after short delay
       setTimeout(() => {
-        navigate(`/unverified-sites/${siteId}`);
+        navigate(`/unverified-sites`);
       }, 1500);
     } catch (error) {
       if (error.response?.data) {

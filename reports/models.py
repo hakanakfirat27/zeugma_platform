@@ -1053,6 +1053,16 @@ class DataCollectionProject(models.Model):
         editable=False
     )
     
+    # Auto-generated project code for tracking
+    project_code = models.CharField(
+        max_length=20,
+        unique=True,
+        editable=False,
+        db_index=True,
+        blank=True,
+        help_text="Auto-generated project code (e.g., PRJ-000001)"
+    )
+    
     # Project details
     project_name = models.CharField(
         max_length=255,
@@ -1152,6 +1162,40 @@ class DataCollectionProject(models.Model):
     
     def __str__(self):
         return f"{self.project_name} ({self.get_status_display()})"
+    
+    def save(self, *args, **kwargs):
+        """Auto-generate project code on first save"""
+        if not self.project_code:
+            self.project_code = self._generate_project_code()
+        super().save(*args, **kwargs)
+    
+    def _generate_project_code(self):
+        """
+        Generate unique project code like PRJ-000001.
+        Uses database-level query to ensure uniqueness.
+        """
+        from django.db import connection
+        
+        with connection.cursor() as cursor:
+            # Get the max existing code
+            cursor.execute("""
+                SELECT project_code FROM reports_datacollectionproject 
+                WHERE project_code LIKE 'PRJ-%%' 
+                ORDER BY project_code DESC 
+                LIMIT 1
+            """)
+            row = cursor.fetchone()
+        
+        if row and row[0]:
+            try:
+                last_num = int(row[0].split('-')[1])
+                new_num = last_num + 1
+            except (IndexError, ValueError):
+                new_num = 1
+        else:
+            new_num = 1
+        
+        return f"PRJ-{str(new_num).zfill(6)}"
 
 
     def get_total_sites(self):
@@ -2191,6 +2235,213 @@ class UnverifiedSite(models.Model):
             )
         
         return superdatabase_record
+
+    def transfer_to_company_database(self, transferred_by=None):
+        """
+        Transfer this site's data to the Company Database (Company-centric structure).
+        Creates or updates a Company with ProductionSite and ProductionSiteVersion.
+        Updates status to TRANSFERRED and creates history entry.
+        
+        Args:
+            transferred_by: User who performed the transfer
+            
+        Returns:
+            tuple: (Company, ProductionSite, ProductionSiteVersion)
+            
+        Raises:
+            ValueError: If site is already transferred or not approved
+        """
+        from django.db import transaction
+        from .company_models import (
+            Company, ProductionSite, ProductionSiteVersion,
+            CompanyHistory, CompanyStatus
+        )
+        
+        # Refresh from database to get the latest status (prevent race conditions)
+        self.refresh_from_db(fields=['verification_status'])
+        
+        # Check if already transferred
+        if self.verification_status == VerificationStatus.TRANSFERRED:
+            raise ValueError('This site has already been transferred')
+        
+        # Check if approved
+        if self.verification_status != VerificationStatus.APPROVED:
+            raise ValueError(f'Site must be approved before transfer. Current status: {self.get_verification_status_display()}')
+        
+        # Company-level fields to transfer
+        company_fields = {
+            'company_name', 'address_1', 'address_2', 'address_3', 'address_4',
+            'region', 'country', 'geographical_coverage', 'phone_number',
+            'company_email', 'website', 'accreditation', 'parent_company',
+            'title_1', 'initials_1', 'surname_1', 'position_1',
+            'title_2', 'initials_2', 'surname_2', 'position_2',
+            'title_3', 'initials_3', 'surname_3', 'position_3',
+            'title_4', 'initials_4', 'surname_4', 'position_4',
+        }
+        
+        # Fields to exclude from version data (handled at company level or metadata)
+        exclude_from_version = {
+            'site_id', 'verification_status', 'collected_by', 'verified_by',
+            'collected_date', 'verified_date', 'source', 'priority',
+            'notes', 'rejection_reason', 'data_quality_score',
+            'assigned_to', 'is_duplicate', 'duplicate_of',
+            'created_at', 'updated_at', 'project', 'category',
+            'calling_status', 'calling_status_changed_at', 'calling_status_changed_by',
+            'is_pre_filled', 'pre_filled_by', 'pre_filled_at', 'total_calls'
+        } | company_fields  # Also exclude company fields from version
+        
+        with transaction.atomic():
+            # Build company data
+            company_data = {}
+            for field_name in company_fields:
+                if hasattr(self, field_name):
+                    company_data[field_name] = getattr(self, field_name)
+            
+            # Check if company with same name+address+country exists
+            existing_company = Company.objects.filter(
+                company_name_normalized=self.company_name.lower().strip(),
+                country__iexact=self.country
+            ).first()
+            
+            # If found, optionally check address for exact match
+            if existing_company and self.address_1:
+                # Check if address also matches
+                if existing_company.address_1.lower().strip() != self.address_1.lower().strip():
+                    # Different address - create new company
+                    existing_company = None
+            
+            # NEW: Get project code
+            project_code = ''
+            if self.project and self.project.project_code:
+                project_code = self.project.project_code
+
+            if existing_company:
+                company = existing_company
+                is_new_company = False
+                
+                for field_name, value in company_data.items():
+                    setattr(company, field_name, value)
+                company.last_modified_by = transferred_by
+                
+                # NEW: Update project info if not already set
+                if project_code and not company.project_code:
+                    company.project_code = project_code
+                    company.source_project = self.project
+                
+                company.save()
+
+            else:
+                company_data['status'] = CompanyStatus.COMPLETE
+                company_data['created_by'] = transferred_by
+                company_data['last_modified_by'] = transferred_by
+                
+                # NEW: Set project code and source project
+                if self.project:
+                    company_data['project_code'] = project_code
+                    company_data['source_project'] = self.project
+                
+                company = Company.objects.create(**company_data)
+                is_new_company = True
+            
+            category = self.category
+            existing_site = company.production_sites.filter(category=category).first()
+            
+            if existing_site:
+                production_site = existing_site
+                
+                # NEW: Update source_project_code if not set
+                if project_code and not production_site.source_project_code:
+                    production_site.source_project_code = project_code
+                    production_site.save(update_fields=['source_project_code'])
+                
+                current_version = production_site.current_version
+                
+                if current_version:
+                    for field in ProductionSiteVersion._meta.get_fields():
+                        if not hasattr(field, 'column'):
+                            continue
+                        field_name = field.name
+                        if field_name in exclude_from_version:
+                            continue
+                        if hasattr(self, field_name):
+                            setattr(current_version, field_name, getattr(self, field_name))
+                    current_version.save()
+                    version = current_version
+                else:
+                    version = None
+            else:
+                version_data = {}
+                for field in ProductionSiteVersion._meta.get_fields():
+                    if not hasattr(field, 'column'):
+                        continue
+                    field_name = field.name
+                    if field_name in exclude_from_version:
+                        continue
+                    if hasattr(self, field_name):
+                        version_data[field_name] = getattr(self, field_name)
+                
+                production_site, version = company.add_production_site(
+                    category=category,
+                    created_by=transferred_by,
+                    version_data=version_data
+                )
+                
+                # NEW: Set source project code
+                if project_code:
+                    production_site.source_project_code = project_code
+                    production_site.save(update_fields=['source_project_code'])
+
+            # Store project code on Company and ProductionSite
+            if self.project and hasattr(self.project, 'project_code') and self.project.project_code:
+                # Update Company's project_code if this is the first transfer
+                if not company.project_code:
+                    company.project_code = self.project.project_code
+                    company.source_project = self.project
+                    company.save(update_fields=['project_code', 'source_project'])
+                
+                # Always store project code on ProductionSite (tracks per-category source)
+                if not production_site.source_project_code:
+                    production_site.source_project_code = self.project.project_code
+                    production_site.source_project = self.project
+                    production_site.save(update_fields=['source_project_code', 'source_project'])
+            
+            # Create company history entry
+            if is_new_company:
+                CompanyHistory.objects.create(
+                    company=company,
+                    action='CREATED',
+                    performed_by=transferred_by,
+                    description=f'Created from Unverified Site transfer',
+                    related_production_site=production_site,
+                    related_version=version
+                )
+            else:
+                CompanyHistory.objects.create(
+                    company=company,
+                    action='SITE_ADDED' if not existing_site else 'UPDATED',
+                    performed_by=transferred_by,
+                    description=f'Updated from Unverified Site transfer ({category})',
+                    related_production_site=production_site,
+                    related_version=version
+                )
+            
+            # Update UnverifiedSite status to TRANSFERRED
+            UnverifiedSite.objects.filter(site_id=self.site_id).update(
+                verification_status=VerificationStatus.TRANSFERRED
+            )
+            
+            # Refresh the instance to get the updated status
+            self.refresh_from_db()
+            
+            # Create verification history entry
+            VerificationHistory.objects.create(
+                site=self,
+                action='TRANSFERRED',
+                performed_by=transferred_by,
+                comments=f'Transferred to Company Database (Company: {company.unique_key})'
+            )
+        
+        return company, production_site, version
 
 
     def save(self, *args, **kwargs):

@@ -1519,19 +1519,19 @@ const UserFormModal = ({ user, onClose, onSubmit, isLoading, error }) => {
   return (
     <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
-        <div className="p-6 border-b">
+        <div className="p-6 border-b bg-indigo-600">
           <div className="flex justify-between items-center">
             <div>
-              <h2 className="text-xl font-bold text-gray-900">
+              <h2 className="text-xl font-bold text-white">
                 {user ? 'Edit User' : 'Add New User'}
               </h2>
               {!user && (
-                <p className="text-sm text-gray-600 mt-1">
+                <p className="text-sm text-white mt-1">
                   Password creation link will be sent to the user's email
                 </p>
               )}
             </div>
-            <button onClick={onClose} className="p-2 text-gray-500 hover:text-gray-800 transition-colors">
+            <button onClick={onClose} className="p-2 text-white hover:text-gray-100 transition-colors">
               <X className="w-5 h-5" />
             </button>
           </div>
@@ -1668,7 +1668,7 @@ const UserFormModal = ({ user, onClose, onSubmit, isLoading, error }) => {
           <button
             type="button"
             onClick={onClose}
-            className="px-5 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-100 font-medium text-sm transition-colors"
+            className="px-5 py-2.5 border border-gray-300 bg-red-500 text-white rounded-lg hover:bg-red-600 font-medium text-sm transition-colors"
             disabled={isLoading}
           >
             Cancel

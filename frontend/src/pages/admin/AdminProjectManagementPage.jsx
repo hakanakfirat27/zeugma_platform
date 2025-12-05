@@ -1,7 +1,7 @@
 // frontend/src/pages/admin/AdminProjectManagementPage.jsx
 // Admin page to view and manage ALL projects (from all data collectors)
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { getBreadcrumbs } from '../../utils/breadcrumbConfig';
@@ -12,11 +12,10 @@ import { ToastContainer } from '../../components/Toast';
 import CreateProjectModal from '../../components/projects/CreateProjectModal';
 import EditProjectModal from '../../components/projects/EditProjectModal';
 import DeleteConfirmationModal from '../../components/modals/DeleteConfirmationModal';
-import ProjectCardView from '../../components/projects/ProjectCardView';
 import ProjectListView from '../../components/projects/ProjectListView';
 import {
-  Plus, Search, Filter, Grid, List, ArrowUpDown, Download, RefreshCw,
-  FolderKanban, Users, Clock
+  Plus, Search, ArrowUpDown, ArrowUp, ArrowDown, RefreshCw,
+  FolderKanban, Users, Clock, X
 } from 'lucide-react';
 import { CATEGORIES } from '../../constants/categories';
 
@@ -28,8 +27,8 @@ const AdminProjectManagementPage = () => {
   const { toasts, removeToast, success, error: showError } = useToast();
 
   // State
-  const [viewMode, setViewMode] = useState('list'); 
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');  // What user types
+  const [debouncedSearch, setDebouncedSearch] = useState('');  // Debounced value for filtering
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [categoryFilter, setCategoryFilter] = useState('ALL');
   const [sortField, setSortField] = useState('created_at');
@@ -38,6 +37,25 @@ const AdminProjectManagementPage = () => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedProject, setSelectedProject] = useState(null);
+
+  // Debounce search input (wait 500ms after user stops typing)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Check if any filters are active
+  const hasActiveFilters = debouncedSearch || statusFilter !== 'ALL' || categoryFilter !== 'ALL';
+
+  // Clear all filters
+  const clearAllFilters = () => {
+    setSearchQuery('');
+    setDebouncedSearch('');
+    setStatusFilter('ALL');
+    setCategoryFilter('ALL');
+  };
 
   // Fetch all projects (admin can see ALL projects)
   const { data: projectsData, isLoading, refetch } = useQuery({
@@ -92,17 +110,17 @@ const AdminProjectManagementPage = () => {
 
     let filtered = projectsData.results;
 
-    // Search
-    if (searchQuery) {
+    // Search using debounced value
+    if (debouncedSearch) {
       filtered = filtered.filter(project =>
-        project.project_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        project.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        project.target_region?.toLowerCase().includes(searchQuery.toLowerCase())
+        project.project_name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+        project.description?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+        project.target_region?.toLowerCase().includes(debouncedSearch.toLowerCase())
       );
     }
 
     return filtered;
-  }, [projectsData?.results, searchQuery]);
+  }, [projectsData?.results, debouncedSearch]);
 
   // Handlers
   const handleSort = (field) => {
@@ -137,9 +155,9 @@ const AdminProjectManagementPage = () => {
     if (sortField !== field) {
       return <ArrowUpDown className="w-4 h-4 text-gray-400" />;
     }
-    return sortDirection === 'asc' ?
-      <ArrowUpDown className="w-4 h-4 text-blue-600 rotate-180" /> :
-      <ArrowUpDown className="w-4 h-4 text-blue-600" />;
+    return sortDirection === 'asc' 
+      ? <ArrowUp className="w-4 h-4 text-indigo-600" />
+      : <ArrowDown className="w-4 h-4 text-indigo-600" />;
   };
 
   if (isLoading) {
@@ -268,22 +286,6 @@ const AdminProjectManagementPage = () => {
                 </select>
               </div>
 
-              {/* View Toggle */}
-              <div className="flex items-center gap-2 border border-gray-300 rounded-lg p-1">
-                <button
-                  onClick={() => setViewMode('card')}
-                  className={`p-2 rounded ${viewMode === 'card' ? 'bg-indigo-100 text-indigo-600' : 'text-gray-600 hover:bg-gray-100'}`}
-                >
-                  <Grid className="w-5 h-5" />
-                </button>
-                <button
-                  onClick={() => setViewMode('list')}
-                  className={`p-2 rounded ${viewMode === 'list' ? 'bg-indigo-100 text-indigo-600' : 'text-gray-600 hover:bg-gray-100'}`}
-                >
-                  <List className="w-5 h-5" />
-                </button>
-              </div>
-
               {/* Refresh */}
               <button
                 onClick={() => refetch()}
@@ -293,18 +295,73 @@ const AdminProjectManagementPage = () => {
                 <RefreshCw className="w-5 h-5" />
               </button>
             </div>
+
+            {/* Active Filters Tags */}
+            {hasActiveFilters && (
+              <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-gray-200">
+                {/* Search Tag */}
+                {debouncedSearch && (
+                  <span className="inline-flex items-center gap-1 px-3 py-1 bg-indigo-100 text-indigo-800 rounded-full text-sm font-medium">
+                    Search: "{debouncedSearch}"
+                    <button
+                      onClick={() => {
+                        setSearchQuery('');
+                        setDebouncedSearch('');
+                      }}
+                      className="ml-1 hover:text-indigo-600"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </span>
+                )}
+
+                {/* Status Tag */}
+                {statusFilter !== 'ALL' && (
+                  <span className="inline-flex items-center gap-1 px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium">
+                    Status: {statusFilter}
+                    <button
+                      onClick={() => setStatusFilter('ALL')}
+                      className="ml-1 hover:text-green-600"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </span>
+                )}
+
+                {/* Category Tag */}
+                {categoryFilter !== 'ALL' && (
+                  <span className="inline-flex items-center gap-1 px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-sm font-medium">
+                    Category: {CATEGORIES.find(c => c.value === categoryFilter)?.label || categoryFilter}
+                    <button
+                      onClick={() => setCategoryFilter('ALL')}
+                      className="ml-1 hover:text-purple-600"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </span>
+                )}
+
+                {/* Clear All */}
+                <button
+                  onClick={clearAllFilters}
+                  className="text-sm text-red-600 hover:text-red-800 font-medium ml-2"
+                >
+                  Clear all
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Projects Display */}
+        {/* Projects Display - List View Only */}
         {filteredProjects.length === 0 ? (
           <div className="bg-white rounded-lg shadow-sm p-12 text-center border border-gray-200">
             <FolderKanban className="w-16 h-16 text-gray-300 mx-auto mb-4" />
             <h3 className="text-lg font-semibold text-gray-900 mb-2">No projects found</h3>
             <p className="text-gray-600 mb-4">
-              {searchQuery ? 'Try adjusting your search filters' : 'Get started by creating your first project'}
+              {hasActiveFilters ? 'Try adjusting your search filters' : 'Get started by creating your first project'}
             </p>
-            {!searchQuery && (
+            {!hasActiveFilters && (
               <button
                 onClick={() => setShowCreateModal(true)}
                 className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
@@ -314,14 +371,6 @@ const AdminProjectManagementPage = () => {
               </button>
             )}
           </div>
-        ) : viewMode === 'card' ? (
-          <ProjectCardView
-            projects={filteredProjects}
-            onViewProject={handleViewProject}
-            onEditProject={handleEditProject}
-            onDeleteProject={handleDeleteProject}
-            onAddSite={handleAddSite}
-          />
         ) : (
           <ProjectListView
             projects={filteredProjects}
@@ -333,6 +382,7 @@ const AdminProjectManagementPage = () => {
             sortDirection={sortDirection}
             onSort={handleSort}
             getSortIcon={getSortIcon}
+            isAdmin={true}
           />
         )}
 

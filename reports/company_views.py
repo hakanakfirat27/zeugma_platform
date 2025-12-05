@@ -536,7 +536,68 @@ class ProductionSiteDetailAPIView(generics.RetrieveDestroyAPIView):
                 status=status.HTTP_200_OK
             )
 
-
+class ToggleProductionSiteActiveAPIView(APIView):
+    """
+    POST: Toggle the active status of a production site's current version
+    """
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request, company_id, site_id):
+        # Get the production site
+        site = get_object_or_404(
+            ProductionSite.objects.select_related('company'),
+            company__company_id=company_id,
+            site_id=site_id
+        )
+        
+        # Get the current version
+        current_version = site.versions.filter(is_current=True).first()
+        if not current_version:
+            return Response(
+                {'error': 'No current version found for this production site'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Get the new active status from request
+        new_active_status = request.data.get('is_active')
+        if new_active_status is None:
+            return Response(
+                {'error': 'is_active field is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Convert to boolean
+        new_active_status = bool(new_active_status)
+        old_status = current_version.is_active
+        
+        # Update the status
+        current_version.is_active = new_active_status
+        current_version.save()
+        
+        # Create history entry
+        action = 'SITE_ACTIVATED' if new_active_status else 'SITE_DEACTIVATED'
+        description = f'{site.get_category_display()} production marked as {"active" if new_active_status else "inactive"}'
+        
+        CompanyHistory.objects.create(
+            company=site.company,
+            action=action,
+            performed_by=request.user,
+            description=description,
+            related_production_site=site,
+            changes={
+                'is_active': {
+                    'old': old_status,
+                    'new': new_active_status
+                }
+            }
+        )
+        
+        return Response({
+            'success': True,
+            'message': f'Process marked as {"Active" if new_active_status else "Inactive"}',
+            'is_active': new_active_status
+        })
+    
 # =============================================================================
 # VERSION VIEWS
 # =============================================================================

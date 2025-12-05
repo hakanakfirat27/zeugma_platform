@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import {
   Building2, Search, Plus, ChevronDown, ChevronUp,
-  Download, Trash2, BarChart3, TrendingUp, Users, SlidersHorizontal, X, Upload, FileText
+  Download, Trash2, BarChart3, TrendingUp, Users, SlidersHorizontal, X, Upload, FileText, Hash
 } from 'lucide-react';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import LoadingSpinner from '../../components/LoadingSpinner';
@@ -979,6 +979,15 @@ const CompanyDatabasePage = () => {
                             <SortIcon field="country" />
                           </div>
                         </th>
+                        <th 
+                          className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100 bg-gray-50"
+                          onClick={() => handleSort('project_code')}
+                        >
+                          <div className="flex items-center gap-1">
+                            Project
+                            <SortIcon field="project_code" />
+                          </div>
+                        </th>                        
                         <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider bg-gray-50">
                           Categories
                         </th>
@@ -1016,6 +1025,16 @@ const CompanyDatabasePage = () => {
                             <div className="text-xs text-gray-500 font-mono">{company.unique_key}</div>
                           </td>
                           <td className="px-4 py-4 text-gray-600 text-sm">{company.country || '-'}</td>
+                          <td className="px-4 py-4">
+                            {company.project_code ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-mono font-medium bg-slate-100 text-slate-600 border border-slate-200">
+                                <Hash className="w-3 h-3" />
+                                {company.project_code}
+                              </span>
+                            ) : (
+                              <span className="text-gray-400 text-sm">-</span>
+                            )}
+                          </td>                          
                           <td className="px-4 py-4">
                             <div className="flex flex-wrap gap-1">
                               {company.all_categories?.slice(0, 3).map(cat => (

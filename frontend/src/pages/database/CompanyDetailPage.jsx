@@ -20,7 +20,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { 
   Building2, MapPin, Phone, FileText, MessageSquare,
   ChevronRight, Edit, Plus, Trash2, ArrowLeft, Save, Layers,
-  MoreVertical, X, Home, Check, AlertCircle, Clock, ChevronDown, AlertTriangle
+  MoreVertical, X, Home, Check, AlertCircle, Clock, ChevronDown, AlertTriangle, Hash
 } from 'lucide-react';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import LoadingSpinner from '../../components/LoadingSpinner';
@@ -242,6 +242,38 @@ const SingleFieldRowEditable = ({ field, data, isEditing, onChange, isInactive }
       isLarge={field.isLarge}
       isInactive={isInactive}
     />
+  </div>
+);
+
+// =============================================================================
+// READ-ONLY TWO FIELDS ROW - For Company Key and Project Code (Field box format)
+// =============================================================================
+const ReadOnlyTwoFieldsRow = ({ label1, value1, label2, value2, isInactive }) => (
+  <div className="flex flex-col md:flex-row md:gap-8 py-2 border-b border-gray-100">
+    <div className="flex-1 mb-3 md:mb-0">
+      <div className="flex flex-col sm:flex-row sm:items-start">
+        <label className={`text-sm font-medium mb-1 sm:mb-0 sm:w-40 md:w-44 sm:flex-shrink-0 sm:pt-1.5 ${isInactive ? 'text-red-600' : 'text-gray-600'}`}>
+          {label1}:
+        </label>
+        <div className="flex-1">
+          <div className={`w-full px-3 py-1.5 border rounded text-sm min-h-[32px] font-mono ${isInactive ? 'border-red-300 text-red-900 bg-red-50' : 'border-gray-300 text-gray-900 bg-white'}`}>
+            {value1 || '-'}
+          </div>
+        </div>
+      </div>
+    </div>
+    <div className="flex-1">
+      <div className="flex flex-col sm:flex-row sm:items-start">
+        <label className={`text-sm font-medium mb-1 sm:mb-0 sm:w-40 md:w-44 sm:flex-shrink-0 sm:pt-1.5 ${isInactive ? 'text-red-600' : 'text-gray-600'}`}>
+          {label2}:
+        </label>
+        <div className="flex-1">
+          <div className={`w-full px-3 py-1.5 border rounded text-sm min-h-[32px] font-mono ${isInactive ? 'border-red-300 text-red-900 bg-red-50' : 'border-gray-300 text-gray-900 bg-white'}`}>
+            {value2 || '-'}
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 );
 
@@ -1107,9 +1139,8 @@ const CompanyDetailPage = () => {
     const newActiveStatus = !site.current_version.is_active;
     
     try {
-      await companyService.updateCurrentVersion(id, site.site_id, {
-        is_active: newActiveStatus
-      });
+      // Use the dedicated toggle endpoint instead of updateCurrentVersion
+      await companyService.toggleProductionSiteActive(id, site.site_id, newActiveStatus);
       await fetchCompany();
       showToast('success', `Process marked as ${newActiveStatus ? 'Active' : 'Inactive'}`);
     } catch (err) {
@@ -1486,6 +1517,15 @@ const CompanyDetailPage = () => {
                     isInactive={isDeleted}
                   />
                   
+                  {/* Company Key and Project Code - Read Only */}
+                  <ReadOnlyTwoFieldsRow
+                    label1="Company Key"
+                    value1={company?.unique_key}
+                    label2="Project Code"
+                    value2={company?.project_code}
+                    isInactive={isDeleted}
+                  />
+                  
                   {companyFieldPairs.map((pair, idx) => (
                     <TwoFieldsRowEditable 
                       key={idx}
@@ -1627,9 +1667,16 @@ const CompanyDetailPage = () => {
                             : 'text-gray-700'
                         }`}
                       >
-                        <span className="whitespace-nowrap lg:whitespace-normal lg:flex-1">
+                      <div className="flex flex-col">
+                        <span className="whitespace-nowrap lg:whitespace-normal">
                           {CATEGORY_DISPLAY[site.category] || site.category}
                         </span>
+                        {site.source_project_code && (
+                          <span className="text-xs font-mono text-gray-400 mt-0.5">
+                            {site.source_project_code}
+                          </span>
+                        )}
+                      </div>
                         {isSelected && <ChevronRight className="w-4 h-4 hidden lg:block" />}
                       </button>
                       

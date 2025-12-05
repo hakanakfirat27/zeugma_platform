@@ -61,7 +61,11 @@ class ProjectListCreateAPIView(generics.ListCreateAPIView):
     pagination_class = CustomPagination
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['project_name', 'description', 'target_region']
-    ordering_fields = ['created_at', 'updated_at', 'deadline', 'project_name']
+    ordering_fields = [
+        'created_at', 'updated_at', 'deadline', 'project_name',
+        'project_code', 'category', 'status',  # Added for column sorting
+        'completion_percentage', 'total_sites'  # For progress sorting (annotated fields)
+    ]
     ordering = ['-created_at']
     
     def get_queryset(self):
@@ -159,7 +163,8 @@ class ProjectDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
     """
     permission_classes = [IsAuthenticated, IsStaffOrDataCollector]
     serializer_class = DataCollectionProjectDetailSerializer
-    lookup_field = 'project_id'
+    lookup_field = 'pk'
+    lookup_url_kwarg = 'project_id'
     
     def get_queryset(self):
         """Filter based on user role"""
@@ -216,7 +221,16 @@ class ProjectDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
         return DataCollectionProjectDetailSerializer
     
     def perform_update(self, serializer):
-        """Log update activity"""
+        """Log update activity - only if user has permission"""
+        user = self.request.user
+        instance = self.get_object()
+        
+        # Data collectors can only update projects they created, not assigned ones
+        if user.role == UserRole.DATA_COLLECTOR:
+            if instance.created_by != user:
+                from rest_framework.exceptions import PermissionDenied
+                raise PermissionDenied('You can only edit projects you created.')
+        
         project = serializer.save()
         
         ProjectActivityLog.objects.create(
@@ -227,16 +241,15 @@ class ProjectDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
         )
     
     def perform_destroy(self, instance):
-        """Log deletion before deleting"""
-        project_name = instance.project_name
-        instance.delete()
+        """Delete project - only if user has permission"""
+        user = self.request.user
         
-        ProjectActivityLog.objects.create(
-            project=None,
-            action='DELETED',
-            performed_by=self.request.user,
-            description=f"Project '{project_name}' deleted"
-        )
+        # Data collectors can only delete projects they created, not assigned ones
+        if user.role == UserRole.DATA_COLLECTOR:
+            if instance.created_by != user:
+                from rest_framework.exceptions import PermissionDenied
+                raise PermissionDenied('You can only delete projects you created.')
+        
         instance.delete()
 
 
@@ -255,13 +268,12 @@ class ProjectSitesListAPIView(generics.ListAPIView):
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['company_name', 'country', 'website']
     
-    # ✅ UPDATED: Added 'country' and 'verification_status' for sorting
+    # Ordering fields for sorting
     ordering_fields = [
         'created_at', 
         'company_name', 
-        'country',  # NEW
-        'verification_status',  # NEW
-        'data_quality_score'
+        'country',
+        'verification_status'
     ]
     ordering = ['-created_at']  # Default ordering
     
@@ -772,9 +784,9 @@ def bulk_project_action(request, project_id):
                     )
                     continue
                 
-                # Transfer to superdatabase (model method handles status update and history)
+                # Transfer to Company Database (model method handles status update and history)
                 try:
-                    superdatabase_record = site.transfer_to_superdatabase(transferred_by=request.user)
+                    company, production_site, version = site.transfer_to_company_database(transferred_by=request.user)
                     results['success'] += 1
                     continue
                 except ValueError as e:
@@ -863,12 +875,15 @@ def bulk_project_action(request, project_id):
 def project_stats(request):
     """
     Get overall statistics for projects.
+    FIXED: Now includes assigned projects for data collectors.
     """
     user = request.user
     
-    # Base queryset
+    # Base queryset - include assigned projects for data collectors
     if user.role == UserRole.DATA_COLLECTOR:
-        projects = DataCollectionProject.objects.filter(created_by=user)
+        projects = DataCollectionProject.objects.filter(
+            Q(created_by=user) | Q(assigned_to=user)
+        )
     else:
         projects = DataCollectionProject.objects.all()
     
@@ -877,9 +892,11 @@ def project_stats(request):
     active_projects = projects.filter(status=ProjectStatus.ACTIVE).count()
     completed_projects = projects.filter(status=ProjectStatus.COMPLETED).count()
     
-    # Sites stats
+    # Sites stats - include sites from assigned projects for data collectors
     if user.role == UserRole.DATA_COLLECTOR:
-        sites = UnverifiedSite.objects.filter(project__created_by=user)
+        sites = UnverifiedSite.objects.filter(
+            Q(project__created_by=user) | Q(project__assigned_to=user)
+        )
     else:
         sites = UnverifiedSite.objects.filter(project__isnull=False)
     

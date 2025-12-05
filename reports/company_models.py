@@ -498,6 +498,23 @@ class ProductionSite(models.Model):
         help_text="Production category"
     )
     
+    # Source tracking - which project this production site came from
+    source_project_code = models.CharField(
+        max_length=20,
+        blank=True,
+        db_index=True,
+        help_text="Project code from which this site was transferred (e.g., PRJ-000001)"
+    )
+    
+    source_project = models.ForeignKey(
+        'reports.DataCollectionProject',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='transferred_production_sites',
+        help_text="Original project this production site was transferred from"
+    )
+    
     # Metadata
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

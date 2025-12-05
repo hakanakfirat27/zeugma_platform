@@ -75,6 +75,7 @@ from .company_views import (
     ImportCompaniesAPIView,
     DownloadImportReportAPIView,
     ImportTemplateAPIView,
+    ToggleProductionSiteActiveAPIView
 )
 
 app_name = 'companies'
@@ -185,6 +186,9 @@ urlpatterns = [
     
     # Download potential duplicates report
     path('import/download-report/<str:filename>/', DownloadImportReportAPIView.as_view(), name='import-report'),
+
+    # Toggle production site active/inactive
+    path('<uuid:company_id>/sites/<uuid:site_id>/toggle-active/', ToggleProductionSiteActiveAPIView.as_view(), name='production-site-toggle-active'),
 ]
 
 

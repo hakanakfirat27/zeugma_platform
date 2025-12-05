@@ -572,9 +572,18 @@ const UnverifiedSitesPage = () => {
                         <td className="px-6 py-4 text-sm text-gray-900">{site.country}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                           {site.project_name ? (
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
-                              {site.project_name}
-                            </span>
+                            <div className="flex flex-col gap-1">
+                              {/* Project Code Badge */}
+                              {site.project_code && (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-mono font-medium bg-slate-100 text-slate-600 border border-slate-200">
+                                  {site.project_code}
+                                </span>
+                              )}
+                              {/* Project Name */}
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
+                                {site.project_name}
+                              </span>
+                            </div>
                           ) : (
                             <span className="text-gray-400">-</span>
                           )}

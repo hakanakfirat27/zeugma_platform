@@ -40,8 +40,9 @@ class UnverifiedSiteListSerializer(serializers.ModelSerializer):
         read_only=True
     )
     
-    # NEW: Add project information
+    # NEW: Add project information including project code
     project_id = serializers.UUIDField(source='project.project_id', read_only=True, allow_null=True)
+    project_code = serializers.CharField(source='project.project_code', read_only=True, allow_null=True)
     project_name = serializers.CharField(source='project.project_name', read_only=True, allow_null=True)
     project_status = serializers.CharField(source='project.status', read_only=True, allow_null=True)
     
@@ -72,6 +73,7 @@ class UnverifiedSiteListSerializer(serializers.ModelSerializer):
             'notes',
             # NEW: Project fields
             'project_id',
+            'project_code',  # NEW: Project code
             'project_name',
             'project_status',
         ]
@@ -86,6 +88,7 @@ class UnverifiedSiteListSerializer(serializers.ModelSerializer):
             'priority_display',
             'source_display',
             'project_id',
+            'project_code',
             'project_name',
             'project_status',
         ]
@@ -125,10 +128,11 @@ class UnverifiedSiteDetailSerializer(serializers.ModelSerializer):
         return None
     
     def get_project_info(self, obj):
-        """Get detailed project information"""
+        """Get detailed project information including project code"""
         if obj.project:
             return {
                 'project_id': str(obj.project.project_id),
+                'project_code': obj.project.project_code,  # NEW: Project code
                 'project_name': obj.project.project_name,
                 'status': obj.project.status,
                 'status_display': obj.project.get_status_display(),

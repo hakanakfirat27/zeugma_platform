@@ -317,6 +317,7 @@ class ProductionSiteListSerializer(serializers.ModelSerializer):
         model = ProductionSite
         fields = [
             'site_id', 'category', 'category_display',
+            'source_project_code',  # NEW: Project code from transfer
             'created_at', 'is_active', 'version_count',
             'current_version'
         ]
@@ -337,6 +338,7 @@ class ProductionSiteWithVersionDataSerializer(serializers.ModelSerializer):
         model = ProductionSite
         fields = [
             'site_id', 'category', 'category_display',
+            'source_project_code',  # NEW: Project code from transfer
             'created_at', 'is_active', 'version_count',
             'current_version'
         ]
@@ -356,6 +358,7 @@ class ProductionSiteDetailSerializer(serializers.ModelSerializer):
         model = ProductionSite
         fields = [
             'site_id', 'company', 'category', 'category_display',
+            'source_project_code', 
             'created_at', 'updated_at', 'created_by',
             'is_active', 'version_count',
             'current_version', 'versions', 'notes'
@@ -379,6 +382,7 @@ class CompanyListSerializer(serializers.ModelSerializer):
         fields = [
             'company_id', 'unique_key', 'company_name',
             'country', 'region', 'status', 'status_display',
+            'project_code',
             'all_categories', 'active_categories',
             'production_site_count',
             'phone_number', 'website',

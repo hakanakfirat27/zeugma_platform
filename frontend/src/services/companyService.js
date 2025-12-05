@@ -102,6 +102,19 @@ export const companyService = {
     const response = await api.delete(`${BASE_URL}/${companyId}/sites/${siteId}/`);
     return response.data;
   },
+
+  /**
+   * Toggle production site active/inactive status
+   * @param {string|number} companyId - Company ID
+   * @param {string|number} siteId - Site ID
+   * @param {boolean} isActive - New active status
+   */
+  async toggleProductionSiteActive(companyId, siteId, isActive) {
+    const response = await api.post(`${BASE_URL}/${companyId}/sites/${siteId}/toggle-active/`, {
+      is_active: isActive
+    });
+    return response.data;
+  },
   
   // ==================== VERSIONS ====================
   

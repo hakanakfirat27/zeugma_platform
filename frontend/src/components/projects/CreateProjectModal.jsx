@@ -109,13 +109,13 @@ const CreateProjectModal = ({ onClose, onSuccess }) => {
     >
       <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         {/* Modal Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <h2 className="text-xl font-semibold text-gray-900">
+        <div className="flex items-center justify-between p-6 bg-indigo-600 border-b border-gray-200">
+          <h2 className="text-xl font-semibold text-white">
             Create New Project
           </h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            className="text-white hover:text-gray-100 transition-colors"
           >
             <X className="w-6 h-6" />
           </button>
@@ -196,28 +196,28 @@ const CreateProjectModal = ({ onClose, onSuccess }) => {
                 <p className="text-red-500 text-xs mt-1">{errors.category}</p>
               )}
             </div>
-{(user?.role === 'SUPERADMIN' || user?.role === 'STAFF_ADMIN') && (
-  <div>
-    <label className="block text-sm font-medium text-gray-700 mb-1">
-      Assign To (Optional)
-    </label>
-    <select
-      value={formData.assigned_to || ''}
-      onChange={(e) => handleInputChange('assigned_to', e.target.value)}
-      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-    >
-      <option value="">Unassigned (Self)</option>
-      {dataCollectors && dataCollectors.map(dc => (
-        <option key={dc.id} value={dc.id}>
-          {dc.first_name} {dc.last_name} ({dc.username})
-        </option>
-      ))}
-    </select>
-    <p className="text-xs text-gray-500 mt-1">
-      Leave unassigned to create project for yourself
-    </p>
-  </div>
-)}
+            {(user?.role === 'SUPERADMIN' || user?.role === 'STAFF_ADMIN') && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Assign To (Optional)
+                </label>
+                <select
+                  value={formData.assigned_to || ''}
+                  onChange={(e) => handleInputChange('assigned_to', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="">Unassigned (Self)</option>
+                  {dataCollectors && dataCollectors.map(dc => (
+                    <option key={dc.id} value={dc.id}>
+                      {dc.first_name} {dc.last_name} ({dc.username})
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  Leave unassigned to create project for yourself
+                </p>
+              </div>
+            )}
             {/* Target Region */}
             <div>
               <label htmlFor="target_region" className="block text-sm font-medium text-gray-700 mb-1">
@@ -314,7 +314,7 @@ const CreateProjectModal = ({ onClose, onSuccess }) => {
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+              className="px-4 py-2 border border-gray-300 rounded-lg bg-red-500 text-white hover:bg-red-600 transition-colors"
             >
               Cancel
             </button>

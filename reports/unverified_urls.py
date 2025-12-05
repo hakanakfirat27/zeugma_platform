@@ -16,6 +16,7 @@ from .unverified_views import (
     RejectUnverifiedSiteAPIView,
     AssignReviewerAPIView,
     TransferToSuperdatabaseAPIView,
+    TransferToCompanyDatabaseAPIView,
     VerificationHistoryListAPIView,
     UnverifiedSiteImportAPIView,
 )
@@ -53,8 +54,11 @@ urlpatterns = [
     # Assign reviewer to site
     path('unverified-sites/<uuid:site_id>/assign/', AssignReviewerAPIView.as_view(), name='unverified-site-assign'),
     
-    # Transfer approved site to Superdatabase
+    # Transfer approved site to Superdatabase (DEPRECATED - use transfer-company instead)
     path('unverified-sites/<uuid:site_id>/transfer/', TransferToSuperdatabaseAPIView.as_view(), name='unverified-site-transfer'),
+    
+    # Transfer approved site to Company Database (NEW - preferred method)
+    path('unverified-sites/<uuid:site_id>/transfer-company/', TransferToCompanyDatabaseAPIView.as_view(), name='unverified-site-transfer-company'),
     
     # =========================================================================
     # BULK ACTIONS

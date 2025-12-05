@@ -9,7 +9,7 @@ import DataCollectorLayout from '../../components/layout/DataCollectorLayout';
 import DeleteConfirmationModal from '../../components/modals/DeleteConfirmationModal';
 import { ToastContainer } from '../../components/Toast';
 import { useToast } from '../../hooks/useToast';
-import QualityScore from '../../components/projects/QualityScore';
+
 import Pagination from '../../components/database/Pagination';
 import BulkImportModal from '../../components/modals/BulkImportModal';
 import BulkExportModal from '../../components/modals/BulkExportModal';
@@ -17,7 +17,7 @@ import {
   ArrowLeft, Plus, Check, X, Send, Clock,
   AlertCircle, CheckCircle, XCircle, RefreshCw, Edit2, Trash2,
   Building2, Info, ArrowUpDown, ArrowUp, ArrowDown, Search, Filter,
-  Upload, Download, Users, Calendar, Target, Eye, Edit
+  Upload, Download, Users, Calendar, Target, Eye, Edit, Hash
 } from 'lucide-react';
 
 const ProjectDetailPage = () => {
@@ -289,6 +289,15 @@ const ProjectDetailPage = () => {
           </div>
           
           <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+            {/* NEW: Project Code Badge */}
+            {project.project_code && (
+              <div className="mb-4">
+                <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-mono font-semibold bg-slate-100 text-slate-700 border border-slate-300">
+                  <Hash className="w-4 h-4" />
+                  {project.project_code}
+                </span>
+              </div>
+            )}
             {/* Project Info Grid */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
               <div className="flex items-center gap-3">
@@ -478,16 +487,6 @@ const ProjectDetailPage = () => {
                     </div>
                   </th>
                   
-                  <th 
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100 transition-colors"
-                    onClick={() => handleSort('data_quality_score')}
-                  >
-                    <div className="flex items-center gap-2">
-                      Quality Score
-                      {getSortIcon('data_quality_score')}
-                    </div>
-                  </th>
-                  
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Collected By</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                 </tr>
@@ -495,7 +494,7 @@ const ProjectDetailPage = () => {
               <tbody className="bg-white divide-y divide-gray-200">
                 {sitesLoading ? (
                   <tr>
-                    <td colSpan="6" className="px-6 py-8 text-center">
+                    <td colSpan="5" className="px-6 py-8 text-center">
                       <div className="flex justify-center">
                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
                       </div>
@@ -503,7 +502,7 @@ const ProjectDetailPage = () => {
                   </tr>
                 ) : sitesData?.results?.length === 0 ? (
                   <tr>
-                    <td colSpan="6" className="px-6 py-8 text-center">
+                    <td colSpan="5" className="px-6 py-8 text-center">
                       <div className="text-gray-500">
                         {searchQuery || statusFilter !== 'ALL' ? (
                           <>
@@ -550,15 +549,6 @@ const ProjectDetailPage = () => {
                       </td>
                       <td className="px-6 py-4">
                         {getStatusBadge(site.verification_status)}
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="min-w-[180px]">
-                          {site.data_quality_score ? (
-                            <QualityScore score={site.data_quality_score} />
-                          ) : (
-                            <span className="text-sm text-gray-400">N/A</span>
-                          )}
-                        </div>
                       </td>
                       <td className="px-6 py-4">
                         <span className="text-sm font-medium text-gray-900">

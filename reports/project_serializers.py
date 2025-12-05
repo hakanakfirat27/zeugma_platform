@@ -92,6 +92,7 @@ class ProjectActivityLogSerializer(serializers.ModelSerializer):
 class DataCollectionProjectListSerializer(serializers.ModelSerializer):
     """Serializer for listing projects (lightweight)"""
     created_by_info = UserBasicSerializer(source='created_by', read_only=True)
+    assigned_to_info = UserBasicSerializer(source='assigned_to', read_only=True)  # NEW: Include assigned_to info
     assigned_reviewers_info = UserBasicSerializer(source='assigned_reviewers', many=True, read_only=True)
     
     status_display = serializers.CharField(source='get_status_display', read_only=True)
@@ -111,6 +112,7 @@ class DataCollectionProjectListSerializer(serializers.ModelSerializer):
         model = DataCollectionProject
         fields = [
             'project_id',
+            'project_code',  # NEW: Auto-generated project code
             'project_name',
             'description',
             'category',
@@ -120,6 +122,8 @@ class DataCollectionProjectListSerializer(serializers.ModelSerializer):
             'status_display',
             'created_by',
             'created_by_info',
+            'assigned_to',  # NEW: Include assigned_to ID
+            'assigned_to_info',  # NEW: Include assigned_to details
             'assigned_reviewers',
             'assigned_reviewers_info',
             'target_count',
@@ -139,6 +143,7 @@ class DataCollectionProjectListSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = [
             'project_id',
+            'project_code',  # Auto-generated, read-only
             'created_at',
             'updated_at',
             'completed_at',
@@ -148,6 +153,7 @@ class DataCollectionProjectListSerializer(serializers.ModelSerializer):
 class DataCollectionProjectDetailSerializer(serializers.ModelSerializer):
     """Serializer for detailed project view"""
     created_by_info = UserBasicSerializer(source='created_by', read_only=True)
+    assigned_to_info = UserBasicSerializer(source='assigned_to', read_only=True)  # NEW: Include assigned_to info
     assigned_reviewers_info = UserBasicSerializer(source='assigned_reviewers', many=True, read_only=True)
     
     status_display = serializers.CharField(source='get_status_display', read_only=True)
@@ -168,9 +174,10 @@ class DataCollectionProjectDetailSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = DataCollectionProject
-        fields = '__all__'
+        fields = '__all__'  # project_code included automatically with __all__
         read_only_fields = [
             'project_id',
+            'project_code',  # Auto-generated, read-only
             'created_at',
             'updated_at',
             'completed_at',
@@ -192,7 +199,6 @@ class DataCollectionProjectCreateUpdateSerializer(serializers.ModelSerializer):
         queryset=User.objects.filter(role=UserRole.DATA_COLLECTOR),
         required=False,
         allow_null=True,
-        source='created_by',
         help_text="Assign project to a data collector (Admin only)"
     )
     
@@ -207,15 +213,15 @@ class DataCollectionProjectCreateUpdateSerializer(serializers.ModelSerializer):
             'deadline',
             'status',
             'assigned_reviewers',
-            'assigned_to',  # NEW: For admin to assign to data collector
+            'assigned_to',
         ]
         
     def validate(self, data):
         """Validate project data"""
         user = self.context['request'].user
         
-        # If admin is assigning to someone else, ensure they have permission
-        if 'created_by' in data and data['created_by'] != user:
+        # Only admins can assign projects to other users
+        if 'assigned_to' in data and data['assigned_to'] is not None:
             if user.role not in [UserRole.SUPERADMIN, UserRole.STAFF_ADMIN]:
                 raise serializers.ValidationError({
                     'assigned_to': 'Only admins can assign projects to other users'
@@ -224,13 +230,7 @@ class DataCollectionProjectCreateUpdateSerializer(serializers.ModelSerializer):
         return data
     
     def create(self, validated_data):
-        """Create new project"""
-        user = self.context['request'].user
-        
-        # If no assigned_to is specified, assign to current user
-        if 'created_by' not in validated_data:
-            validated_data['created_by'] = user
-        
+        """Create new project - created_by is set in the view's perform_create"""
         return super().create(validated_data)
 
 
@@ -302,10 +302,11 @@ class UnverifiedSiteProjectSerializer(serializers.ModelSerializer):
         ]
     
     def get_project_info(self, obj):
-        """Get basic project information"""
+        """Get basic project information including project code"""
         if obj.project:
             return {
                 'project_id': str(obj.project.project_id),
+                'project_code': obj.project.project_code,  # NEW: Project code
                 'project_name': obj.project.project_name,
                 'status': obj.project.status,
             }

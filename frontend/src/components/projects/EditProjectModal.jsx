@@ -46,19 +46,27 @@ const EditProjectModal = ({ project, onClose, onSuccess }) => {
         status: project.status || 'ACTIVE',
         target_count: project.target_count || 0,
         deadline: project.deadline ? project.deadline.split('T')[0] : '',
-        assigned_to: project.assigned_to || '', // ✅ NEW: Set assigned_to from project
+        // FIX: Convert assigned_to to string for proper select value matching
+        assigned_to: project.assigned_to ? String(project.assigned_to) : '',
       });
     }
   }, [project]);
 
   const updateProjectMutation = useMutation({
     mutationFn: async (data) => {
-      const response = await api.patch(`/api/projects/${project.project_id}/`, data);
+      // Convert assigned_to: empty string to null, otherwise to integer
+      const payload = {
+        ...data,
+        assigned_to: data.assigned_to ? parseInt(data.assigned_to, 10) : null,
+      };
+      const response = await api.patch(`/api/projects/${project.project_id}/`, payload);
       return response.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries(['projects']);
+      queryClient.invalidateQueries(['admin-projects']);  // Also invalidate admin queries
       queryClient.invalidateQueries(['project', project.project_id]);
+      queryClient.invalidateQueries(['admin-project', project.project_id]);  // Also invalidate admin detail
       queryClient.invalidateQueries(['project-stats']);
       success('Project updated successfully!');
       onSuccess();
@@ -165,7 +173,7 @@ const EditProjectModal = ({ project, onClose, onSuccess }) => {
                 >
                   <option value="">Unassigned</option>
                   {dataCollectors && dataCollectors.map(dc => (
-                    <option key={dc.id} value={dc.id}>
+                    <option key={dc.id} value={String(dc.id)}>
                       {dc.first_name} {dc.last_name} ({dc.username})
                     </option>
                   ))}
