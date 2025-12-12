@@ -1231,23 +1231,30 @@ def company_stats(request):
         except json.JSONDecodeError:
             pass
     
-    # Now calculate stats based on filtered queryset
-    total = queryset.count()
+    # CRITICAL FIX: Get distinct company IDs first to avoid duplicate counting
+    # When JOINs with production_sites/versions occur, the queryset can have duplicates
+    # even with .distinct() - this causes inflated counts in .values().annotate()
+    company_ids = list(queryset.values_list('id', flat=True).distinct())
+    
+    # Now calculate stats using the distinct company IDs
+    total = len(company_ids)
+    
+    # Use fresh queryset filtered by the distinct IDs for accurate counting
+    stats_queryset = Company.objects.filter(id__in=company_ids)
     
     by_status = dict(
-        queryset.values('status')
+        stats_queryset.values('status')
         .annotate(count=Count('id'))
         .values_list('status', 'count')
     )
     
     by_country = list(
-        queryset.values('country')
+        stats_queryset.values('country')
         .annotate(count=Count('id'))
         .order_by('-count')
     )
     
     # Categories with most companies (from filtered set)
-    company_ids = queryset.values_list('id', flat=True)
     by_category = list(
         ProductionSite.objects.filter(company_id__in=company_ids)
         .values('category')
@@ -1256,12 +1263,12 @@ def company_stats(request):
     )
     
     # Companies with multiple categories
-    multi_category = queryset.annotate(
+    multi_category = stats_queryset.annotate(
         site_count=Count('production_sites')
     ).filter(site_count__gt=1).count()
     
     # Calculate unique countries count
-    countries_count = queryset.exclude(country__isnull=True).exclude(country='').values('country').distinct().count()
+    countries_count = stats_queryset.exclude(country__isnull=True).exclude(country='').values('country').distinct().count()
     
     return Response({
         'total_companies': total,

@@ -13,7 +13,7 @@ class CustomPagination(PageNumberPagination):
     """
     page_size = 10  # Default page size
     page_size_query_param = 'page_size'  # Allow client to override page size
-    max_page_size = 100  # Maximum allowed page size
+    max_page_size = 10000  # Maximum allowed page size (increased for exports)
     page_query_param = 'page'  # Query parameter name for page number
     
     def get_paginated_response(self, data):

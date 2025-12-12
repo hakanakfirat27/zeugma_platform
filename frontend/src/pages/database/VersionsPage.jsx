@@ -35,7 +35,7 @@ const CATEGORY_DISPLAY = {
   INJECTION: 'Injection Moulders', BLOW: 'Blow Moulders', ROTO: 'Roto Moulders',
   PE_FILM: 'PE Film Extruders', SHEET: 'Sheet Extruders', PIPE: 'Pipe Extruders',
   TUBE_HOSE: 'Tube & Hose Extruders', PROFILE: 'Profile Extruders',
-  CABLE: 'Cable Extruders', COMPOUNDER: 'Compounders',
+  CABLE: 'Cable Extruders', COMPOUNDER: 'Compounders', RECYCLER: 'Recyclers',
 };
 
 const CATEGORY_COLORS = {
@@ -49,6 +49,7 @@ const CATEGORY_COLORS = {
   PROFILE: { bg: 'bg-slate-500', text: 'text-slate-600', light: 'bg-slate-50', border: 'border-slate-200' },
   CABLE: { bg: 'bg-pink-500', text: 'text-pink-600', light: 'bg-pink-50', border: 'border-pink-200' },
   COMPOUNDER: { bg: 'bg-indigo-500', text: 'text-indigo-600', light: 'bg-indigo-50', border: 'border-indigo-200' },
+  RECYCLER: { bg: 'bg-lime-500', text: 'text-lime-600', light: 'bg-lime-50', border: 'border-lime-200' },
 };
 
 // Company Information fields

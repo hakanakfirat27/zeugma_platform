@@ -10,6 +10,7 @@ export const CATEGORIES = [
   { value: 'PROFILE', label: 'Profile Extruders' },
   { value: 'CABLE', label: 'Cable Extruders' },
   { value: 'COMPOUNDER', label: 'Compounders' },
+  { value: 'RECYCLER', label: 'Recyclers' },
 ];
 
 export const CATEGORY_COLORS = {
@@ -23,4 +24,5 @@ export const CATEGORY_COLORS = {
   PROFILE: 'bg-orange-100 text-orange-800',
   CABLE: 'bg-teal-100 text-teal-800',
   COMPOUNDER: 'bg-cyan-100 text-cyan-800',
+  RECYCLER: 'bg-lime-100 text-lime-800',
 };

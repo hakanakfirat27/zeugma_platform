@@ -36,15 +36,25 @@ const FilterSidebarWithGroups = ({
   // Accordion state - only one section can be open at a time
   const [openSection, setOpenSection] = useState('categories');
 
+  // Define Business Type fields
+  const BUSINESS_TYPE_FIELDS = ['custom', 'proprietary_products', 'in_house'];
+
   // Get active group - MUST be defined before using it in useMemo
   const activeGroup = groups.find(g => g.id === activeGroupId) || groups[0];
 
-  // Live filter based on search query AND exclude already selected filters
-  const filteredOptions = useMemo(() => {
+  // Separate Business Type options from Material options
+  const { businessTypeOptions, materialOptions } = useMemo(() => {
+    const businessType = filterOptions.filter(option => BUSINESS_TYPE_FIELDS.includes(option.field));
+    const materials = filterOptions.filter(option => !BUSINESS_TYPE_FIELDS.includes(option.field));
+    return { businessTypeOptions: businessType, materialOptions: materials };
+  }, [filterOptions]);
+
+  // Live filter based on search query AND exclude already selected filters - for Business Type
+  const filteredBusinessTypeOptions = useMemo(() => {
     const activeFilters = activeGroup?.filters || {};
 
     // Filter out already selected filters (where value is true or false, not undefined)
-    const availableOptions = filterOptions.filter(option =>
+    const availableOptions = businessTypeOptions.filter(option =>
       activeFilters[option.field] === undefined
     );
 
@@ -55,7 +65,25 @@ const FilterSidebarWithGroups = ({
       option.label.toLowerCase().includes(query) ||
       option.field.toLowerCase().includes(query)
     );
-  }, [filterOptions, searchQuery, activeGroup]);
+  }, [businessTypeOptions, searchQuery, activeGroup]);
+
+  // Live filter based on search query AND exclude already selected filters - for Materials
+  const filteredOptions = useMemo(() => {
+    const activeFilters = activeGroup?.filters || {};
+
+    // Filter out already selected filters (where value is true or false, not undefined)
+    const availableOptions = materialOptions.filter(option =>
+      activeFilters[option.field] === undefined
+    );
+
+    if (!searchQuery) return availableOptions;
+
+    const query = searchQuery.toLowerCase();
+    return availableOptions.filter(option =>
+      option.label.toLowerCase().includes(query) ||
+      option.field.toLowerCase().includes(query)
+    );
+  }, [materialOptions, searchQuery, activeGroup]);
 
   // Filter technical options based on search
   const filteredTechnicalOptions = useMemo(() => {
@@ -672,8 +700,115 @@ const FilterSidebarWithGroups = ({
             </div>
           )}
 
+          {/* Business Type Accordion */}
+          {businessTypeOptions.length > 0 && (
+            <div className="mb-4 border border-gray-200 rounded-lg overflow-hidden">
+              <button
+                onClick={() => toggleSection('businessType')}
+                className="w-full flex items-center justify-between p-4 bg-amber-50 hover:bg-amber-100 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <h4 className="font-semibold text-gray-900 text-sm">Business Type</h4>
+                  <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-xs font-medium">
+                    {businessTypeOptions.length} available
+                  </span>
+                  {Object.keys(activeGroup?.filters || {}).filter(key => BUSINESS_TYPE_FIELDS.includes(key)).length > 0 && (
+                    <span className="bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full text-xs font-medium">
+                      {Object.keys(activeGroup.filters).filter(key => BUSINESS_TYPE_FIELDS.includes(key)).length} selected
+                    </span>
+                  )}
+                </div>
+                {openSection === 'businessType' ? (
+                  <ChevronUp className="w-5 h-5 text-gray-600" />
+                ) : (
+                  <ChevronDown className="w-5 h-5 text-gray-600" />
+                )}
+              </button>
+
+              {openSection === 'businessType' && (
+                <div className="p-4 bg-white">
+                  {filteredBusinessTypeOptions.length > 0 && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4">
+                      <p className="text-xs text-amber-900">
+                        <strong>OR Logic:</strong> Select business types to add them to this group. Companies matching ANY type in this group will be included.
+                      </p>
+                    </div>
+                  )}
+
+                  {filteredBusinessTypeOptions.length === 0 && businessTypeOptions.length > 0 && (
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4 text-center">
+                      <p className="text-sm text-green-900 font-medium mb-1">✔ All business types have been selected!</p>
+                      <p className="text-xs text-green-700">
+                        Remove filters from the tags above to make them available again.
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Filter List */}
+                  <div className="space-y-3 max-h-96 overflow-y-auto">
+                    {filteredBusinessTypeOptions.map(option => {
+                      const currentValue = activeGroup?.filters[option.field];
+                      const isActive = currentValue !== undefined;
+
+                      return (
+                        <div
+                          key={option.field}
+                          className={`bg-white border rounded-lg p-4 hover:border-gray-300 transition-all ${
+                            isActive ? 'border-amber-400 shadow-sm' : 'border-gray-200'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between mb-3">
+                            <h4 className="font-semibold text-gray-900 text-sm">{option.label}</h4>
+                            <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
+                              {option.count}
+                            </span>
+                          </div>
+
+                          <div className="space-y-2">
+                            <label className="flex items-center gap-2 cursor-pointer group">
+                              <input
+                                type="radio"
+                                name={`${activeGroupId}-${option.field}`}
+                                checked={currentValue === undefined}
+                                onChange={() => updateGroupFilter(activeGroupId, option.field, undefined)}
+                                className="w-4 h-4 text-gray-400 border-gray-300 focus:ring-amber-500"
+                              />
+                              <span className="text-sm text-gray-600 group-hover:text-gray-900">Any</span>
+                            </label>
+
+                            <label className="flex items-center gap-2 cursor-pointer group">
+                              <input
+                                type="radio"
+                                name={`${activeGroupId}-${option.field}`}
+                                checked={currentValue === true}
+                                onChange={() => updateGroupFilter(activeGroupId, option.field, true)}
+                                className="w-4 h-4 text-amber-600 border-gray-300 focus:ring-amber-500"
+                              />
+                              <span className="text-sm text-gray-900 font-medium group-hover:text-amber-600">Include</span>
+                            </label>
+
+                            <label className="flex items-center gap-2 cursor-pointer group">
+                              <input
+                                type="radio"
+                                name={`${activeGroupId}-${option.field}`}
+                                checked={currentValue === false}
+                                onChange={() => updateGroupFilter(activeGroupId, option.field, false)}
+                                className="w-4 h-4 text-red-600 border-gray-300 focus:ring-red-500"
+                              />
+                              <span className="text-sm text-gray-900 font-medium group-hover:text-red-600">Exclude</span>
+                            </label>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Material Filters (Boolean) Accordion */}
-          {filterOptions.length > 0 && (
+          {materialOptions.length > 0 && (
             <div className="mb-4 border border-gray-200 rounded-lg overflow-hidden">
               <button
                 onClick={() => toggleSection('booleanFilters')}
@@ -682,11 +817,11 @@ const FilterSidebarWithGroups = ({
                 <div className="flex items-center gap-2">
                   <h4 className="font-semibold text-gray-900 text-sm">Material Filters</h4>
                   <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-xs font-medium">
-                    {filterOptions.length} available
+                    {materialOptions.length} available
                   </span>
-                  {Object.keys(activeGroup?.filters || {}).length > 0 && (
+                  {Object.keys(activeGroup?.filters || {}).filter(key => !BUSINESS_TYPE_FIELDS.includes(key)).length > 0 && (
                     <span className="bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full text-xs font-medium">
-                      {Object.keys(activeGroup.filters).length} selected
+                      {Object.keys(activeGroup.filters).filter(key => !BUSINESS_TYPE_FIELDS.includes(key)).length} selected
                     </span>
                   )}
                 </div>
@@ -707,7 +842,7 @@ const FilterSidebarWithGroups = ({
                     </div>
                   )}
 
-                  {filteredOptions.length === 0 && filterOptions.length > 0 && (
+                  {filteredOptions.length === 0 && materialOptions.length > 0 && (
                     <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4 text-center">
                       <p className="text-sm text-green-900 font-medium mb-1">✔ All filters have been selected!</p>
                       <p className="text-xs text-green-700">
@@ -723,7 +858,7 @@ const FilterSidebarWithGroups = ({
                       type="text"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder="Search material ilters..."
+                      placeholder="Search material filters..."
                       className="w-full pl-9 pr-9 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                     />
                     {searchQuery && (

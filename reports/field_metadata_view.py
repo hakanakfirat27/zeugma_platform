@@ -21,6 +21,7 @@ from .fields import (
     PROFILE_FIELDS,
     CABLE_FIELDS,
     COMPOUNDER_FIELDS,
+    RECYCLER_FIELDS,
     COMMON_FIELDS,
     CONTACT_FIELDS
 )
@@ -117,6 +118,7 @@ def get_field_metadata_api(request):
         'PROFILE': [get_field_metadata(model, field) for field in PROFILE_FIELDS],
         'CABLE': [get_field_metadata(model, field) for field in CABLE_FIELDS],
         'COMPOUNDER': [get_field_metadata(model, field) for field in COMPOUNDER_FIELDS],
+        'RECYCLER': [get_field_metadata(model, field) for field in RECYCLER_FIELDS],
     }
     
     return Response(metadata)
@@ -147,6 +149,7 @@ def get_category_fields_api(request, category):
         'PROFILE': PROFILE_FIELDS,
         'CABLE': CABLE_FIELDS,
         'COMPOUNDER': COMPOUNDER_FIELDS,
+        'RECYCLER': RECYCLER_FIELDS,
     }
     
     if category not in category_field_map:

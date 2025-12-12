@@ -1,4 +1,5 @@
 # reports/serializers.py - CLEAN VERSION (Remove all debug code)
+# NOTE: Superdatabase has been deprecated. All data now uses Company Database.
 
 from rest_framework import serializers
 from .models import (
@@ -7,69 +8,15 @@ from .models import (
     SubscriptionPlan,
     SavedSearch,
     ExportTemplate,
-    SuperdatabaseRecord,
     DashboardWidget,
 )
+from .company_models import Company, ProductionSiteVersion
 from accounts.models import User
 from .fields import (
     COMMON_FIELDS, CONTACT_FIELDS, INJECTION_FIELDS, BLOW_FIELDS, ROTO_FIELDS,
     PE_FILM_FIELDS, SHEET_FIELDS, PIPE_FIELDS, TUBE_HOSE_FIELDS, PROFILE_FIELDS,
-    CABLE_FIELDS, COMPOUNDER_FIELDS
+    CABLE_FIELDS, COMPOUNDER_FIELDS, RECYCLER_FIELDS
 )
-
-
-# --- Superdatabase Record Serializer Class ---
-class SuperdatabaseRecordSerializer(serializers.ModelSerializer):
-    display_fields = serializers.SerializerMethodField()
-    field_labels = serializers.SerializerMethodField()
-
-    class Meta:
-        model = SuperdatabaseRecord
-        fields = '__all__'
-
-    def get_display_fields(self, obj):
-        category_field_map = {
-            'INJECTION': INJECTION_FIELDS, 'BLOW': BLOW_FIELDS, 'ROTO': ROTO_FIELDS,
-            'PE_FILM': PE_FILM_FIELDS, 'SHEET': SHEET_FIELDS, 'PIPE': PIPE_FIELDS,
-            'TUBE_HOSE': TUBE_HOSE_FIELDS, 'PROFILE': PROFILE_FIELDS, 'CABLE': CABLE_FIELDS,
-            'COMPOUNDER': COMPOUNDER_FIELDS,
-        }
-        category_specific_fields = category_field_map.get(obj.category, [])
-        return COMMON_FIELDS + CONTACT_FIELDS + category_specific_fields
-
-    def get_field_labels(self, obj):
-        return {
-            field.name: field.verbose_name
-            for field in obj._meta.fields
-        }
-
-
-# --- Superdatabase Record Detail Serializer Class ---
-class SuperdatabaseRecordDetailSerializer(serializers.ModelSerializer):
-    get_category_display = serializers.CharField(read_only=True)
-    detailed_fields = serializers.SerializerMethodField()
-
-    class Meta:
-        model = SuperdatabaseRecord
-        fields = [
-            'factory_id', 'company_name', 'category', 'get_category_display',
-            'country', 'last_updated', 'surname_1', 'surname_2', 'surname_3',
-            'surname_4', 'initials_1', 'initials_2', 'initials_3', 'initials_4',
-            'title_1', 'title_2', 'title_3', 'title_4', 'position_1', 'position_2',
-            'position_3', 'position_4',
-            'detailed_fields'
-        ]
-
-    def get_detailed_fields(self, instance):
-        field_data = []
-        for field in SuperdatabaseRecord._meta.get_fields():
-            if field.concrete and not field.is_relation:
-                field_data.append({
-                    'key': field.name,
-                    'label': field.verbose_name,
-                    'value': getattr(instance, field.name)
-                })
-        return field_data
 
 
 # --- Custom Report Serializer Class ---
@@ -84,7 +31,7 @@ class CustomReportSerializer(serializers.ModelSerializer):
             'id', 'report_id', 'title', 'description', 'filter_criteria',
             'monthly_price', 'annual_price', 'is_active', 'is_featured',
             'created_by', 'created_by_name', 'created_at', 'updated_at',
-            'record_count', 'subscription_count'
+            'record_count', 'subscription_count', 'source_type'
         ]
         read_only_fields = ['id', 'report_id', 'created_at', 'updated_at', 'record_count']
 
@@ -155,7 +102,8 @@ class CustomReportListSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'report_id', 'title', 'description',
             'monthly_price', 'annual_price', 'is_active', 'is_featured',
-            'created_by_name', 'created_at', 'record_count', 'subscription_count'
+            'created_by_name', 'created_at', 'record_count', 'subscription_count',
+            'source_type'
         ]
 
     def get_created_by_name(self, obj):
@@ -188,6 +136,7 @@ class SubscriptionSerializer(serializers.ModelSerializer):
     client_id = serializers.SerializerMethodField()
     report_title = serializers.SerializerMethodField()
     report_id = serializers.SerializerMethodField()
+    report_filter_criteria = serializers.SerializerMethodField()  # ADD THIS
     is_active = serializers.ReadOnlyField()
     days_remaining = serializers.ReadOnlyField()
 
@@ -195,7 +144,8 @@ class SubscriptionSerializer(serializers.ModelSerializer):
         model = Subscription
         fields = [
             'subscription_id', 'client', 'client_id', 'client_name', 'client_email',
-            'report', 'report_id', 'report_title', 'plan', 'status',
+            'report', 'report_id', 'report_title', 'report_filter_criteria',  # ADD THIS
+            'plan', 'status',
             'start_date', 'end_date', 'amount_paid',
             'is_active', 'days_remaining',
             'created_at', 'updated_at', 'notes'
@@ -227,6 +177,11 @@ class SubscriptionSerializer(serializers.ModelSerializer):
             return "Deleted Report"
         return obj.report.title
 
+    def get_report_filter_criteria(self, obj):
+        """Include the report's filter criteria in subscription response"""
+        if obj.report is None:
+            return {}
+        return obj.report.filter_criteria or {}
 
 # --- Subscription Create Serializer Class ---
 class SubscriptionCreateSerializer(serializers.ModelSerializer):
@@ -282,10 +237,12 @@ class SubscriptionCreateSerializer(serializers.ModelSerializer):
 
 # --- Report Preview Serializer Class ---
 class ReportPreviewSerializer(serializers.Serializer):
-    """Serializer for report preview data"""
+    """Serializer for report preview data
+    NOTE: Now uses Company Database instead of Superdatabase
+    """
     total_records = serializers.IntegerField()
     filter_criteria = serializers.JSONField()
-    sample_records = SuperdatabaseRecordSerializer(many=True)
+    sample_records = serializers.JSONField()  # Now returns Company data as JSON
     field_breakdown = serializers.JSONField()
 
 

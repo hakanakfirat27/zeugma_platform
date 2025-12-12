@@ -1,19 +1,17 @@
 // frontend/src/pages/ReportDetailPage.jsx
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { getBreadcrumbs } from '../../utils/breadcrumbConfig';
 import { useAuth } from '../../contexts/AuthContext';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import LoadingSpinner from '../../components/LoadingSpinner';
-import DataTable from '../../components/database/DataTable';
-import RecordDetailModal from '../../components/database/RecordDetailModal';
+import DataTable, { CATEGORY_COLORS, CATEGORY_LABELS, STATUS_COLORS, STATUS_LABELS } from '../../components/database/DataTable';
 import Pagination from '../../components/database/Pagination';
-import FilterSidebarWithGroups from '../../components/database/FilterSidebarWithGroups';
+import CompanyFilterSidebar from '../../components/database/CompanyFilterSidebar';
 import api from '../../utils/api';
 import { CATEGORIES } from '../..//constants/categories';
 import { useCustomReportDetail, useCustomReportRecords } from '../../hooks/useCustomReports';
-import { useTechnicalFilterOptions } from '../../hooks/useDatabase';
 import {
   ArrowLeft,
   FileText,
@@ -44,14 +42,16 @@ const ReportDetailPage = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
 
-  // Search and filters
+  // Search and filters - these will be initialized from report criteria
   const [searchQuery, setSearchQuery] = useState('');
   const [filters, setFilters] = useState({});
   const [countryFilters, setCountryFilters] = useState([]);
   const [categoryFilters, setCategoryFilters] = useState([]);
+  const [statusFilters, setStatusFilters] = useState([]);
   const [filterGroups, setFilterGroups] = useState([]);
   const [showFilters, setShowFilters] = useState(false);
   const [ordering, setOrdering] = useState('');
+  const [filtersInitialized, setFiltersInitialized] = useState(false);
 
   // Filter options
   const [filterOptions, setFilterOptions] = useState([]);
@@ -61,8 +61,160 @@ const ReportDetailPage = () => {
     .filter(cat => cat.value !== 'ALL')
     .map(cat => cat.value);
 
-  // Fetch report details using React Query
+  // Fetch report details using React Query - MUST be before useMemo that uses report
   const { data: report, isLoading: loading } = useCustomReportDetail(reportId);
+
+  // Available categories/countries from report criteria (for sidebar display)
+  const reportCategories = useMemo(() => {
+    if (!report?.filter_criteria) return [];
+    const criteria = report.filter_criteria;
+    console.log('Report filter_criteria:', criteria); // Debug log
+    
+    // Handle categories as array
+    if (Array.isArray(criteria.categories) && criteria.categories.length > 0) {
+      return criteria.categories;
+    }
+    // Handle categories as single string value
+    if (typeof criteria.categories === 'string' && criteria.categories) {
+      return [criteria.categories];
+    }
+    // Handle category (singular) as string
+    if (criteria.category) {
+      return [criteria.category];
+    }
+    return [];
+  }, [report]);
+
+  const reportCountries = useMemo(() => {
+    if (!report?.filter_criteria) return [];
+    const criteria = report.filter_criteria;
+    if (Array.isArray(criteria.country)) return criteria.country;
+    return [];
+  }, [report]);
+
+  // Get status filters from report criteria
+  const reportStatusFilters = useMemo(() => {
+    if (!report?.filter_criteria) return ['COMPLETE'];
+    const criteria = report.filter_criteria;
+    console.log('Report status criteria:', criteria.status); // Debug log
+    if (Array.isArray(criteria.status) && criteria.status.length > 0) {
+      return criteria.status;
+    }
+    if (criteria.status) {
+      return [criteria.status];
+    }
+    return ['COMPLETE']; // Default
+  }, [report]);
+
+  // Get filter groups from report criteria (including legacy materials)
+  const reportFilterGroups = useMemo(() => {
+    if (!report?.filter_criteria) return [];
+    const criteria = report.filter_criteria;
+    
+    // If filter_groups exists, use it
+    if (Array.isArray(criteria.filter_groups) && criteria.filter_groups.length > 0) {
+      return criteria.filter_groups;
+    }
+    
+    // Otherwise, check for legacy materials at top level
+    const legacyMaterials = {};
+    const excludedKeys = ['category', 'categories', 'country', 'status', 'filter_groups'];
+    Object.keys(criteria).forEach(key => {
+      if (!excludedKeys.includes(key) && typeof criteria[key] === 'boolean') {
+        legacyMaterials[key] = criteria[key];
+      }
+    });
+    
+    // If legacy materials exist, return them as a filter group
+    if (Object.keys(legacyMaterials).length > 0) {
+      return [{
+        id: 'legacy-materials',
+        name: 'Filter Group 1',
+        filters: legacyMaterials,
+        technicalFilters: {}
+      }];
+    }
+    
+    return [];
+  }, [report]);
+
+  // Initialize filters from report criteria when report loads
+  useEffect(() => {
+    if (report && !filtersInitialized) {
+      const criteria = report.filter_criteria || {};
+      
+      // Initialize status filters
+      if (Array.isArray(criteria.status) && criteria.status.length > 0) {
+        setStatusFilters(criteria.status);
+      } else if (criteria.status) {
+        setStatusFilters([criteria.status]);
+      } else {
+        // Default based on report - if report was created with specific status, use it
+        setStatusFilters(['COMPLETE']); // Most reports are for complete companies
+      }
+      
+      // Initialize category filters from report
+      if (Array.isArray(criteria.categories) && criteria.categories.length > 0) {
+        setCategoryFilters(criteria.categories);
+      } else if (typeof criteria.categories === 'string' && criteria.categories) {
+        // Handle categories as a single string
+        setCategoryFilters([criteria.categories]);
+      } else if (criteria.category) {
+        setCategoryFilters([criteria.category]);
+      }
+      
+      // Initialize country filters from report
+      if (Array.isArray(criteria.country) && criteria.country.length > 0) {
+        setCountryFilters(criteria.country);
+      }
+      
+      // Initialize filter groups from report (including legacy materials)
+      if (Array.isArray(criteria.filter_groups) && criteria.filter_groups.length > 0) {
+        setFilterGroups(criteria.filter_groups);
+      } else {
+        // Check for legacy material filters at top level of filter_criteria
+        const legacyMaterials = {};
+        const excludedKeys = ['category', 'categories', 'country', 'status', 'filter_groups'];
+        Object.keys(criteria).forEach(key => {
+          if (!excludedKeys.includes(key) && typeof criteria[key] === 'boolean') {
+            legacyMaterials[key] = criteria[key];
+          }
+        });
+        
+        // If there are legacy materials, create a filter group with them
+        if (Object.keys(legacyMaterials).length > 0) {
+          setFilterGroups([{
+            id: Date.now().toString(),
+            name: 'Filter Group 1',
+            filters: legacyMaterials,
+            technicalFilters: {}
+          }]);
+          console.log('Created filter group from legacy materials:', legacyMaterials);
+        }
+      }
+      
+      setFiltersInitialized(true);
+      console.log('Filters initialized from report criteria:', criteria);
+    }
+  }, [report, filtersInitialized]);
+
+  // Auto-select all countries when they're fetched and report doesn't specify countries
+  // This ensures UI matches data (all countries selected = showing all countries' records)
+  useEffect(() => {
+    // Only run when:
+    // 1. Filters have been initialized
+    // 2. Report doesn't specify countries (reportCountries is empty)
+    // 3. All countries have been fetched (allCountries has items)
+    // 4. No countries are currently selected
+    if (filtersInitialized && 
+        reportCountries.length === 0 && 
+        allCountries.length > 0 && 
+        countryFilters.length === 0) {
+      console.log('Auto-selecting all countries:', allCountries.length);
+      setCountryFilters([...allCountries]);
+    }
+  }, [filtersInitialized, reportCountries, allCountries, countryFilters.length]);
+
 
   const location = useLocation();
   const breadcrumbs = getBreadcrumbs(location.pathname, {
@@ -70,16 +222,56 @@ const ReportDetailPage = () => {
   });  
 
   // Build query filters for React Query
-  const queryFilters = useMemo(() => ({
-    page: currentPage,
-    page_size: pageSize,
-    search: searchQuery,
-    ordering: ordering,
-    countries: countryFilters,
-    categories: categoryFilters,
-    filter_groups: filterGroups.length > 0 ? JSON.stringify(filterGroups) : undefined,
-    ...filters
-  }), [currentPage, pageSize, searchQuery, ordering, countryFilters, categoryFilters, filterGroups, filters]);
+  // Logic for when to send filters:
+  // - Status & Categories: Always send (report always has these)
+  // - Countries: Only send if report specifies countries (otherwise show all)
+  // - Empty array = user explicitly deselected all = 0 results
+  const queryFilters = useMemo(() => {
+    console.log('Building queryFilters:', {
+      status: statusFilters,
+      categories: categoryFilters,
+      countries: countryFilters,
+      reportCountries,
+      filterGroups,
+      filtersInitialized
+    });
+    
+    // Only apply filters after initialization is complete
+    // This prevents sending empty filters before report criteria is loaded
+    if (!filtersInitialized) {
+      return {
+        page: currentPage,
+        page_size: pageSize,
+        search: searchQuery,
+        ordering: ordering,
+        ...filters
+      };
+    }
+    
+    // Build the query object
+    const query = {
+      page: currentPage,
+      page_size: pageSize,
+      search: searchQuery,
+      ordering: ordering,
+      // Categories and status are always defined in reports
+      categories: categoryFilters,
+      status: statusFilters,
+      // Always include filter_groups
+      filter_groups: JSON.stringify(filterGroups),
+      ...filters
+    };
+    
+    // Only include countries filter if:
+    // 1. The report originally specified countries (reportCountries.length > 0), OR
+    // 2. The user has explicitly selected countries (countryFilters.length > 0)
+    // If report doesn't specify countries and user hasn't selected any, don't filter by country
+    if (reportCountries.length > 0 || countryFilters.length > 0) {
+      query.countries = countryFilters;
+    }
+    
+    return query;
+  }, [currentPage, pageSize, searchQuery, ordering, countryFilters, categoryFilters, statusFilters, filterGroups, filters, filtersInitialized, reportCountries]);
 
   // Fetch records using React Query
   const { data: recordsData, isLoading: recordsLoading } = useCustomReportRecords(reportId, queryFilters);
@@ -89,52 +281,128 @@ const ReportDetailPage = () => {
   const totalCount = recordsData?.count || 0;
   const totalPages = Math.ceil(totalCount / pageSize);
 
-  // Fetch technical filter options based on report category
-  const reportCategory = report?.filter_criteria?.category ||
-                        report?.filter_criteria?.categories?.[0] ||
-                        'ALL';
+  // Fetch technical filter options based on report categories
+  // We need to store them in state since we're fetching for multiple categories
+  const [combinedTechnicalOptions, setCombinedTechnicalOptions] = useState([]);
 
-  const { data: technicalFilterOptions = [] } = useTechnicalFilterOptions(reportCategory);
-
-  // Fetch filter options and countries when report is loaded
+  // Fetch filter options and technical options for ALL report categories
   useEffect(() => {
-    if (report) {
-      const category = report.filter_criteria?.category ||
-                      report.filter_criteria?.categories?.[0] ||
-                      'ALL';
-      fetchFilterOptions(category);
-      fetchAllCountries();
+    if (report?.filter_criteria) {
+      const criteria = report.filter_criteria;
+      
+      // Extract categories handling all possible formats
+      let categories = [];
+      if (Array.isArray(criteria.categories) && criteria.categories.length > 0) {
+        categories = criteria.categories;
+      } else if (typeof criteria.categories === 'string' && criteria.categories) {
+        categories = [criteria.categories];
+      } else if (criteria.category) {
+        categories = [criteria.category];
+      }
+      
+      console.log('Fetching options for categories:', categories); // Debug
+      
+      // If no categories specified, fetch for 'ALL'
+      const categoriesToFetch = categories.length > 0 ? categories : ['ALL'];
+      
+      fetchFilterOptionsForCategories(categoriesToFetch);
+      fetchTechnicalOptionsForCategories(categoriesToFetch);
+      fetchAllCountriesForCategories(categoriesToFetch);
     }
   }, [report]);
 
-  const fetchFilterOptions = async (category) => {
+  const fetchFilterOptionsForCategories = async (categories) => {
     try {
-      const response = await api.get('/api/filter-options/', {
-        params: { category: category || 'ALL' }
-      });
-      setFilterOptions(response.data || []);
+      console.log('Fetching filter options for:', categories);
+      // Fetch filter options for all categories and combine
+      const allOptions = [];
+      const seenFields = new Set();
+      
+      for (const category of categories) {
+        const response = await api.get('/api/filter-options/', {
+          params: { category: category || 'ALL' }
+        });
+        
+        console.log(`Filter options for ${category}:`, response.data?.length);
+        
+        // Add unique options
+        for (const option of (response.data || [])) {
+          if (!seenFields.has(option.field)) {
+            seenFields.add(option.field);
+            allOptions.push(option);
+          }
+        }
+      }
+      
+      console.log('Total filter options:', allOptions.length);
+      setFilterOptions(allOptions);
     } catch (error) {
       console.error('Error fetching filter options:', error);
     }
   };
 
-  const fetchAllCountries = async () => {
+  const fetchTechnicalOptionsForCategories = async (categories) => {
     try {
-      const response = await api.get('/api/database-stats/');
-      setAllCountries(response.data.all_countries || []);
+      console.log('Fetching technical options for:', categories);
+      // Fetch technical filter options for all categories and combine
+      const allOptions = [];
+      const seenFields = new Set();
+      
+      for (const category of categories) {
+        const response = await api.get('/api/technical-filter-options/', {
+          params: { category: category || 'ALL' }
+        });
+        
+        console.log(`Technical options for ${category}:`, response.data?.length);
+        
+        // Add unique options
+        for (const option of (response.data || [])) {
+          if (!seenFields.has(option.field)) {
+            seenFields.add(option.field);
+            allOptions.push(option);
+          }
+        }
+      }
+      
+      console.log('Total technical options:', allOptions.length);
+      setCombinedTechnicalOptions(allOptions);
+    } catch (error) {
+      console.error('Error fetching technical filter options:', error);
+    }
+  };
+
+  const fetchAllCountriesForCategories = async (categories) => {
+    try {
+      console.log('Fetching countries for categories:', categories);
+      
+      // Build params for the API call
+      // Note: The backend may support filtering by categories parameter
+      const params = {};
+      if (categories.length > 0 && categories[0] !== 'ALL') {
+        params.categories = categories.join(',');
+        // Also try with 'category' param for backward compatibility
+        params.category = categories.join(',');
+      }
+      
+      const response = await api.get('/api/database-stats/', { params });
+      console.log('Database stats response:', response.data);
+      
+      // Try different ways to extract countries from response
+      let countries = [];
+      
+      if (response.data.all_countries && response.data.all_countries.length > 0) {
+        countries = response.data.all_countries;
+      } else if (response.data.by_country && response.data.by_country.length > 0) {
+        countries = response.data.by_country.map(c => c.country).filter(Boolean).sort();
+      }
+      
+      console.log('Fetched countries:', countries.length);
+      setAllCountries(countries);
     } catch (error) {
       console.error('Error fetching countries:', error);
     }
   };
 
-  const fetchAvailableCategories = async () => {
-    try {
-      const response = await api.get('/api/database-stats/');
-      setAvailableCategories(response.data.available_categories || []);
-    } catch (error) {
-      console.error('Error fetching categories:', error);
-    }
-  };
 
   const handleEditReport = () => {
     navigate(`/custom-reports/${reportId}/edit`);
@@ -187,12 +455,12 @@ const ReportDetailPage = () => {
     }
   };
 
-  const toggleRecordSelection = (factoryId) => {
+  const toggleRecordSelection = (companyId) => {
     const newSelected = new Set(selectedRecords);
-    if (newSelected.has(factoryId)) {
-      newSelected.delete(factoryId);
+    if (newSelected.has(companyId)) {
+      newSelected.delete(companyId);
     } else {
-      newSelected.add(factoryId);
+      newSelected.add(companyId);
     }
     setSelectedRecords(newSelected);
   };
@@ -201,9 +469,88 @@ const ReportDetailPage = () => {
     if (selectedRecords.size === records.length) {
       setSelectedRecords(new Set());
     } else {
-      setSelectedRecords(new Set(records.map(r => r.factory_id)));
+      setSelectedRecords(new Set(records.map(r => r.company_id)));
     }
   };
+
+  // Custom columns for Company Database data
+  const customColumns = useMemo(() => [
+    {
+      accessorKey: 'company_name',
+      header: 'Company Name',
+      minSize: 300,
+      cell: ({ row }) => (
+        <div className="font-medium text-gray-900 truncate">
+          {row.original.company_name}
+        </div>
+      ),
+      enableSorting: true,
+    },
+    {
+      accessorKey: 'country',
+      header: 'Country',
+      size: 150,
+      cell: ({ row }) => (
+        <div className="text-gray-700">
+          {row.original.country || '-'}
+        </div>
+      ),
+      enableSorting: true,
+    },
+    {
+      accessorKey: 'all_categories',
+      header: 'Categories',
+      size: 250,
+      cell: ({ row }) => {
+        // Get categories from all_categories (returned by API) or production_sites
+        const categories = row.original.all_categories || row.original.production_sites?.map(site => site.category) || [];
+        const uniqueCategories = [...new Set(categories)].filter(Boolean);
+        
+        if (uniqueCategories.length === 0) {
+          return <span className="text-gray-400">-</span>;
+        }
+        
+        return (
+          <div className="flex flex-wrap gap-1">
+            {uniqueCategories.slice(0, 3).map((category, index) => {
+              const colorClass = CATEGORY_COLORS[category] || 'bg-gray-100 text-gray-800';
+              const label = CATEGORY_LABELS[category] || category;
+              return (
+                <span
+                  key={index}
+                  className={`inline-flex px-2 py-0.5 text-xs font-medium rounded-full ${colorClass}`}
+                >
+                  {label}
+                </span>
+              );
+            })}
+            {uniqueCategories.length > 3 && (
+              <span className="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-600">
+                +{uniqueCategories.length - 3}
+              </span>
+            )}
+          </div>
+        );
+      },
+      enableSorting: false,
+    },
+    {
+      accessorKey: 'status',
+      header: 'Status',
+      size: 130,
+      cell: ({ row }) => {
+        const status = row.original.status;
+        const colorClass = STATUS_COLORS[status] || 'bg-gray-100 text-gray-800';
+        const label = STATUS_LABELS[status] || status || 'Unknown';
+        return (
+          <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${colorClass}`}>
+            {label}
+          </span>
+        );
+      },
+      enableSorting: true,
+    },
+  ], []);
 
     const getFilterCriteriaSummary = () => {
       if (!report?.filter_criteria) return [];
@@ -262,7 +609,7 @@ const ReportDetailPage = () => {
 
           // Technical Filters
           const technicalFilters = Object.entries(group.technicalFilters || {}).map(([field, config]) => {
-            const option = technicalFilterOptions.find(opt => opt.field === field);
+            const option = combinedTechnicalOptions.find(opt => opt.field === field);
             const label = option?.label || field.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
 
             if (config.mode === 'equals') {
@@ -357,7 +704,7 @@ const ReportDetailPage = () => {
 
           // Technical Filters
           const technicalFilters = Object.entries(group.technicalFilters || {}).map(([field, config]) => {
-            const option = technicalFilterOptions.find(opt => opt.field === field);
+            const option = combinedTechnicalOptions.find(opt => opt.field === field);
             const label = option?.label || field.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
 
             if (config.mode === 'equals') {
@@ -395,25 +742,93 @@ const ReportDetailPage = () => {
       return items;
     };
 
-      // NEW: Handle applying filter groups
-    const handleApplyFilterGroups = (newGroups) => {
+      // NEW: Handle applying filter groups - memoized to prevent infinite loops
+    const handleApplyFilterGroups = useCallback((newGroups) => {
       console.log('Applying filter groups:', newGroups);
       setFilterGroups(newGroups);
       setCurrentPage(1); // Reset to first page when filters change
       // Don't close the sidebar here - let the user close it manually
-    };
+    }, []);
 
-      // NEW: Reset filter groups
+      // NEW: Reset filter groups - reset to report's original filter criteria
     const handleResetFilterGroups = () => {
-      console.log('Resetting filter groups');
-      setFilterGroups([]);
-      setCountryFilters([]);
-      setCategoryFilters([]);
+      console.log('Resetting filter groups to report criteria');
+      
+      const criteria = report?.filter_criteria || {};
+      
+      // Reset to report's original filter groups (including materials)
+      let restoredFilterGroups = [];
+      
+      if (Array.isArray(criteria.filter_groups) && criteria.filter_groups.length > 0) {
+        // Deep copy the original filter groups
+        restoredFilterGroups = criteria.filter_groups.map(group => ({
+          id: group.id || Date.now().toString() + Math.random().toString(36).substr(2, 9),
+          name: group.name || 'Filter Group 1',
+          filters: { ...(group.filters || {}) },
+          technicalFilters: { ...(group.technicalFilters || {}) }
+        }));
+        console.log('Reset to original filter groups:', restoredFilterGroups);
+      } else {
+        // Check for legacy material filters at top level of filter_criteria
+        const legacyMaterials = {};
+        const excludedKeys = ['category', 'categories', 'country', 'status', 'filter_groups'];
+        Object.keys(criteria).forEach(key => {
+          if (!excludedKeys.includes(key) && typeof criteria[key] === 'boolean') {
+            legacyMaterials[key] = criteria[key];
+          }
+        });
+        
+        // If there are legacy materials, create a filter group with them
+        if (Object.keys(legacyMaterials).length > 0) {
+          restoredFilterGroups = [{
+            id: Date.now().toString(),
+            name: 'Filter Group 1',
+            filters: legacyMaterials,
+            technicalFilters: {}
+          }];
+          console.log('Reset to legacy materials:', legacyMaterials);
+        }
+      }
+      
+      setFilterGroups(restoredFilterGroups);
+      
+      // Reset to report's original countries (or all available if none specified)
+      if (Array.isArray(criteria.country) && criteria.country.length > 0) {
+        setCountryFilters([...criteria.country]);
+      } else {
+        // If report doesn't specify countries, select ALL available countries
+        setCountryFilters([...allCountries]);
+      }
+      
+      // Reset to report's original categories (select all available if none specified)
+      if (Array.isArray(criteria.categories) && criteria.categories.length > 0) {
+        setCategoryFilters([...criteria.categories]);
+      } else if (criteria.category) {
+        setCategoryFilters([criteria.category]);
+      } else {
+        // If report doesn't specify categories, keep the reportCategories (scope)
+        setCategoryFilters([...reportCategories]);
+      }
+      
+      // Reset to report's original status
+      if (Array.isArray(criteria.status) && criteria.status.length > 0) {
+        setStatusFilters([...criteria.status]);
+      } else if (criteria.status) {
+        setStatusFilters([criteria.status]);
+      } else {
+        setStatusFilters(['COMPLETE']);
+      }
+      
       setFilters({});
       setCurrentPage(1);
     };
 
-  // Calculate active filters count including filter groups
+  // Calculate active filters count - ONLY count user-applied filters that differ from report defaults
+  // In report context:
+  // - Status: only count if different from reportStatusFilters
+  // - Categories: only count if different from reportCategories (user deselected some)
+  // - Countries: only count if user selected specific countries (not all)
+  // - Materials/Technical: always count (these are additional user refinements)
   const groupFilterCount = filterGroups.reduce((sum, group) => {
     const booleanCount = Object.keys(group.filters || {}).length;
     const technicalCount = Object.entries(group.technicalFilters || {}).filter(([field, filter]) => {
@@ -427,13 +842,32 @@ const ReportDetailPage = () => {
     return sum + booleanCount + technicalCount;
   }, 0);
 
+  // Check if status differs from report default
+  const reportStatusSet = new Set(reportStatusFilters);
+  const statusDiffersFromReport = reportStatusFilters.length !== statusFilters.length || 
+    !statusFilters.every(s => reportStatusSet.has(s));
+  
+  // Check if categories differ from report default (all report categories selected)
+  const categoriesDifferFromReport = categoryFilters.length !== reportCategories.length;
+  
+  // Check if countries differ from report default (all countries selected)
+  const allCountriesSelected = allCountries.length > 0 && countryFilters.length === allCountries.length;
+  const countriesDifferFromReport = !allCountriesSelected && countryFilters.length > 0;
+
+  // Only count deviations from defaults, plus material/technical filters
   const activeFiltersCount =
-    countryFilters.length +
-    categoryFilters.length +
+    (statusDiffersFromReport ? statusFilters.length : 0) +
+    (categoriesDifferFromReport ? categoryFilters.length : 0) +
+    (countriesDifferFromReport ? countryFilters.length : 0) +
     groupFilterCount +
     Object.keys(filters).filter(key => filters[key] !== undefined).length;
 
   const filterCriteriaSummary = getFilterCriteriaSummary();
+
+  // Handle row click - navigate to client company view (read-only, filtered by report categories)
+  const handleRowClick = (record) => {
+    navigate(`/custom-reports/${reportId}/companies/${record.company_id}`);
+  };
 
   if (loading) {
     return (
@@ -532,51 +966,7 @@ const ReportDetailPage = () => {
             </div>
           </div>
 
-            {/* Filter Criteria - Show BOTH report criteria AND user-applied filters */}
-            {(() => {
-              const reportFilters = getFilterCriteriaSummary();
-              const userFilters = getUserAppliedFilters();
-              const allFilters = [...reportFilters, ...userFilters];
-
-              return allFilters.length > 0 && (
-                <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg p-4 border border-indigo-200 mb-6">
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
-                      <FilterIcon className="w-4 h-4 text-indigo-600" />
-                      Active Filters
-                    </h3>
-                    {userFilters.length > 0 && (
-                      <span className="text-xs text-indigo-600 font-medium">
-                        {reportFilters.length} from report + {userFilters.length} user-applied
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {allFilters.map((item, index) => (
-                      <span
-                        key={index}
-                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium ${
-                          item.isUserFilter
-                            ? 'bg-orange-100 text-orange-800 border border-orange-300'
-                            : item.isFilterGroup
-                            ? 'bg-purple-100 text-purple-800 border border-purple-300'
-                            : item.isBoolean
-                            ? item.boolValue
-                              ? 'bg-green-100 text-green-800 border border-green-300'
-                              : 'bg-red-100 text-red-800 border border-red-300'
-                            : 'bg-blue-100 text-blue-800 border border-blue-300'
-                        }`}
-                      >
-                        {item.isUserFilter && (
-                          <span className="text-orange-600">👤</span>
-                        )}
-                        <strong>{item.label}:</strong> {item.value}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              );
-            })()}
+            {/* Filter Criteria - REMOVED: Don't show report filters to clients */}
 
           {/* Action Bar */}
           <div className="flex items-center justify-between mb-6">
@@ -677,13 +1067,15 @@ const ReportDetailPage = () => {
               <div className="border rounded-lg overflow-hidden mb-4">
                 <DataTable
                   data={records}
-                  onRowClick={(record) => setSelectedRecord(record.factory_id)}
+                  onRowClick={handleRowClick}
                   isGuest={false}
                   selectedRecords={selectedRecords}
                   onSelectRecord={toggleRecordSelection}
                   onSelectAll={selectAllRecords}
                   onSort={setOrdering}
                   currentSort={ordering}
+                  customColumns={customColumns}
+                  idField="company_id"
                 />
               </div>
 
@@ -704,46 +1096,44 @@ const ReportDetailPage = () => {
         </div>
       </div>
 
-      {/* Filter Sidebar with Groups */}
+      {/* Filter Sidebar - Company Database */}
       {showFilters && (
-<FilterSidebarWithGroups
-  isOpen={showFilters}
-  onClose={() => setShowFilters(false)}
+        <CompanyFilterSidebar
+          isOpen={showFilters}
+          onClose={() => setShowFilters(false)}
 
-  // Filter Groups
-  filterGroups={filterGroups}
+          // Report context - restrict to report's filters
+          isReportContext={true}
+          reportStatusFilters={reportStatusFilters}
+          reportFilterGroups={report?.filter_criteria?.filter_groups || []}
 
-  // Filter Options
-  filterOptions={filterOptions}
-  technicalFilterOptions={technicalFilterOptions}
+          // Filter Groups
+          filterGroups={filterGroups}
 
-  // Countries - CORRECT PROP NAMES ✅
-  countryFilters={countryFilters}
-  onCountryFilterChange={setCountryFilters}
-  allCountries={allCountries}
+          // Filter Options - category-specific from parent
+          filterOptions={filterOptions}
+          technicalFilterOptions={combinedTechnicalOptions}
 
-  // Categories - CORRECT PROP NAMES ✅
-  categoryFilters={categoryFilters}
-  onCategoryFilterChange={setCategoryFilters}
-  availableCategories={availableCategories}
+          // Status Filters
+          statusFilters={statusFilters}
+          onStatusFilterChange={setStatusFilters}
 
-  // Actions
-  onApply={(newGroups) => {
-    handleApplyFilterGroups(newGroups);
-  }}
-  onReset={() => {
-    handleResetFilterGroups();
-    setShowFilters(false);
-  }}
-/>
-      )}
+          // Countries - if report specifies countries, use those; otherwise use all countries for the categories
+          countryFilters={countryFilters}
+          onCountryFilterChange={setCountryFilters}
+          allCountries={reportCountries.length > 0 ? reportCountries : allCountries}
 
-      {/* Detail Modal */}
-      {selectedRecord && (
-        <RecordDetailModal
-          factoryId={selectedRecord}
-          onClose={() => setSelectedRecord(null)}
-          isGuest={false}
+          // Categories - report's categories only
+          categoryFilters={categoryFilters}
+          onCategoryFilterChange={setCategoryFilters}
+          availableCategories={reportCategories}
+
+          // Actions - pass memoized handler directly to avoid new function references
+          onApply={handleApplyFilterGroups}
+          onReset={() => {
+            handleResetFilterGroups();
+            setShowFilters(false);
+          }}
         />
       )}
     </DashboardLayout>

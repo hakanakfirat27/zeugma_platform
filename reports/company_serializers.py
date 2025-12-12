@@ -28,7 +28,7 @@ from .fields import (
     INJECTION_FIELDS, BLOW_FIELDS, ROTO_FIELDS,
     PE_FILM_FIELDS, SHEET_FIELDS, PIPE_FIELDS,
     TUBE_HOSE_FIELDS, PROFILE_FIELDS, CABLE_FIELDS,
-    COMPOUNDER_FIELDS
+    COMPOUNDER_FIELDS, RECYCLER_FIELDS
 )
 
 User = get_user_model()
@@ -153,6 +153,7 @@ class ProductionSiteVersionDetailSerializer(serializers.ModelSerializer):
             'PROFILE': PROFILE_FIELDS,
             'CABLE': CABLE_FIELDS,
             'COMPOUNDER': COMPOUNDER_FIELDS,
+            'RECYCLER': RECYCLER_FIELDS,
         }
         category = obj.production_site.category
         return category_field_map.get(category, [])
@@ -427,6 +428,9 @@ class CompanyDetailSerializer(serializers.ModelSerializer):
             'title_3', 'initials_3', 'surname_3', 'position_3',
             'title_4', 'initials_4', 'surname_4', 'position_4',
             
+            # GDPR
+            'hide_contact_persons',
+            
             # Source tracking
             'project_code', 'source_project', 'legacy_factory_ids',
             
@@ -468,6 +472,7 @@ class CompanyCreateSerializer(serializers.ModelSerializer):
             'title_2', 'initials_2', 'surname_2', 'position_2',
             'title_3', 'initials_3', 'surname_3', 'position_3',
             'title_4', 'initials_4', 'surname_4', 'position_4',
+            'hide_contact_persons',
             'project_code', 'source_project'
         ]
     
@@ -520,6 +525,7 @@ class CompanyUpdateSerializer(serializers.ModelSerializer):
             'title_2', 'initials_2', 'surname_2', 'position_2',
             'title_3', 'initials_3', 'surname_3', 'position_3',
             'title_4', 'initials_4', 'surname_4', 'position_4',
+            'hide_contact_persons',
             'project_code'
         ]
     

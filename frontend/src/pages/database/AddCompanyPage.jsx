@@ -23,6 +23,7 @@ const CATEGORIES = [
   { value: 'PROFILE', label: 'Profile Extruders', color: 'bg-gray-100 text-gray-800 border-gray-300' },
   { value: 'CABLE', label: 'Cable Extruders', color: 'bg-pink-100 text-pink-800 border-pink-300' },
   { value: 'COMPOUNDER', label: 'Compounders', color: 'bg-indigo-100 text-indigo-800 border-indigo-300' },
+  { value: 'RECYCLER', label: 'Recyclers', color: 'bg-lime-100 text-lime-800 border-lime-300' },
 ];
 
 const STATUS_OPTIONS = [

@@ -44,7 +44,7 @@ const HomePage = () => {
                 <Database className="w-6 h-6 text-white" />
               </div>
               <span className="text-xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-                Zeugma Research
+                A Data
               </span>
             </div>
 
@@ -242,7 +242,7 @@ const HomePage = () => {
       <footer className="bg-white/60 backdrop-blur-sm border-t border-white/40 mt-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="text-center text-sm text-gray-600">
-            <p>© 2025 Zeugma Research. All rights reserved.</p>
+            <p>© 2025 A Data. All rights reserved.</p>
           </div>
         </div>
       </footer>

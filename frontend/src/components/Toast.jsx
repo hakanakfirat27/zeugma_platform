@@ -1,16 +1,23 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { CheckCircle, XCircle, AlertCircle, Info, X } from 'lucide-react';
 
-const Toast = ({ type = 'success', message, onClose, duration = 5000 }) => {
+const Toast = ({ type = 'success', message, onClose, duration = 4000 }) => {
+  const [isExiting, setIsExiting] = useState(false);
+
   useEffect(() => {
     if (duration) {
       const timer = setTimeout(() => {
-        onClose();
+        handleClose();
       }, duration);
 
       return () => clearTimeout(timer);
     }
-  }, [duration, onClose]);
+  }, [duration]);
+
+  const handleClose = () => {
+    setIsExiting(true);
+    setTimeout(() => onClose(), 200);
+  };
 
   const types = {
     success: {
@@ -43,14 +50,18 @@ const Toast = ({ type = 'success', message, onClose, duration = 5000 }) => {
 
   return (
     <div
-      className={`fixed top-4 right-4 z-50 flex items-center gap-3 px-4 py-3 rounded-lg border shadow-lg ${config.bg} ${config.border} animate-in slide-in-from-top-5 duration-300`}
+      className={`flex items-center gap-3 px-4 py-3 rounded-lg border shadow-lg bg-white transition-all duration-200 ease-out ${config.bg} ${config.border} ${
+        isExiting ? 'opacity-0 translate-x-4' : 'opacity-100 translate-x-0'
+      }`}
       role="alert"
+      style={{ minWidth: '280px', maxWidth: '400px' }}
     >
       {config.icon}
-      <p className={`text-sm font-medium ${config.text}`}>{message}</p>
+      <p className={`text-sm font-medium flex-1 ${config.text}`}>{message}</p>
       <button
-        onClick={onClose}
-        className={`ml-2 ${config.text} hover:opacity-70 transition-opacity`}
+        onClick={handleClose}
+        className={`ml-2 p-1 rounded-full hover:bg-black/5 transition-colors ${config.text}`}
+        aria-label="Close"
       >
         <X className="w-4 h-4" />
       </button>
@@ -60,8 +71,10 @@ const Toast = ({ type = 'success', message, onClose, duration = 5000 }) => {
 
 // Toast Container to manage multiple toasts
 export const ToastContainer = ({ toasts, removeToast }) => {
+  if (!toasts || toasts.length === 0) return null;
+  
   return (
-    <div className="fixed top-4 right-4 z-50 flex flex-col gap-2">
+    <div className="fixed top-4 right-4 z-[9999] flex flex-col gap-2 pointer-events-auto">
       {toasts.map((toast) => (
         <Toast
           key={toast.id}

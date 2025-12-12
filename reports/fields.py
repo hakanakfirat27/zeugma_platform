@@ -18,7 +18,42 @@ TUBE_HOSE_FIELDS = ['custom', 'in_house', 'proprietary_products', 'pvc', 'rigid_
 PROFILE_FIELDS = ['custom', 'in_house', 'proprietary_products', 'pvc', 'rigid_pvc', 'flexible_pvc', 'ldpe', 'hdpe', 'lldpe', 'pp', 'ps', 'pom', 'pa', 'abs', 'tpes', 'tpe_e', 'sebs', 'tpu', 'tpv', 'pmma', 'pc', 'pbt', 'wpc', 'other_materials', 'main_materials', 'compound_in_house', 'buy_in_compounds', 'polymer_range_number', 'polymer_range', 'door', 'window', 'seals_gaskets', 'soffits_bargeboard_compact', 'soffits_bargeboard_foamed', 'cladding', 'shutters', 'furniture', 'lighting', 'blinds', 'trunking', 'floor_panels', 'decking', 'other_products', 'main_applications', 'monolayer', 'multilayer', 'extrusion_foam', 'corrugated_extrusion', 'twin_wall', 'bi_colour', 'other_technologies', 'machinery_brand', 'number_of_machines', 'minimum_diameter_mm', 'maximum_diameter_mm', 'clean_room', 'tool_design', 'just_in_time', 'high_frequency_welding', 'ultrasonic_welding', 'other_welding', 'pad_printing', 'silk_screen_printing', 'hot_foil_stamping', 'other_printing', 'assembly', 'machining', 'recycling', 'other_services']
 CABLE_FIELDS = ['pvc', 'ldpe', 'cellular_pe', 'hdpe_mdpe', 'xlpe', 'pp', 'tpes', 'elastomers', 'lldpe', 'lsf0h', 'pbt', 'silicone', 'fluoropolymers', 'cpe', 'cspe', 'epr', 'epdm', 'eva', 'other_materials', 'main_materials', 'polymer_range_number', 'polymer_range', 'low_voltage_1k_insulation', 'medium_voltage_1_36k_insulation', 'high_voltage_36k_insulation', 'metallic_insulation', 'optical_insulation', 'automotive_insulation', 'mining_insulation', 'data_cable_insulation', 'computer_cable_insulation', 'microphone_cable_insulation', 'plenum_insulation', 'low_voltage_1k_jacketing', 'medium_voltage_1_36k_jacketing', 'high_voltage_36k_jacketing', 'metallic_jacketing', 'optical_jacketing', 'automotive_jacketing', 'mining_jacketing', 'microphone_cable_jacketing', 'computer_cable_jacketing', 'data_cable_jacketing', 'plenum_jacketing', 'other_products', 'main_applications', 'number_of_machines']
 COMPOUNDER_FIELDS = ['lldpe', 'ldpe', 'hdpe', 'ps', 'pp', 'rigid_pvc', 'flexible_pvc', 'pa', 'pc', 'abs', 'san', 'pet', 'acetal', 'pbt', 'tpes', 'other_materials', 'main_materials', 'reprocessing', 'colour_compounds', 'flame_retardant_compounds', 'mineral_filled_compounds', 'glass_filled_compounds', 'elastomer_modified_compounds', 'cross_linked_compounds', 'carbon_fibre_compounds', 'natural_fibre_compounds', 'other_compounds', 'compounds_percentage', 'compounds_applications', 'black_masterbatch', 'white_masterbatch', 'colour_masterbatch', 'additive_masterbatch', 'liquid_masterbatch', 'other_masterbatches', 'masterbatch_percentage', 'masterbatches_applications', 'main_applications', 'number_of_machines', 'twin_screw_extruders', 'single_screw_extruders', 'batch_mixers', 'polymer_producer', 'production_volume_number', 'polymer_range']
-ALL_COMMONS = list(dict.fromkeys(INJECTION_FIELDS + BLOW_FIELDS + ROTO_FIELDS + PE_FILM_FIELDS + SHEET_FIELDS + PIPE_FIELDS + TUBE_HOSE_FIELDS + PROFILE_FIELDS + CABLE_FIELDS + COMPOUNDER_FIELDS))
+
+# Recycler category fields
+RECYCLER_FIELDS = [
+    # Waste Sources
+    'house_municipal_source', 'commercial_source', 'industrial_source', 'agricultural_source',
+    # Waste Condition
+    'clean', 'dirty_soiled', 'wet_damp', 'hazardous', 'other_contaminations',
+    # Collection
+    'collection_service', 'minimum_volume_waste_accepted', 'maximum_capacity',
+    # Packaging Waste
+    'packaging_film', 'food_trays_containers', 'bottles', 'drum_crate_box', 'eps_packaging', 'other_packaging',
+    # Building Waste
+    'pvc_building_profiles', 'building_pipe', 'other_building',
+    # Agricultural Waste
+    'agricultural_film', 'agricultural_chemical_containers', 'agricultural_plant_containers',
+    # Automotive Waste
+    'automotive_elv', 'automotive_bumper', 'automotive_interior_trim', 'automotive_battery',
+    'automotive_fuel_tank', 'automotive_cable', 'other_automotive', 'recycle_non_elv',
+    # WEEE Waste
+    'weee', 'weee_large_appliance', 'weee_small_appliance', 'weee_it_electronic', 'other_weee', 'recycle_non_weee',
+    # Textile Waste
+    'textile_fibre_filament', 'textile_woven', 'textile_non_woven',
+    # Other Waste Types
+    'other_moulded_parts', 'medical', 'toys_sports_leisure', 'other_markets', 'main_source',
+    # Materials Processed
+    'lldpe', 'ldpe', 'hdpe', 'pp', 'ps', 'abs', 'pvc', 'pet', 'pa', 'pc', 'asa', 'pur', 'san', 'pmma', 'pom', 'pbt', 'tpes', 'other_materials', 'main_materials',
+    # Recycling Processes
+    'prewash', 'sorting', 'size_reduction', 'washing', 'separation', 'metal_detection', 'pelletising', 'other_mechanical_process',
+    'feedstock_chemical_recycling', 'number_of_recycling_lines', 'single_screws', 'twin_screws',
+    # Output Products
+    'regrind', 'agglomerate_crumbs', 'pellets', 'colour_compounds', 'filled_compounds', 'other_products',
+    # Applications
+    'food_grade', 'main_applications', 'finished_products', 'volume_of_recycled_product'
+]
+
+ALL_COMMONS = list(dict.fromkeys(INJECTION_FIELDS + BLOW_FIELDS + ROTO_FIELDS + PE_FILM_FIELDS + SHEET_FIELDS + PIPE_FIELDS + TUBE_HOSE_FIELDS + PROFILE_FIELDS + CABLE_FIELDS + COMPOUNDER_FIELDS + RECYCLER_FIELDS))
 
 
 MODAL_CONTACT_FIELDS = [

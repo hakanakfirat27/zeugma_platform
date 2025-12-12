@@ -1,18 +1,23 @@
 # reports/api_urls.py
 
 from django.urls import path, include
+from django.views.generic import RedirectView
 from . import views
 from rest_framework.routers import DefaultRouter
 from .views import (
-    SuperdatabaseRecordListAPIView,
+    # NOTE: SuperdatabaseRecordListAPIView and SuperdatabaseRecordDetailAPIView removed
+    # System now uses Company Database only
     DashboardStatsAPIView,
     EnhancedDashboardStatsAPIView,
     FilterOptionsAPIView,
-    TechnicalFilterOptionsAPIView,  # NEW: Import technical filter view
-    SuperdatabaseRecordDetailAPIView,
+    TechnicalFilterOptionsAPIView,
     DatabaseStatsAPIView,
     DashboardWidgetViewSet,
     EnabledWidgetsAPIView,
+)
+from .company_views import (
+    CompanyListCreateAPIView,
+    CompanyDetailAPIView,
 )
 from .custom_report_views import (
     CustomReportListCreateAPIView,
@@ -47,19 +52,22 @@ router = DefaultRouter()
 router.register(r'widgets', DashboardWidgetViewSet, basename='widget')
 
 urlpatterns = [
-    # Existing endpoints
-    path('records/', SuperdatabaseRecordListAPIView.as_view(), name='api-record-list'),
-    path('records/<uuid:factory_id>/', SuperdatabaseRecordDetailAPIView.as_view(), name='api-record-detail'),
+    # Company Database endpoints (replacing Superdatabase)
+    path('records/', CompanyListCreateAPIView.as_view(), name='api-record-list'),
+    path('records/<int:pk>/', CompanyDetailAPIView.as_view(), name='api-record-detail'),
     path('stats/', DashboardStatsAPIView.as_view(), name='api-dashboard-stats'),
     path('dashboard/', DashboardStatsAPIView.as_view(), name='dashboard-stats'),
     path('dashboard-stats/', EnhancedDashboardStatsAPIView.as_view(), name='api-enhanced-dashboard-stats'),
 
-    # Superdatabase endpoints
-    path('superdatabase/', SuperdatabaseRecordListAPIView.as_view(), name='superdatabase-list'),
-    path('superdatabase/<uuid:factory_id>/', SuperdatabaseRecordDetailAPIView.as_view(), name='superdatabase-detail'),
+    # Redirect old Superdatabase endpoints to Company Database
+    path('superdatabase/', CompanyListCreateAPIView.as_view(), name='superdatabase-list'),
+    path('superdatabase/<int:pk>/', CompanyDetailAPIView.as_view(), name='superdatabase-detail'),
+    
+    # Filter options (now query Company Database)
     path('filter-options/', FilterOptionsAPIView.as_view(), name='api-filter-options'),
     path('technical-filter-options/', TechnicalFilterOptionsAPIView.as_view(), name='api-technical-filter-options'),
-    # NEW
+    
+    # Database stats (queries Company Database)
     path('database-stats/', DatabaseStatsAPIView.as_view(), name='api-database-stats'),
     path('widgets/update_order/', views.update_widget_order, name='update_widget_order'),
 

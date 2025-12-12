@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useToast } from '../../contexts/ToastContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import useChatUnreadCount from '../../hooks/useChatUnreadCount';
@@ -15,6 +16,7 @@ import {
 
 const DataCollectorLayout = ({ children, pageTitle, headerActions, pageSubtitleTop, pageSubtitleBottom, breadcrumbs }) => {
   const { user, logout } = useAuth();
+  const toast = useToast();
   const navigate = useNavigate();
   const location = useLocation();
     
@@ -304,6 +306,11 @@ const DataCollectorLayout = ({ children, pageTitle, headerActions, pageSubtitleT
 
   const sidebarWidth = isSidebarOpen ? 'w-64' : 'w-20';
 
+  // Handle logout
+  const handleLogout = async () => {
+    await logout();
+  };
+
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
       {/* Bell animation CSS */}
@@ -353,7 +360,7 @@ const DataCollectorLayout = ({ children, pageTitle, headerActions, pageSubtitleT
               </div>
               {(isSidebarOpen) && (
                 <div className="transition-opacity duration-200">
-                  <h2 className="text-lg font-bold text-white">Zeugma</h2>
+                  <h2 className="text-lg font-bold text-white">A Data</h2>
                   <p className="text-xs text-slate-400">Data Collector Portal</p>
                 </div>
               )}
@@ -428,7 +435,7 @@ const DataCollectorLayout = ({ children, pageTitle, headerActions, pageSubtitleT
           </div>
           <div className="mt-3 space-y-2">
             <button
-              onClick={logout}
+              onClick={handleLogout}
               className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-300 hover:bg-red-600/10 hover:text-red-400 transition-all"
             >
               <LogOut className="w-5 h-5" />
@@ -702,7 +709,7 @@ const DataCollectorLayout = ({ children, pageTitle, headerActions, pageSubtitleT
                     <div className="p-2">
                       <button
                         onClick={() => {
-                          logout();
+                          handleLogout();
                           setShowAvatarMenu(false);
                         }}
                         className="w-full flex items-center gap-3 px-4 py-3 hover:bg-red-50 rounded-xl transition-colors text-left group"

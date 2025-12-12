@@ -19,6 +19,7 @@ export const AuthProvider = ({ children }) => {
     const handleStorageChange = (e) => {
       if (e.key === 'logout-event') {
         setUser(null);
+        sessionStorage.setItem('showLogoutToast', 'true');
         navigate('/login');
       }
     };
@@ -81,7 +82,7 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const logout = async () => {
+  const logout = async (showMessage = true) => {
     try {
       await api.post('/accounts/logout/');
     } catch (error) {
@@ -93,6 +94,12 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem('logout-event', Date.now().toString());
       setTimeout(() => localStorage.removeItem('logout-event'), 100);
 
+      // Set flag for success toast on login page
+      if (showMessage) {
+        sessionStorage.setItem('showLogoutToast', 'true');
+      }
+      
+      // Navigate to login
       navigate('/login');
     }
   };

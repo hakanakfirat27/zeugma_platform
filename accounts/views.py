@@ -27,9 +27,46 @@ import qrcode
 import io
 import base64
 from django.core.mail import EmailMultiAlternatives
+import ssl
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 
 User = get_user_model()
+
+
+def send_email_with_ssl_fix(to_email, subject, text_message, html_message=None):
+    """
+    Helper function to send email with SSL certificate verification disabled.
+    This fixes the SSL: CERTIFICATE_VERIFY_FAILED error in development.
+    """
+    try:
+        # Create unverified SSL context for development
+        ssl_context = ssl.create_default_context()
+        ssl_context.check_hostname = False
+        ssl_context.verify_mode = ssl.CERT_NONE
+        
+        if html_message:
+            msg = MIMEMultipart('alternative')
+            msg.attach(MIMEText(text_message, 'plain'))
+            msg.attach(MIMEText(html_message, 'html'))
+        else:
+            msg = MIMEMultipart()
+            msg.attach(MIMEText(text_message, 'plain'))
+        
+        msg['Subject'] = subject
+        msg['From'] = settings.DEFAULT_FROM_EMAIL
+        msg['To'] = to_email
+        
+        with smtplib.SMTP(settings.EMAIL_HOST, settings.EMAIL_PORT) as server:
+            server.starttls(context=ssl_context)
+            server.login(settings.EMAIL_HOST_USER, settings.EMAIL_HOST_PASSWORD)
+            server.sendmail(settings.EMAIL_HOST_USER, [to_email], msg.as_string())
+        
+        return True, None
+    except Exception as e:
+        return False, str(e)
 
 def broadcast_user_status(user_id, username, is_online):
     """
@@ -212,11 +249,11 @@ def create_user_send_email(request):
         password_link = f"{frontend_url}/create-password/{uid}/{token}/"
 
         # Send email
-        subject = 'Welcome to Zeugma Platform - Create Your Password'
+        subject = 'Welcome to A Data - Create Your Password'
         message = f"""
 Hello {user.first_name or user.username},
 
-Welcome to Zeugma Platform! Your account has been created.
+Welcome to A Data! Your account has been created.
 
 Please click the link below to create your password and complete your profile:
 
@@ -225,30 +262,23 @@ Please click the link below to create your password and complete your profile:
 This link will expire in 24 hours.
 
 Best regards,
-Zeugma Platform Team
+A Data Team
         """
 
-        try:
-            send_mail(
-                subject,
-                message,
-                settings.DEFAULT_FROM_EMAIL,
-                [user.email],
-                fail_silently=False,
-            )
-
+        success, error = send_email_with_ssl_fix(user.email, subject, message)
+        
+        if success:
             return Response({
                 'success': True,
                 'message': 'User created successfully. Password creation email sent.',
                 'user': UserSerializer(user).data
             }, status=status.HTTP_201_CREATED)
-
-        except Exception as e:
+        else:
             # If email fails, delete the user and return error
             user.delete()
             return Response({
                 'success': False,
-                'message': f'Failed to send email: {str(e)}'
+                'message': f'Failed to send email: {error}'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -450,7 +480,7 @@ def login_view(request):
             If you didn't try to log in, please secure your account immediately.
 
             Best regards,
-            Zeugma Platform Team
+            A Data Team
                         """
 
             # Professional HTML version
@@ -484,7 +514,7 @@ def login_view(request):
                                         </p>
 
                                         <p style="margin: 0 0 30px 0; font-size: 16px; line-height: 1.6; color: #4a4a4a;">
-                                            We received a login attempt for your Zeugma Platform account. Use the verification code below to complete your login:
+                                            We received a login attempt for your A Data account. Use the verification code below to complete your login:
                                         </p>
 
                                         <!-- Verification Code Box -->
@@ -508,7 +538,7 @@ def login_view(request):
                                 <tr>
                                     <td style="padding: 30px 40px 40px 40px; border-top: 1px solid #e5e7eb;">
                                         <p style="margin: 0; font-size: 12px; line-height: 1.5; color: #9ca3af; text-align: center;">
-                                            © {current_year} Zeugma Platform. All rights reserved.
+                                            © {current_year} A Data. All rights reserved.
                                         </p>
                                     </td>
                                 </tr>
@@ -521,14 +551,11 @@ def login_view(request):
                         """
 
             try:
-                email = EmailMultiAlternatives(
-                    subject,
-                    text_message,
-                    settings.DEFAULT_FROM_EMAIL,
-                    [user.email]
-                )
-                email.attach_alternative(html_message, "text/html")
-                email.send(fail_silently=False)
+                success, error = send_email_with_ssl_fix(user.email, subject, text_message, html_message)
+                if not success:
+                    return Response({
+                        'error': f'Failed to send verification code: {error}'
+                    }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
             except Exception as e:
                 return Response({
                     'error': 'Failed to send verification code. Please try again.'
@@ -712,11 +739,11 @@ def signup_with_verification(request):
         verification_link = f"{frontend_url}/verify-email/{uid}/{token}/"
 
         # Send verification email
-        subject = 'Verify Your Email - Zeugma Platform'
+        subject = 'Verify Your Email - A Data'
         message = f"""
 Hello {user.first_name or user.username},
 
-Thank you for signing up for Zeugma Platform!
+Thank you for signing up for A Data!
 
 Please verify your email address by clicking the link below:
 
@@ -727,23 +754,25 @@ This link will expire in 24 hours.
 If you didn't create an account, please ignore this email.
 
 Best regards,
-Zeugma Platform Team
+A Data Team
         """
 
         try:
-            send_mail(
-                subject,
-                message,
-                settings.DEFAULT_FROM_EMAIL,
-                [user.email],
-                fail_silently=False,
-            )
-
-            return Response({
-                'success': True,
-                'message': 'Account created successfully. Please check your email to verify your account.',
-                'email': user.email
-            }, status=status.HTTP_201_CREATED)
+            success, error = send_email_with_ssl_fix(user.email, subject, message)
+            
+            if success:
+                return Response({
+                    'success': True,
+                    'message': 'Account created successfully. Please check your email to verify your account.',
+                    'email': user.email
+                }, status=status.HTTP_201_CREATED)
+            else:
+                # If email fails, delete the user
+                user.delete()
+                return Response({
+                    'success': False,
+                    'message': f'Failed to send verification email: {error}'
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         except Exception as e:
             # If email fails, delete the user
@@ -830,7 +859,7 @@ def resend_verification_email(request):
         verification_link = f"{frontend_url}/verify-email/{uid}/{token}/"
 
         # Send email
-        subject = 'Verify Your Email - Zeugma Platform'
+        subject = 'Verify Your Email - A Data'
         message = f"""
 Hello {user.first_name or user.username},
 
@@ -841,21 +870,21 @@ Here is your new email verification link:
 This link will expire in 24 hours.
 
 Best regards,
-Zeugma Platform Team
+A Data Team
         """
 
-        send_mail(
-            subject,
-            message,
-            settings.DEFAULT_FROM_EMAIL,
-            [user.email],
-            fail_silently=False,
-        )
-
-        return Response({
-            'success': True,
-            'message': 'Verification email sent successfully'
-        })
+        success, error = send_email_with_ssl_fix(user.email, subject, message)
+        
+        if success:
+            return Response({
+                'success': True,
+                'message': 'Verification email sent successfully'
+            })
+        else:
+            return Response({
+                'success': False,
+                'message': f'Failed to send email: {error}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     except User.DoesNotExist:
         return Response({
@@ -1053,7 +1082,7 @@ def enable_email_2fa(request):
     If you didn't request this, please ignore this email.
 
     Best regards,
-    Zeugma Platform Team
+    A Data Team
         """
 
     # Professional HTML version
@@ -1087,7 +1116,7 @@ def enable_email_2fa(request):
                                 </p>
 
                                 <p style="margin: 0 0 30px 0; font-size: 16px; line-height: 1.6; color: #4a4a4a;">
-                                    You have requested to enable Two-Factor Authentication for your Zeugma Platform account. This adds an extra layer of security to protect your account.
+                                    You have requested to enable Two-Factor Authentication for your A Data account. This adds an extra layer of security to protect your account.
                                 </p>
 
                                 <p style="margin: 0 0 20px 0; font-size: 16px; line-height: 1.6; color: #4a4a4a;">
@@ -1115,7 +1144,7 @@ def enable_email_2fa(request):
                         <tr>
                             <td style="padding: 30px 40px 40px 40px; border-top: 1px solid #e5e7eb;">
                                 <p style="margin: 0; font-size: 12px; line-height: 1.5; color: #9ca3af; text-align: center;">
-                                    © {current_year} Zeugma Platform. All rights reserved.
+                                    © {current_year} A Data. All rights reserved.
                                 </p>
                             </td>
                         </tr>
@@ -1128,19 +1157,18 @@ def enable_email_2fa(request):
         """
 
     try:
-        email = EmailMultiAlternatives(
-            subject,
-            text_message,
-            settings.DEFAULT_FROM_EMAIL,
-            [user.email]
-        )
-        email.attach_alternative(html_message, "text/html")
-        email.send(fail_silently=False)
-
-        return Response({
-            'success': True,
-            'message': f'Verification code sent to {user.email}'
-        })
+        success, error = send_email_with_ssl_fix(user.email, subject, text_message, html_message)
+        
+        if success:
+            return Response({
+                'success': True,
+                'message': f'Verification code sent to {user.email}'
+            })
+        else:
+            return Response({
+                'success': False,
+                'message': f'Failed to send email: {error}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     except Exception as e:
         return Response({
             'success': False,
@@ -1233,7 +1261,7 @@ def send_2fa_code(request):
     If you didn't try to log in, please secure your account immediately.
 
     Best regards,
-    Zeugma Platform Team
+    A Data Team
         """
 
     # Professional HTML version
@@ -1267,7 +1295,7 @@ def send_2fa_code(request):
                                 </p>
 
                                 <p style="margin: 0 0 30px 0; font-size: 16px; line-height: 1.6; color: #4a4a4a;">
-                                    Here is your verification code to complete your login to Zeugma Platform:
+                                    Here is your verification code to complete your login to A Data:
                                 </p>
 
                                 <!-- Verification Code Box -->
@@ -1291,7 +1319,7 @@ def send_2fa_code(request):
                         <tr>
                             <td style="padding: 30px 40px 40px 40px; border-top: 1px solid #e5e7eb;">
                                 <p style="margin: 0; font-size: 12px; line-height: 1.5; color: #9ca3af; text-align: center;">
-                                    © {current_year} Zeugma Platform. All rights reserved.
+                                    © {current_year} A Data. All rights reserved.
                                 </p>
                             </td>
                         </tr>
@@ -1304,20 +1332,19 @@ def send_2fa_code(request):
         """
 
     try:
-        email = EmailMultiAlternatives(
-            subject,
-            text_message,
-            settings.DEFAULT_FROM_EMAIL,
-            [user.email]
-        )
-        email.attach_alternative(html_message, "text/html")
-        email.send(fail_silently=False)
-
-        return Response({
-            'success': True,
-            'message': f'Verification code sent to {user.email}',
-            'email': user.email
-        })
+        success, error = send_email_with_ssl_fix(user.email, subject, text_message, html_message)
+        
+        if success:
+            return Response({
+                'success': True,
+                'message': f'Verification code sent to {user.email}',
+                'email': user.email
+            })
+        else:
+            return Response({
+                'success': False,
+                'message': f'Failed to send email: {error}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     except Exception as e:
         return Response({
             'success': False,
@@ -1524,11 +1551,11 @@ def request_password_reset(request):
         current_year = datetime.datetime.now().year
 
         # Send email
-        subject = 'Reset Your Password - Zeugma Platform'
+        subject = 'Reset Your Password - A Data'
         message = f"""
 Hello {user.first_name or user.username},
 
-We received a request to reset your password for your Zeugma Platform account.
+We received a request to reset your password for your A Data account.
 
 Click the link below to reset your password:
 
@@ -1539,7 +1566,7 @@ This link will expire in 24 hours.
 If you didn't request a password reset, you can safely ignore this email.
 
 Best regards,
-Zeugma Platform Team
+A Data Team
         """
 
         # HTML version
@@ -1562,7 +1589,7 @@ Zeugma Platform Team
             <div class="container">
                 <div class="header">Reset Your Password</div>
                 <p>Hello {user.first_name or user.username},</p>
-                <p>We received a request to reset your password for your Zeugma Platform account.</p>
+                <p>We received a request to reset your password for your A Data account.</p>
                 <p>Click the button below to reset your password:</p>
                 <a href="{reset_link}" class="button">Reset Password</a>
                 <p>Or copy and paste this link into your browser:</p>
@@ -1570,7 +1597,7 @@ Zeugma Platform Team
                 <p>This link will expire in 24 hours.</p>
                 <p>If you didn't request a password reset, you can safely ignore this email.</p>
                 <div class="footer">
-                    <p>&copy; {current_year} Zeugma Platform. All rights reserved.</p>
+                    <p>&copy; {current_year} A Data. All rights reserved.</p>
                 </div>
             </div>
         </body>
@@ -1578,21 +1605,18 @@ Zeugma Platform Team
         """
 
         try:
-            from django.core.mail import EmailMultiAlternatives
+            success, error = send_email_with_ssl_fix(user.email, subject, message, html_message)
 
-            email_message = EmailMultiAlternatives(
-                subject,
-                message,
-                settings.DEFAULT_FROM_EMAIL,
-                [user.email]
-            )
-            email_message.attach_alternative(html_message, "text/html")
-            email_message.send(fail_silently=False)
-
-            return Response({
-                'success': True,
-                'message': f'Password reset instructions have been sent to {email}'
-            })
+            if success:
+                return Response({
+                    'success': True,
+                    'message': f'Password reset instructions have been sent to {email}'
+                })
+            else:
+                return Response({
+                    'success': False,
+                    'message': f'Failed to send email: {error}'
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         except Exception as e:
             return Response({

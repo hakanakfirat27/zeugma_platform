@@ -32,7 +32,8 @@ from .fields import (
     TUBE_HOSE_FIELDS,
     PROFILE_FIELDS,
     CABLE_FIELDS,
-    COMPOUNDER_FIELDS
+    COMPOUNDER_FIELDS,
+    RECYCLER_FIELDS
 )
 
 from .company_models import (
@@ -64,6 +65,7 @@ class SuperdatabaseRecordAdmin(admin.ModelAdmin):
             'PROFILE': ('Profile Extruder Details', PROFILE_FIELDS),
             'CABLE': ('Cable Extruder Details', CABLE_FIELDS),
             'COMPOUNDER': ('Compounder Details', COMPOUNDER_FIELDS),
+            'RECYCLER': ('Recycler Details', RECYCLER_FIELDS),
         }
 
         if obj.category in category_map:

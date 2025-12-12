@@ -44,7 +44,8 @@ const CATEGORY_COLORS = {
   TUBE_HOSE: 'bg-amber-100 text-amber-800',
   PROFILE: 'bg-gray-100 text-gray-800',
   CABLE: 'bg-pink-100 text-pink-800',
-  COMPOUNDER: 'bg-indigo-100 text-indigo-800'
+  COMPOUNDER: 'bg-indigo-100 text-indigo-800',
+  RECYCLER: 'bg-lime-100 text-lime-800'
 };
 
 const CATEGORY_DISPLAY = {
@@ -57,19 +58,22 @@ const CATEGORY_DISPLAY = {
   TUBE_HOSE: 'Tube & Hose Extruders',
   PROFILE: 'Profile Extruders',
   CABLE: 'Cable Extruders',
-  COMPOUNDER: 'Compounders'
+  COMPOUNDER: 'Compounders',
+  RECYCLER: 'Recyclers'
 };
 
 const STATUS_COLORS = {
   COMPLETE: 'bg-green-100 text-green-800 border-green-300',
   INCOMPLETE: 'bg-yellow-100 text-yellow-800 border-yellow-300',
-  DELETED: 'bg-red-100 text-red-800 border-red-300'
+  DELETED: 'bg-red-100 text-red-800 border-red-300',
+  NONE: 'bg-gray-100 text-gray-800 border-gray-300'
 };
 
 const STATUS_DISPLAY = {
   COMPLETE: 'Complete',
   INCOMPLETE: 'Incomplete',
-  DELETED: 'Deleted'
+  DELETED: 'Deleted',
+  NONE: 'None'
 };
 
 const CompanyDatabasePage = () => {
@@ -99,7 +103,7 @@ const CompanyDatabasePage = () => {
   const debouncedSearch = useDebounce(searchInput, 300);
   
   const [statusFilters, setStatusFilters] = useState(
-    searchParams.get('status')?.split(',').filter(Boolean) || ['COMPLETE', 'INCOMPLETE']
+    searchParams.get('status')?.split(',').filter(Boolean) || ['COMPLETE']
   );
   const [categoryFilters, setCategoryFilters] = useState(
     searchParams.get('category')?.split(',').filter(Boolean) || []
@@ -279,7 +283,7 @@ const CompanyDatabasePage = () => {
   };
 
   const clearFilters = () => {
-    setStatusFilters(['COMPLETE', 'INCOMPLETE']);
+    setStatusFilters(['COMPLETE']);  // Reset to new default (Complete only)
     setCategoryFilters([]);
     setCountryFilters([]);
     setSearchInput('');
@@ -287,9 +291,14 @@ const CompanyDatabasePage = () => {
     setCurrentPage(1);
   };
 
-  // Handle Create Report
+  // Handle Create Report - Navigate to Company Reports page
   const handleCreateReport = () => {
     const filterCriteria = {};
+
+    // Add status filters
+    if (statusFilters.length > 0 && statusFilters.length < 3) {
+      filterCriteria.status = statusFilters;
+    }
 
     if (categoryFilters.length > 0) {
       filterCriteria.categories = categoryFilters.length === 1
@@ -305,10 +314,11 @@ const CompanyDatabasePage = () => {
       filterCriteria.filter_groups = filterGroups;
     }
 
-    console.log('🚀 Navigating to Create Report with filters:', filterCriteria);
+    console.log('🚀 Navigating to Create Company Report with filters:', filterCriteria);
     console.log('📊 Total records:', totalCount);
 
-    navigate('/custom-reports/create', {
+    // Navigate to company-reports/create instead of custom-reports/create
+    navigate('/company-reports/create', {
       state: {
         filterCriteria: filterCriteria,
         recordCount: totalCount,
@@ -331,16 +341,14 @@ const CompanyDatabasePage = () => {
     return sum + booleanFilters + techFilters;
   }, 0);
 
-  // Check if status is non-default
-  const isStatusNonDefault = statusFilters.length !== 2 || 
-    !statusFilters.includes('COMPLETE') || 
-    !statusFilters.includes('INCOMPLETE');
+  // Check if status differs from default (Complete only)
+  const isStatusNonDefault = !(statusFilters.length === 1 && statusFilters[0] === 'COMPLETE');
 
   const activeFiltersCount = 
     categoryFilters.length + 
     countryFilters.length + 
     groupFilterCount +
-    (isStatusNonDefault ? 1 : 0) +
+    (isStatusNonDefault ? statusFilters.length : 0) +
     (debouncedSearch ? 1 : 0);
 
   // Check if any filters are active (for showing the Active Filters section)

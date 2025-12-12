@@ -267,7 +267,12 @@ EMAIL_PORT = config('EMAIL_PORT', default=587, cast=int)
 EMAIL_USE_TLS = config('EMAIL_USE_TLS', default=True, cast=bool)
 EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='')
 EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
-DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='Zeugma Platform <zeugma.research@gmail.com>')
+DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='A Data <zeugma.research@gmail.com>')
+
+# Disable SSL certificate verification for development (NOT for production!)
+if DEBUG:
+    import ssl
+    ssl._create_default_https_context = ssl._create_unverified_context
 
 # ==============================================================================
 # CELERY CONFIGURATION (Background tasks)

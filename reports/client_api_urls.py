@@ -11,7 +11,8 @@ from .client_views import (
     ClientFilterOptionsAPIView,
     ClientReportExportAPIView,
     ClientReportColumnsAPIView,
-    ClientTechnicalFilterOptionsAPIView
+    ClientTechnicalFilterOptionsAPIView,
+    ClientMaterialStatsAPIView
 )
 from .saved_search_views import (
     SavedSearchListCreateAPIView,
@@ -47,4 +48,7 @@ urlpatterns = [
     path('export-templates/<uuid:template_id>/', ExportTemplateDetailAPIView.as_view(), name='export-template-detail'),
     path('export-excel/', ExportToExcelAPIView.as_view(), name='export-excel'),
     path('report-columns/', ClientReportColumnsAPIView.as_view(), name='client-report-columns'),
+    
+    # Get material stats with filters applied
+    path('material-stats/', ClientMaterialStatsAPIView.as_view(), name='client-material-stats'),
 ]

@@ -1,24 +1,45 @@
 # reports/filters.py
+# NOTE: Updated to use Company Database instead of Superdatabase
 
 import django_filters
 from django.db.models import Q
-from .models import SuperdatabaseRecord
+from .company_models import Company, ProductionSiteVersion, CompanyStatus
 from .fields import ALL_COMMONS
 import json
 
 
-class SuperdatabaseRecordFilter(django_filters.FilterSet):
+class CompanyFilter(django_filters.FilterSet):
+    """
+    Filter for Company model (replaces SuperdatabaseRecordFilter).
+    Filters Companies based on their production site versions.
+    """
     categories = django_filters.CharFilter(method='filter_by_categories')
     countries = django_filters.CharFilter(method='filter_by_countries')
     filter_groups = django_filters.CharFilter(method='filter_by_groups')
+    search = django_filters.CharFilter(method='filter_by_search')
 
     class Meta:
-        model = SuperdatabaseRecord
-        fields = ALL_COMMONS
+        model = Company
+        fields = ['country', 'status']
+
+    def filter_by_search(self, queryset, name, value):
+        """
+        Handle text search across company fields.
+        """
+        if not value:
+            return queryset
+
+        return queryset.filter(
+            Q(company_name__icontains=value) |
+            Q(country__icontains=value) |
+            Q(address_1__icontains=value) |
+            Q(address_2__icontains=value)
+        )
 
     def filter_by_categories(self, queryset, name, value):
         """
         Handle comma-separated categories or 'ALL'.
+        Filters companies that have production sites in the given categories.
         """
         if not value or value.upper() == 'ALL':
             return queryset
@@ -27,11 +48,9 @@ class SuperdatabaseRecordFilter(django_filters.FilterSet):
         if not categories:
             return queryset
 
-        query = Q()
-        for category in categories:
-            query |= Q(category__iexact=category)
-
-        return queryset.filter(query)
+        return queryset.filter(
+            production_sites__category__in=categories
+        ).distinct()
 
     def filter_by_countries(self, queryset, name, value):
         """
@@ -53,8 +72,8 @@ class SuperdatabaseRecordFilter(django_filters.FilterSet):
     def filter_by_groups(self, queryset, name, value):
         """
         Handle filter groups with OR logic within groups and AND logic between groups.
-        NOW SUPPORTS: Boolean filters, Range filters (min/max), AND Equals filters.
-
+        NOW USES: Company Database (queries ProductionSiteVersion)
+        
         Expected format (JSON string):
         [
             {
@@ -98,17 +117,29 @@ class SuperdatabaseRecordFilter(django_filters.FilterSet):
             # Build OR query for all filters within this group
             group_query = Q()
 
-            # Handle boolean filters
+            # Handle boolean filters (query ProductionSiteVersion through production_sites)
             filters = group.get('filters', {})
             if filters:
                 for field_name, field_value in filters.items():
                     try:
-                        SuperdatabaseRecord._meta.get_field(field_name)
+                        ProductionSiteVersion._meta.get_field(field_name)
 
                         if field_value is True:
-                            group_query |= Q(**{field_name: True})
+                            group_query |= Q(
+                                production_sites__versions__is_current=True,
+                                **{f'production_sites__versions__{field_name}': True}
+                            )
                         elif field_value is False:
-                            group_query |= Q(**{field_name: False}) | Q(**{f'{field_name}__isnull': True})
+                            group_query |= (
+                                Q(
+                                    production_sites__versions__is_current=True,
+                                    **{f'production_sites__versions__{field_name}': False}
+                                ) |
+                                Q(
+                                    production_sites__versions__is_current=True,
+                                    **{f'production_sites__versions__{field_name}__isnull': True}
+                                )
+                            )
 
                     except Exception:
                         continue
@@ -121,7 +152,7 @@ class SuperdatabaseRecordFilter(django_filters.FilterSet):
                         continue
 
                     try:
-                        SuperdatabaseRecord._meta.get_field(field_name)
+                        field = ProductionSiteVersion._meta.get_field(field_name)
 
                         mode = filter_config.get('mode', 'range')
 
@@ -132,14 +163,16 @@ class SuperdatabaseRecordFilter(django_filters.FilterSet):
                             if equals_val != '' and equals_val is not None:
                                 try:
                                     # Try to convert to appropriate type
-                                    field = SuperdatabaseRecord._meta.get_field(field_name)
                                     if field.get_internal_type() == 'FloatField':
                                         equals_val = float(equals_val)
                                     else:
                                         equals_val = int(equals_val)
 
                                     # Add equals query with OR logic
-                                    group_query |= Q(**{field_name: equals_val})
+                                    group_query |= Q(
+                                        production_sites__versions__is_current=True,
+                                        **{f'production_sites__versions__{field_name}': equals_val}
+                                    )
                                 except (ValueError, TypeError):
                                     pass
 
@@ -149,41 +182,43 @@ class SuperdatabaseRecordFilter(django_filters.FilterSet):
                             max_val = filter_config.get('max', '')
 
                             # Build range query for this field
-                            range_query = Q()
+                            range_query = Q(production_sites__versions__is_current=True)
 
                             # Add minimum constraint if provided
                             if min_val != '' and min_val is not None:
                                 try:
-                                    field = SuperdatabaseRecord._meta.get_field(field_name)
                                     if field.get_internal_type() == 'FloatField':
                                         min_val = float(min_val)
                                     else:
                                         min_val = int(min_val)
-                                    range_query &= Q(**{f'{field_name}__gte': min_val})
+                                    range_query &= Q(**{f'production_sites__versions__{field_name}__gte': min_val})
                                 except (ValueError, TypeError):
                                     pass
 
                             # Add maximum constraint if provided
                             if max_val != '' and max_val is not None:
                                 try:
-                                    field = SuperdatabaseRecord._meta.get_field(field_name)
                                     if field.get_internal_type() == 'FloatField':
                                         max_val = float(max_val)
                                     else:
                                         max_val = int(max_val)
-                                    range_query &= Q(**{f'{field_name}__lte': max_val})
+                                    range_query &= Q(**{f'production_sites__versions__{field_name}__lte': max_val})
                                 except (ValueError, TypeError):
                                     pass
 
                             # Add to group query with OR logic
-                            if range_query:
-                                group_query |= range_query
+                            group_query |= range_query
 
                     except Exception:
                         continue
 
             # If we have filters in this group, AND it with the queryset
             if group_query:
-                queryset = queryset.filter(group_query)
+                queryset = queryset.filter(group_query).distinct()
 
         return queryset
+
+
+# Keep backward compatibility alias
+# DEPRECATED: Use CompanyFilter instead
+SuperdatabaseRecordFilter = CompanyFilter

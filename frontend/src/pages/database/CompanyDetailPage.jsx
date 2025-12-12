@@ -25,6 +25,7 @@ import {
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import DeleteConfirmationModal from '../../components/modals/DeleteConfirmationModal';
+import CountrySelector from '../../components/form/CountrySelector';
 import companyService from '../../services/companyService';
 import api from '../../utils/api';
 
@@ -35,7 +36,7 @@ const CATEGORY_DISPLAY = {
   INJECTION: 'Injection Moulders', BLOW: 'Blow Moulders', ROTO: 'Roto Moulders',
   PE_FILM: 'PE Film Extruders', SHEET: 'Sheet Extruders', PIPE: 'Pipe Extruders',
   TUBE_HOSE: 'Tube & Hose Extruders', PROFILE: 'Profile Extruders',
-  CABLE: 'Cable Extruders', COMPOUNDER: 'Compounders',
+  CABLE: 'Cable Extruders', COMPOUNDER: 'Compounders', RECYCLER: 'Recyclers',
 };
 
 const CATEGORY_OPTIONS = [
@@ -49,6 +50,7 @@ const CATEGORY_OPTIONS = [
   { value: 'PROFILE', label: 'Profile Extruders' },
   { value: 'CABLE', label: 'Cable Extruders' },
   { value: 'COMPOUNDER', label: 'Compounders' },
+  { value: 'RECYCLER', label: 'Recyclers' },
 ];
 
 const CATEGORY_COLORS = {
@@ -62,12 +64,14 @@ const CATEGORY_COLORS = {
   PROFILE: { bg: 'bg-slate-500', text: 'text-slate-600', light: 'bg-slate-50', border: 'border-slate-200' },
   CABLE: { bg: 'bg-pink-500', text: 'text-pink-600', light: 'bg-pink-50', border: 'border-pink-200' },
   COMPOUNDER: { bg: 'bg-indigo-500', text: 'text-indigo-600', light: 'bg-indigo-50', border: 'border-indigo-200' },
+  RECYCLER: { bg: 'bg-lime-500', text: 'text-lime-600', light: 'bg-lime-50', border: 'border-lime-200' },
 };
 
 const STATUS_OPTIONS = [
   { value: 'COMPLETE', label: 'Complete', color: 'bg-green-100 text-green-800 border-green-300' },
   { value: 'INCOMPLETE', label: 'Incomplete', color: 'bg-yellow-100 text-yellow-800 border-yellow-300' },
   { value: 'DELETED', label: 'Deleted', color: 'bg-red-100 text-red-800 border-red-300' },
+  { value: 'NONE', label: 'None', color: 'bg-gray-100 text-gray-800 border-gray-300' },
 ];
 
 // Fields allowed for company update (must match backend CompanyUpdateSerializer)
@@ -81,6 +85,7 @@ const ALLOWED_COMPANY_FIELDS = [
   'title_2', 'initials_2', 'surname_2', 'position_2',
   'title_3', 'initials_3', 'surname_3', 'position_3',
   'title_4', 'initials_4', 'surname_4', 'position_4',
+  'hide_contact_persons',
   'project_code'
 ];
 
@@ -225,6 +230,47 @@ const TwoFieldsRowEditable = ({ field1, field2, data, isEditing, onChange, isIna
         />
       </div>
     )}
+  </div>
+);
+
+// =============================================================================
+// REGION + COUNTRY ROW - Uses CountrySelector for Country field
+// =============================================================================
+const RegionCountryRowEditable = ({ data, isEditing, onChange, isInactive }) => (
+  <div className="flex flex-col md:flex-row md:gap-8 py-2 border-b border-gray-100">
+    {/* Region Field - Standard Text Input */}
+    <div className="flex-1 mb-3 md:mb-0">
+      <EditableField 
+        label="Region" 
+        value={data?.region} 
+        fieldKey="region"
+        isEditing={isEditing}
+        onChange={onChange}
+        isInactive={isInactive}
+      />
+    </div>
+    {/* Country Field - Uses CountrySelector */}
+    <div className="flex-1">
+      <div className="flex flex-col sm:flex-row sm:items-start">
+        <label className={`text-sm font-medium mb-1 sm:mb-0 sm:w-40 md:w-44 sm:flex-shrink-0 sm:pt-1.5 ${isInactive ? 'text-red-600' : 'text-gray-600'}`}>
+          Country:
+        </label>
+        <div className="flex-1">
+          {isEditing ? (
+            <CountrySelector
+              value={data?.country || ''}
+              onChange={(value) => onChange('country', value)}
+              label={null}
+              disabled={false}
+            />
+          ) : (
+            <div className={`w-full px-3 py-1.5 border rounded text-sm min-h-[32px] ${isInactive ? 'border-red-300 text-red-900 bg-red-50' : 'border-gray-300 text-gray-900 bg-white'}`}>
+              {data?.country || <span className="text-gray-400"></span>}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
   </div>
 );
 
@@ -650,6 +696,8 @@ const StatusChangeModal = ({ isOpen, onClose, onConfirm, currentStatus, newStatu
         return { label: 'Incomplete', color: 'text-yellow-600', bg: 'bg-yellow-100', icon: AlertCircle };
       case 'DELETED':
         return { label: 'Deleted', color: 'text-red-600', bg: 'bg-red-100', icon: Trash2 };
+      case 'NONE':
+        return { label: 'None', color: 'text-gray-600', bg: 'bg-gray-100', icon: FileText };
       default:
         return { label: status, color: 'text-gray-600', bg: 'bg-gray-100', icon: FileText };
     }
@@ -778,7 +826,8 @@ const StatusDropdown = ({ currentStatus, onChange, disabled }) => {
               >
                 <span className={`inline-block w-2 h-2 rounded-full mr-2 ${
                   option.value === 'COMPLETE' ? 'bg-green-500' :
-                  option.value === 'INCOMPLETE' ? 'bg-yellow-500' : 'bg-red-500'
+                  option.value === 'INCOMPLETE' ? 'bg-yellow-500' :
+                  option.value === 'DELETED' ? 'bg-red-500' : 'bg-gray-400'
                 }`} />
                 {option.label}
               </button>
@@ -872,6 +921,17 @@ const CompanyDetailPage = () => {
         bannerMessage: 'This company record is complete and verified',
         borderColor: 'border-emerald-200',
         headerBg: 'bg-emerald-50',
+      };
+    }
+    if (company?.status === 'NONE') {
+      return {
+        pageBg: 'bg-gray-50',
+        bannerBg: 'bg-gray-500',
+        bannerText: 'text-white',
+        bannerIcon: FileText,
+        bannerMessage: 'This company has no status assigned',
+        borderColor: 'border-gray-200',
+        headerBg: 'bg-gray-50',
       };
     }
     return {
@@ -1526,72 +1586,132 @@ const CompanyDetailPage = () => {
                     isInactive={isDeleted}
                   />
                   
-                  {companyFieldPairs.map((pair, idx) => (
-                    <TwoFieldsRowEditable 
-                      key={idx}
-                      field1={pair.field1}
-                      field2={pair.field2}
-                      data={displayCompanyData}
-                      isEditing={isEditing}
-                      onChange={handleCompanyFieldChange}
-                      isInactive={isDeleted}
-                    />
-                  ))}
+                  {companyFieldPairs.map((pair, idx) => {
+                    // Special handling for Region + Country row (uses CountrySelector)
+                    if (pair.field1?.key === 'region' && pair.field2?.key === 'country') {
+                      return (
+                        <RegionCountryRowEditable
+                          key={idx}
+                          data={displayCompanyData}
+                          isEditing={isEditing}
+                          onChange={handleCompanyFieldChange}
+                          isInactive={isDeleted}
+                        />
+                      );
+                    }
+                    // Standard row for other field pairs
+                    return (
+                      <TwoFieldsRowEditable 
+                        key={idx}
+                        field1={pair.field1}
+                        field2={pair.field2}
+                        data={displayCompanyData}
+                        isEditing={isEditing}
+                        onChange={handleCompanyFieldChange}
+                        isInactive={isDeleted}
+                      />
+                    );
+                  })}
                 </div>
               )}
 
               {/* Contact Information Tab */}
               {activeInfoTab === 'contact' && (
                 <div>
-                  {[1, 2, 3, 4].map(n => (
-                    <div key={n} className="mb-6 last:mb-0">
-                      <div className="flex flex-col md:flex-row md:gap-8 py-2 border-b border-gray-100">
-                        <div className="flex-1 mb-3 md:mb-0">
-                          <EditableField 
-                            label={`Title ${n}`} 
-                            value={displayCompanyData?.[`title_${n}`]}
-                            fieldKey={`title_${n}`}
-                            isEditing={isEditing}
-                            onChange={handleCompanyFieldChange}
-                            isInactive={isDeleted}
-                          />
-                        </div>
-                        <div className="flex-1">
-                          <EditableField 
-                            label={`Initials ${n}`} 
-                            value={displayCompanyData?.[`initials_${n}`]}
-                            fieldKey={`initials_${n}`}
-                            isEditing={isEditing}
-                            onChange={handleCompanyFieldChange}
-                            isInactive={isDeleted}
-                          />
-                        </div>
+                  {/* GDPR Compliance Checkbox */}
+                  <div className={`mb-6 p-4 rounded-lg border-2 ${displayCompanyData?.hide_contact_persons ? 'bg-amber-50 border-amber-300' : 'bg-gray-50 border-gray-200'}`}>
+                    <div className="flex items-start gap-3">
+                      <div className="flex items-center h-6">
+                        <input
+                          type="checkbox"
+                          id="hide_contact_persons"
+                          checked={displayCompanyData?.hide_contact_persons || false}
+                          onChange={isEditing ? (e) => handleCompanyFieldChange('hide_contact_persons', e.target.checked) : undefined}
+                          readOnly={!isEditing}
+                          className={`w-5 h-5 rounded focus:ring-amber-500 ${isEditing ? 'cursor-pointer' : 'cursor-default'} border-amber-400 text-amber-600`}
+                        />
                       </div>
-                      <div className="flex flex-col md:flex-row md:gap-8 py-2 border-b border-gray-100">
-                        <div className="flex-1 mb-3 md:mb-0">
-                          <EditableField 
-                            label={`Surname ${n}`} 
-                            value={displayCompanyData?.[`surname_${n}`]}
-                            fieldKey={`surname_${n}`}
-                            isEditing={isEditing}
-                            onChange={handleCompanyFieldChange}
-                            isInactive={isDeleted}
-                          />
-                        </div>
-                        <div className="flex-1">
-                          <EditableField 
-                            label={`Position ${n}`} 
-                            value={displayCompanyData?.[`position_${n}`]}
-                            fieldKey={`position_${n}`}
-                            isEditing={isEditing}
-                            onChange={handleCompanyFieldChange}
-                            isInactive={isDeleted}
-                          />
-                        </div>
+                      <div className="flex-1">
+                        <label htmlFor="hide_contact_persons" className={`text-sm font-semibold ${displayCompanyData?.hide_contact_persons ? 'text-amber-800' : 'text-gray-700'} ${isEditing ? 'cursor-pointer' : ''}`}>
+                          🔒 Hide Contact Persons (GDPR Compliance)
+                        </label>
+                        <p className="text-xs text-gray-500 mt-1">
+                          {displayCompanyData?.hide_contact_persons 
+                            ? '⚠️ Contact person information is hidden due to GDPR. Uncheck this box if permission has been obtained to display contact information.'
+                            : 'Check this box if we do not have permission to display the contact person information for this company (GDPR compliance).'
+                          }
+                        </p>
                       </div>
-                      {n < 4 && <div className="border-b-2 border-gray-300 my-4"></div>}
                     </div>
-                  ))}
+                  </div>
+
+                  {/* Contact Persons - Only show if hide_contact_persons is false */}
+                  {displayCompanyData?.hide_contact_persons ? (
+                    <div className="text-center py-12 bg-amber-50 rounded-lg border-2 border-dashed border-amber-300">
+                      <div className="text-5xl mb-4">🔒</div>
+                      <h4 className="text-lg font-semibold text-amber-800 mb-2">Contact Information Hidden</h4>
+                      <p className="text-sm text-amber-700 max-w-md mx-auto">
+                        Contact person details are not displayed due to GDPR compliance. 
+                        We do not have permission from this company to display their contact information.
+                      </p>
+                      {isEditing && (
+                        <p className="text-xs text-amber-600 mt-4">
+                          Uncheck the box above to display contact information if permission has been obtained.
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    /* Show contact persons when permission is granted */
+                    [1, 2, 3, 4].map(n => (
+                      <div key={n} className="mb-6 last:mb-0">
+                        <div className="flex flex-col md:flex-row md:gap-8 py-2 border-b border-gray-100">
+                          <div className="flex-1 mb-3 md:mb-0">
+                            <EditableField 
+                              label={`Title ${n}`} 
+                              value={displayCompanyData?.[`title_${n}`]}
+                              fieldKey={`title_${n}`}
+                              isEditing={isEditing}
+                              onChange={handleCompanyFieldChange}
+                              isInactive={isDeleted}
+                            />
+                          </div>
+                          <div className="flex-1">
+                            <EditableField 
+                              label={`Initials ${n}`} 
+                              value={displayCompanyData?.[`initials_${n}`]}
+                              fieldKey={`initials_${n}`}
+                              isEditing={isEditing}
+                              onChange={handleCompanyFieldChange}
+                              isInactive={isDeleted}
+                            />
+                          </div>
+                        </div>
+                        <div className="flex flex-col md:flex-row md:gap-8 py-2 border-b border-gray-100">
+                          <div className="flex-1 mb-3 md:mb-0">
+                            <EditableField 
+                              label={`Surname ${n}`} 
+                              value={displayCompanyData?.[`surname_${n}`]}
+                              fieldKey={`surname_${n}`}
+                              isEditing={isEditing}
+                              onChange={handleCompanyFieldChange}
+                              isInactive={isDeleted}
+                            />
+                          </div>
+                          <div className="flex-1">
+                            <EditableField 
+                              label={`Position ${n}`} 
+                              value={displayCompanyData?.[`position_${n}`]}
+                              fieldKey={`position_${n}`}
+                              isEditing={isEditing}
+                              onChange={handleCompanyFieldChange}
+                              isInactive={isDeleted}
+                            />
+                          </div>
+                        </div>
+                        {n < 4 && <div className="border-b-2 border-gray-300 my-4"></div>}
+                      </div>
+                    ))
+                  )}
                 </div>
               )}
 

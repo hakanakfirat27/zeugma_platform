@@ -20,7 +20,8 @@ from .fields import (
     TUBE_HOSE_FIELDS,
     PROFILE_FIELDS,
     CABLE_FIELDS,
-    COMPOUNDER_FIELDS
+    COMPOUNDER_FIELDS,
+    RECYCLER_FIELDS
 )
 
 User = get_user_model()
@@ -42,6 +43,7 @@ def get_category_fields(category):
         'PROFILE': PROFILE_FIELDS,
         'CABLE': CABLE_FIELDS,
         'COMPOUNDER': COMPOUNDER_FIELDS,
+        'RECYCLER': RECYCLER_FIELDS,
     }
     
     category_specific_fields = CATEGORY_FIELD_MAP.get(category, [])

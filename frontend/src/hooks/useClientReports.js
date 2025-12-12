@@ -22,6 +22,22 @@ export const useClientReportData = (reportId, filters) => {
       if (filters.countries?.length > 0) {
         params.append('countries', filters.countries.join(','));
       }
+      
+      // Handle categories filter - IMPORTANT: send as comma-separated string, or omit if empty
+      if (filters.categories && filters.categories.length > 0) {
+        params.append('categories', filters.categories.join(','));
+      } else if (filters.categories && filters.categories.length === 0) {
+        // Send a special marker to indicate "no categories" (should return 0 results)
+        params.append('categories', '__NONE__');
+      }
+      
+      // Handle status filter - IMPORTANT: send as comma-separated string, or omit if empty
+      if (filters.status && filters.status.length > 0) {
+        params.append('status', filters.status.join(','));
+      } else if (filters.status && filters.status.length === 0) {
+        // Send a special marker to indicate "no status" (should return 0 results)
+        params.append('status', '__NONE__');
+      }
 
       // NEW: Handle filter groups (now with technicalFilters support)
       if (filters.filter_groups) {
@@ -57,6 +73,22 @@ export const useClientReportStats = (reportId, filters) => {
       }
       if (filters.countries?.length > 0) {
         params.append('countries', filters.countries.join(','));
+      }
+      
+      // Handle categories filter - IMPORTANT: send as comma-separated string, or omit if empty
+      if (filters.categories && filters.categories.length > 0) {
+        params.append('categories', filters.categories.join(','));
+      } else if (filters.categories && filters.categories.length === 0) {
+        // Send a special marker to indicate "no categories" (should return 0 results)
+        params.append('categories', '__NONE__');
+      }
+      
+      // Handle status filter - IMPORTANT: send as comma-separated string, or omit if empty
+      if (filters.status && filters.status.length > 0) {
+        params.append('status', filters.status.join(','));
+      } else if (filters.status && filters.status.length === 0) {
+        // Send a special marker to indicate "no status" (should return 0 results)
+        params.append('status', '__NONE__');
       }
 
       // NEW: Handle filter groups (now with technicalFilters support)
@@ -116,6 +148,46 @@ export const useClientReportTechnicalFilterOptions = (reportId) => {
     },
     enabled: !!reportId,
     staleTime: 300000,
+  });
+};
+
+export const useClientMaterialStats = (reportId, filters) => {
+  return useQuery({
+    queryKey: ['client-material-stats', reportId, filters],
+    queryFn: async () => {
+      const params = new URLSearchParams({ report_id: reportId });
+
+      if (filters.search?.trim()) {
+        params.append('search', filters.search.trim());
+      }
+      if (filters.countries?.length > 0) {
+        params.append('countries', filters.countries.join(','));
+      }
+      
+      // Handle categories filter
+      if (filters.categories && filters.categories.length > 0) {
+        params.append('categories', filters.categories.join(','));
+      } else if (filters.categories && filters.categories.length === 0) {
+        params.append('categories', '__NONE__');
+      }
+      
+      // Handle status filter
+      if (filters.status && filters.status.length > 0) {
+        params.append('status', filters.status.join(','));
+      } else if (filters.status && filters.status.length === 0) {
+        params.append('status', '__NONE__');
+      }
+
+      // Handle filter groups
+      if (filters.filter_groups) {
+        params.append('filter_groups', filters.filter_groups);
+      }
+
+      const response = await api.get(`/api/client/material-stats/?${params.toString()}`);
+      return response.data;
+    },
+    enabled: !!reportId,
+    staleTime: 30000,
   });
 };
 

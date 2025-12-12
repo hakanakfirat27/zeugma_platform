@@ -5,23 +5,23 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
-from django_filters.rest_framework import DjangoFilterBackend  # ADD THIS
-from rest_framework.filters import SearchFilter, OrderingFilter  # ADD THIS
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework.filters import SearchFilter, OrderingFilter
 from dateutil.relativedelta import relativedelta
 
 from accounts.models import User, UserRole
 from .models import (
-    CustomReport, Subscription, SuperdatabaseRecord,
+    CustomReport, Subscription,
     SubscriptionPlan, SubscriptionStatus
 )
 from .serializers import (
     CustomReportSerializer, CustomReportListSerializer,
     SubscriptionSerializer, SubscriptionCreateSerializer,
-    ClientSerializer, ReportPreviewSerializer,
-    SuperdatabaseRecordSerializer
+    ClientSerializer, ReportPreviewSerializer
 )
+from .company_serializers import CompanyListSerializer
+from .company_models import Company, CompanyStatus, ProductionSiteVersion
 from .pagination import CustomPagination
-from .filters import SuperdatabaseRecordFilter
 from notifications.services import NotificationService
 
 class CustomReportListCreateAPIView(generics.ListCreateAPIView):
@@ -107,163 +107,180 @@ class ReportPreviewAPIView(APIView):
     """
     Preview a report based on filter criteria.
     Returns sample records and statistics.
-    Supports both single category and multiple categories.
+    Now queries Company Database only.
     """
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
+        from .company_models import Company, ProductionSiteVersion, CompanyStatus
+        import json
+        
         filter_criteria = request.data.get('filter_criteria', {})
-        # Start with all records
-        queryset = SuperdatabaseRecord.objects.all()
-
-        # Handle categories (can be single string or array of strings)
+        
+        # Start with all non-deleted companies
+        queryset = Company.objects.exclude(status=CompanyStatus.DELETED)
+        
+        # Handle status filters
+        if 'status' in filter_criteria:
+            status_list = filter_criteria['status']
+            if isinstance(status_list, list) and len(status_list) > 0:
+                queryset = queryset.filter(status__in=status_list)
+            elif isinstance(status_list, str):
+                queryset = queryset.filter(status=status_list)
+        
+        # Handle categories (filter companies that have production sites with these categories)
         if 'categories' in filter_criteria:
             categories = filter_criteria['categories']
             if isinstance(categories, list) and len(categories) > 0:
-                # Multiple categories - use OR logic
-                category_query = Q()
-                for category in categories:
-                    category_query |= Q(category__iexact=category)
-                queryset = queryset.filter(category_query)
-                print(f"✅ Applied multiple categories filter. Count: {queryset.count()}")
-            elif isinstance(categories, str):
-                # Single category as string
-                queryset = queryset.filter(category__iexact=categories)
-                print(f"✅ Applied single category filter. Count: {queryset.count()}")
-
-        # Backward compatibility: handle old 'category' field (single category)
+                queryset = queryset.filter(
+                    production_sites__category__in=categories,
+                    production_sites__versions__is_current=True
+                ).distinct()
+            elif isinstance(categories, str) and categories:
+                queryset = queryset.filter(
+                    production_sites__category=categories,
+                    production_sites__versions__is_current=True
+                ).distinct()
         elif 'category' in filter_criteria and filter_criteria['category']:
-            queryset = queryset.filter(category__iexact=filter_criteria['category'])
-            print(f"✅ Applied legacy 'category' filter. Count: {queryset.count()}")
-
+            queryset = queryset.filter(
+                production_sites__category=filter_criteria['category'],
+                production_sites__versions__is_current=True
+            ).distinct()
+        
         # Apply country filter
         if 'country' in filter_criteria:
             countries = filter_criteria['country']
             if isinstance(countries, list) and len(countries) > 0:
                 queryset = queryset.filter(country__in=countries)
-                print(f"🌍 Applied country filter: {countries}. Count: {queryset.count()}")
-
-        # NEW: Handle filter groups with both boolean AND technical filters
+        
+        # Handle filter groups with material filters
         if 'filter_groups' in filter_criteria:
             filter_groups = filter_criteria['filter_groups']
             if isinstance(filter_groups, list):
                 for group in filter_groups:
                     if not isinstance(group, dict):
                         continue
-
-                    # Build OR query for all filters within this group
+                    
                     group_query = Q()
-
-                    # Handle boolean filters
+                    
+                    # Boolean filters (materials)
                     filters = group.get('filters', {})
-                    if filters:
+                    if filters and isinstance(filters, dict):
                         for field_name, field_value in filters.items():
                             try:
-                                SuperdatabaseRecord._meta.get_field(field_name)
-
+                                ProductionSiteVersion._meta.get_field(field_name)
                                 if field_value is True:
-                                    group_query |= Q(**{field_name: True})
+                                    group_query |= Q(
+                                        production_sites__versions__is_current=True,
+                                        **{f'production_sites__versions__{field_name}': True}
+                                    )
                                 elif field_value is False:
-                                    group_query |= Q(**{field_name: False}) | Q(**{f'{field_name}__isnull': True})
+                                    group_query |= (
+                                        Q(
+                                            production_sites__versions__is_current=True,
+                                            **{f'production_sites__versions__{field_name}': False}
+                                        ) |
+                                        Q(
+                                            production_sites__versions__is_current=True,
+                                            **{f'production_sites__versions__{field_name}__isnull': True}
+                                        )
+                                    )
                             except Exception:
                                 continue
-
-                    # Handle technical filters (with equals and range modes)
+                    
+                    # Technical filters
                     technical_filters = group.get('technicalFilters', {})
                     if technical_filters:
                         for field_name, filter_config in technical_filters.items():
                             if not isinstance(filter_config, dict):
                                 continue
-
                             try:
-                                SuperdatabaseRecord._meta.get_field(field_name)
-
+                                field = ProductionSiteVersion._meta.get_field(field_name)
                                 mode = filter_config.get('mode', 'range')
-
+                                
                                 if mode == 'equals':
                                     equals_val = filter_config.get('equals', '')
-
                                     if equals_val != '' and equals_val is not None:
                                         try:
-                                            field = SuperdatabaseRecord._meta.get_field(field_name)
                                             if field.get_internal_type() == 'FloatField':
                                                 equals_val = float(equals_val)
                                             else:
                                                 equals_val = int(equals_val)
-
-                                            group_query |= Q(**{field_name: equals_val})
+                                            group_query |= Q(
+                                                production_sites__versions__is_current=True,
+                                                **{f'production_sites__versions__{field_name}': equals_val}
+                                            )
                                         except (ValueError, TypeError):
                                             pass
-
                                 elif mode == 'range':
                                     min_val = filter_config.get('min', '')
                                     max_val = filter_config.get('max', '')
-
-                                    range_query = Q()
-
+                                    range_query = Q(production_sites__versions__is_current=True)
+                                    
                                     if min_val != '' and min_val is not None:
                                         try:
-                                            field = SuperdatabaseRecord._meta.get_field(field_name)
                                             if field.get_internal_type() == 'FloatField':
                                                 min_val = float(min_val)
                                             else:
                                                 min_val = int(min_val)
-                                            range_query &= Q(**{f'{field_name}__gte': min_val})
+                                            range_query &= Q(**{f'production_sites__versions__{field_name}__gte': min_val})
                                         except (ValueError, TypeError):
                                             pass
-
+                                    
                                     if max_val != '' and max_val is not None:
                                         try:
-                                            field = SuperdatabaseRecord._meta.get_field(field_name)
                                             if field.get_internal_type() == 'FloatField':
                                                 max_val = float(max_val)
                                             else:
                                                 max_val = int(max_val)
-                                            range_query &= Q(**{f'{field_name}__lte': max_val})
+                                            range_query &= Q(**{f'production_sites__versions__{field_name}__lte': max_val})
                                         except (ValueError, TypeError):
                                             pass
-
-                                    if range_query:
-                                        group_query |= range_query
-
+                                    
+                                    group_query |= range_query
                             except Exception:
                                 continue
-
-                    # AND this group with the queryset
+                    
                     if group_query:
-                        queryset = queryset.filter(group_query)
-                        print(f"🔧 Applied filter group. Count: {queryset.count()}")
-
-        # Apply remaining boolean filters (backward compatibility - not in filter_groups)
-        for field, value in filter_criteria.items():
-            if field not in ['category', 'categories', 'country', 'filter_groups']:
-                if isinstance(value, bool):
-                    queryset = queryset.filter(**{field: value})
-                    print(f"🔧 Applied boolean filter {field}={value}. Count: {queryset.count()}")
-
+                        queryset = queryset.filter(group_query).distinct()
+        
         total_records = queryset.count()
-        # Get sample records (first 10)
-        sample_records = queryset[:10]
-
+        
+        # Get sample companies (first 10)
+        sample_companies = queryset[:10]
+        
         # Get field breakdown
         field_breakdown = {}
-
+        
         # Count by category
-        category_breakdown = queryset.values('category').annotate(
-            count=Count('id')
+        category_breakdown = queryset.filter(
+            production_sites__versions__is_current=True
+        ).values('production_sites__category').annotate(
+            count=Count('id', distinct=True)
         ).order_by('-count')
-        field_breakdown['categories'] = list(category_breakdown)
-
+        field_breakdown['categories'] = [
+            {'category': item['production_sites__category'], 'count': item['count']}
+            for item in category_breakdown if item['production_sites__category']
+        ]
+        
         # Count by country (top 10)
         country_breakdown = queryset.values('country').annotate(
             count=Count('id')
         ).filter(country__isnull=False).order_by('-count')[:10]
         field_breakdown['countries'] = list(country_breakdown)
-
+        
+        # Count by status
+        status_breakdown = {
+            'complete': queryset.filter(status=CompanyStatus.COMPLETE).count(),
+            'incomplete': queryset.filter(status=CompanyStatus.INCOMPLETE).count(),
+            'deleted': queryset.filter(status=CompanyStatus.DELETED).count(),
+        }
+        field_breakdown['status'] = status_breakdown
+        
         return Response({
             'total_records': total_records,
             'filter_criteria': filter_criteria,
-            'sample_records': SuperdatabaseRecordSerializer(sample_records, many=True).data,
+            'sample_records': CompanyListSerializer(sample_companies, many=True).data,
             'field_breakdown': field_breakdown
         })
 
@@ -271,15 +288,12 @@ class ReportRecordsAPIView(generics.ListAPIView):
     """
     Get all records for a specific custom report.
     Staff can access any report. Clients can only access reports they have active subscriptions to.
-    Supports multi-category filtering.
+    Now defaults to Company Database.
     """
-    serializer_class = SuperdatabaseRecordSerializer
     pagination_class = CustomPagination
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
-    filterset_class = SuperdatabaseRecordFilter
-    search_fields = ['company_name', 'country', 'region']
-    ordering_fields = ['company_name', 'country', 'last_updated']
     permission_classes = [IsAuthenticated]
+    serializer_class = CompanyListSerializer
 
     def get_queryset(self):
         from accounts.models import UserRole
@@ -289,13 +303,13 @@ class ReportRecordsAPIView(generics.ListAPIView):
         report_id = self.kwargs.get('report_id')
 
         if not report_id:
-            return SuperdatabaseRecord.objects.none()
+            return Company.objects.none()
 
         try:
             # Get the report
             report = CustomReport.objects.get(report_id=report_id)
         except CustomReport.DoesNotExist:
-            return SuperdatabaseRecord.objects.none()
+            return Company.objects.none()
 
         # Check permissions
         if self.request.user.role == UserRole.CLIENT:
@@ -312,76 +326,66 @@ class ReportRecordsAPIView(generics.ListAPIView):
                     end_date__gte=today
                 )
             except Subscription.DoesNotExist:
-                return SuperdatabaseRecord.objects.none()
+                return Company.objects.none()
         elif self.request.user.role not in [UserRole.SUPERADMIN, UserRole.STAFF_ADMIN]:
             # Only staff and clients can access reports
-            return SuperdatabaseRecord.objects.none()
+            return Company.objects.none()
 
-        # Start with all records
-        queryset = SuperdatabaseRecord.objects.all()
+        # All reports now use Company Database
+        return self._get_company_database_queryset(report)
 
-        # Apply report's filter criteria
+    def _get_company_database_queryset(self, report):
+        """Get filtered queryset for Company Database reports"""
+        from .company_models import Company, ProductionSiteVersion
+        import json
+
         filter_criteria = report.filter_criteria or {}
+        queryset = Company.objects.all()
 
-        # ========================================
-        # STEP 1: Apply report's FILTER GROUPS (if exists)
-        # ========================================
-        if 'filter_groups' in filter_criteria:
-            filter_groups = filter_criteria['filter_groups']
-            if isinstance(filter_groups, list):
-                for group in filter_groups:
-                    if not isinstance(group, dict) or 'filters' not in group:
-                        continue
+        # Handle status filters (Company Database specific)
+        if 'status' in filter_criteria:
+            status_list = filter_criteria['status']
+            if isinstance(status_list, list) and len(status_list) > 0:
+                queryset = queryset.filter(status__in=status_list)
+            elif isinstance(status_list, str):
+                queryset = queryset.filter(status=status_list)
+        else:
+            # Default: exclude deleted companies
+            queryset = queryset.exclude(status=CompanyStatus.DELETED)
 
-                    filters = group.get('filters', {})
-                    if not filters:
-                        continue
-
-                    # Build OR query for all filters within this group
-                    group_query = Q()
-
-                    for field_name, field_value in filters.items():
-                        try:
-                            SuperdatabaseRecord._meta.get_field(field_name)
-
-                            if field_value is True:
-                                group_query |= Q(**{field_name: True})
-                            elif field_value is False:
-                                group_query |= Q(**{field_name: False}) | Q(**{f'{field_name}__isnull': True})
-                        except Exception:
-                            continue
-
-                    # AND this group with the queryset
-                    if group_query:
-                        queryset = queryset.filter(group_query)
-                        print(f"✅ Applied filter group with {len(filters)} filters")
-
-        # ========================================
-        # STEP 2: Build Q object for OTHER filters (legacy support)
-        # ========================================
-        filter_q = Q()
-
-        # Handle categories (can be single string or array of strings)
-        if 'categories' in filter_criteria:
-            categories = filter_criteria['categories']
-            if isinstance(categories, list) and len(categories) > 0:
-                # Multiple categories - use OR logic
-                category_query = Q()
-                for category in categories:
-                    category_query |= Q(category__iexact=category)
-                filter_q &= category_query
-            elif isinstance(categories, str):
-                # Single category as string
-                filter_q &= Q(category__iexact=categories)
-        # Backward compatibility: handle old 'category' field (single category)
-        elif 'category' in filter_criteria and filter_criteria['category']:
-            filter_q &= Q(category__iexact=filter_criteria['category'])
-        # Handle country filter
+        # Handle countries
         if 'country' in filter_criteria:
             countries = filter_criteria['country']
             if isinstance(countries, list) and len(countries) > 0:
-                filter_q &= Q(country__in=countries)
-        # NEW: Handle filter groups with both boolean AND technical filters
+                queryset = queryset.filter(country__in=countries)
+            elif isinstance(countries, str) and countries:
+                queryset = queryset.filter(country=countries)
+
+        # Handle categories (filter companies that have production sites with these categories)
+        # FIXED: Also ensure we only look at current/active versions
+        if 'categories' in filter_criteria:
+            categories = filter_criteria['categories']
+            if isinstance(categories, list) and len(categories) > 0:
+                queryset = queryset.filter(
+                    production_sites__category__in=categories,
+                    production_sites__versions__is_current=True,
+                    production_sites__versions__is_active=True
+                ).distinct()
+            elif isinstance(categories, str) and categories:
+                queryset = queryset.filter(
+                    production_sites__category=categories,
+                    production_sites__versions__is_current=True,
+                    production_sites__versions__is_active=True
+                ).distinct()
+        elif 'category' in filter_criteria and filter_criteria['category']:
+            queryset = queryset.filter(
+                production_sites__category=filter_criteria['category'],
+                production_sites__versions__is_current=True,
+                production_sites__versions__is_active=True
+            ).distinct()
+
+        # Handle filter groups with material filters
+        # FIXED: Use 'versions__is_current' instead of 'current_version' (which is a property)
         if 'filter_groups' in filter_criteria:
             filter_groups = filter_criteria['filter_groups']
             if isinstance(filter_groups, list):
@@ -389,146 +393,204 @@ class ReportRecordsAPIView(generics.ListAPIView):
                     if not isinstance(group, dict):
                         continue
 
-                    # Build OR query for all filters within this group
                     group_query = Q()
 
-                    # Handle boolean filters
+                    # Boolean filters (materials)
                     filters = group.get('filters', {})
-                    if filters:
+                    if filters and isinstance(filters, dict):
                         for field_name, field_value in filters.items():
                             try:
-                                SuperdatabaseRecord._meta.get_field(field_name)
+                                # Check if field exists on ProductionSiteVersion
+                                ProductionSiteVersion._meta.get_field(field_name)
 
                                 if field_value is True:
-                                    group_query |= Q(**{field_name: True})
+                                    # FIXED: Use versions__is_current=True instead of current_version
+                                    group_query |= Q(
+                                        production_sites__versions__is_current=True,
+                                        **{f'production_sites__versions__{field_name}': True}
+                                    )
                                 elif field_value is False:
-                                    group_query |= Q(**{field_name: False}) | Q(**{f'{field_name}__isnull': True})
+                                    group_query |= (
+                                        Q(
+                                            production_sites__versions__is_current=True,
+                                            **{f'production_sites__versions__{field_name}': False}
+                                        ) |
+                                        Q(
+                                            production_sites__versions__is_current=True,
+                                            **{f'production_sites__versions__{field_name}__isnull': True}
+                                        )
+                                    )
                             except Exception:
                                 continue
 
-                    # Handle technical filters (with equals and range modes)
-                    technical_filters = group.get('technicalFilters', {})
-                    if technical_filters:
-                        for field_name, filter_config in technical_filters.items():
-                            if not isinstance(filter_config, dict):
-                                continue
-
-                            try:
-                                SuperdatabaseRecord._meta.get_field(field_name)
-
-                                mode = filter_config.get('mode', 'range')
-
-                                if mode == 'equals':
-                                    equals_val = filter_config.get('equals', '')
-
-                                    if equals_val != '' and equals_val is not None:
-                                        try:
-                                            field = SuperdatabaseRecord._meta.get_field(field_name)
-                                            if field.get_internal_type() == 'FloatField':
-                                                equals_val = float(equals_val)
-                                            else:
-                                                equals_val = int(equals_val)
-
-                                            group_query |= Q(**{field_name: equals_val})
-                                        except (ValueError, TypeError):
-                                            pass
-
-                                elif mode == 'range':
-                                    min_val = filter_config.get('min', '')
-                                    max_val = filter_config.get('max', '')
-
-                                    range_query = Q()
-
-                                    if min_val != '' and min_val is not None:
-                                        try:
-                                            field = SuperdatabaseRecord._meta.get_field(field_name)
-                                            if field.get_internal_type() == 'FloatField':
-                                                min_val = float(min_val)
-                                            else:
-                                                min_val = int(min_val)
-                                            range_query &= Q(**{f'{field_name}__gte': min_val})
-                                        except (ValueError, TypeError):
-                                            pass
-
-                                    if max_val != '' and max_val is not None:
-                                        try:
-                                            field = SuperdatabaseRecord._meta.get_field(field_name)
-                                            if field.get_internal_type() == 'FloatField':
-                                                max_val = float(max_val)
-                                            else:
-                                                max_val = int(max_val)
-                                            range_query &= Q(**{f'{field_name}__lte': max_val})
-                                        except (ValueError, TypeError):
-                                            pass
-
-                                    if range_query:
-                                        group_query |= range_query
-
-                            except Exception:
-                                continue
-
-                    # AND this group with the queryset
+                    # Apply group query
                     if group_query:
-                        queryset = queryset.filter(group_query)
-                        print(f"🔧 Applied filter group. Count: {queryset.count()}")
+                        queryset = queryset.filter(group_query).distinct()
 
-        # Handle all other filters (materials, properties, etc.)
-        for field, value in filter_criteria.items():
-            # Skip already processed fields
-            if field in ['category', 'categories', 'country', 'filter_groups']:
-                continue
+        # Apply user's additional category filter from query params (overrides report categories)
+        # IMPORTANT: If user explicitly provides empty categories, return no results
+        user_categories_param = self.request.query_params.get('categories')
+        if user_categories_param is not None:  # Parameter was provided (could be empty string)
+            user_categories = [c.strip() for c in user_categories_param.split(',') if c.strip()]
+            if user_categories:
+                # User has selected specific categories - filter to those only
+                queryset = queryset.filter(
+                    production_sites__category__in=user_categories,
+                    production_sites__versions__is_current=True,
+                    production_sites__versions__is_active=True
+                ).distinct()
+            else:
+                # User explicitly deselected all categories - return no results
+                return Company.objects.none()
 
-            if value is not None:
-                if isinstance(value, bool):
-                    # Boolean filter
-                    filter_q &= Q(**{field: value})
-                elif isinstance(value, list):
-                    # List of values
-                    if len(value) > 0:
-                        filter_q &= Q(**{f"{field}__in": value})
-        # Apply all filters
-        if filter_q:
-            queryset = queryset.filter(filter_q)
+        # Apply user's additional country filter from query params
+        # IMPORTANT: If user explicitly provides empty countries, return no results
+        user_countries_param = self.request.query_params.get('countries')
+        if user_countries_param is not None:  # Parameter was provided (could be empty string)
+            user_countries = [c.strip() for c in user_countries_param.split(',') if c.strip()]
+            if user_countries:
+                queryset = queryset.filter(country__in=user_countries)
+            else:
+                # User explicitly deselected all countries - return no results
+                return Company.objects.none()
 
-        # ========================================
-        # STEP 3: Apply USER'S FILTER GROUPS (from query params)
-        # ========================================
+        # Apply user's additional status filter from query params
+        # IMPORTANT: If user explicitly provides empty status, return no results
+        user_status_param = self.request.query_params.get('status')
+        if user_status_param is not None:  # Parameter was provided (could be empty string)
+            user_statuses = [s.strip() for s in user_status_param.split(',') if s.strip()]
+            if user_statuses:
+                queryset = queryset.filter(status__in=user_statuses)
+            else:
+                # User explicitly deselected all statuses - return no results
+                return Company.objects.none()
+
+        # Apply user's additional filter groups from query params
+        # This handles materials, business type, and technical filters
         user_filter_groups_param = self.request.query_params.get('filter_groups')
-        if user_filter_groups_param:
+        if user_filter_groups_param is not None and user_filter_groups_param != '':
             try:
                 user_filter_groups = json.loads(user_filter_groups_param)
-                if isinstance(user_filter_groups, list):
+                print(f'Parsed filter_groups: {user_filter_groups}')
+                
+                if isinstance(user_filter_groups, list) and len(user_filter_groups) > 0:
                     for group in user_filter_groups:
-                        if not isinstance(group, dict) or 'filters' not in group:
+                        if not isinstance(group, dict):
                             continue
 
-                        filters = group.get('filters', {})
-                        if not filters:
-                            continue
-
-                        # Build OR query for all filters within this group
                         group_query = Q()
+                        has_filters = False
 
-                        for field_name, field_value in filters.items():
-                            try:
-                                SuperdatabaseRecord._meta.get_field(field_name)
+                        # Handle boolean filters (materials, business type)
+                        filters = group.get('filters', {})
+                        if filters and isinstance(filters, dict):
+                            for field_name, field_value in filters.items():
+                                try:
+                                    ProductionSiteVersion._meta.get_field(field_name)
+                                    has_filters = True
+                                    if field_value is True:
+                                        group_query |= Q(
+                                            production_sites__versions__is_current=True,
+                                            production_sites__versions__is_active=True,
+                                            **{f'production_sites__versions__{field_name}': True}
+                                        )
+                                    elif field_value is False:
+                                        group_query |= (
+                                            Q(
+                                                production_sites__versions__is_current=True,
+                                                production_sites__versions__is_active=True,
+                                                **{f'production_sites__versions__{field_name}': False}
+                                            ) |
+                                            Q(
+                                                production_sites__versions__is_current=True,
+                                                production_sites__versions__is_active=True,
+                                                **{f'production_sites__versions__{field_name}__isnull': True}
+                                            )
+                                        )
+                                except Exception as e:
+                                    print(f'Error processing filter {field_name}: {e}')
+                                    continue
 
-                                if field_value is True:
-                                    group_query |= Q(**{field_name: True})
-                                elif field_value is False:
-                                    group_query |= Q(**{field_name: False}) | Q(**{f'{field_name}__isnull': True})
-                            except Exception:
-                                continue
+                        # Handle technical filters (numeric ranges/equals)
+                        technical_filters = group.get('technicalFilters', {})
+                        if technical_filters and isinstance(technical_filters, dict):
+                            for field_name, filter_config in technical_filters.items():
+                                if not isinstance(filter_config, dict):
+                                    continue
+                                try:
+                                    field = ProductionSiteVersion._meta.get_field(field_name)
+                                    mode = filter_config.get('mode', 'range')
+                                    
+                                    if mode == 'equals':
+                                        equals_val = filter_config.get('equals', '')
+                                        if equals_val != '' and equals_val is not None:
+                                            try:
+                                                if field.get_internal_type() == 'FloatField':
+                                                    equals_val = float(equals_val)
+                                                else:
+                                                    equals_val = int(equals_val)
+                                                has_filters = True
+                                                group_query |= Q(
+                                                    production_sites__versions__is_current=True,
+                                                    production_sites__versions__is_active=True,
+                                                    **{f'production_sites__versions__{field_name}': equals_val}
+                                                )
+                                            except (ValueError, TypeError):
+                                                pass
+                                    elif mode == 'range':
+                                        min_val = filter_config.get('min', '')
+                                        max_val = filter_config.get('max', '')
+                                        range_query = Q(
+                                            production_sites__versions__is_current=True,
+                                            production_sites__versions__is_active=True
+                                        )
+                                        has_range = False
+                                        
+                                        if min_val != '' and min_val is not None:
+                                            try:
+                                                if field.get_internal_type() == 'FloatField':
+                                                    min_val = float(min_val)
+                                                else:
+                                                    min_val = int(min_val)
+                                                range_query &= Q(**{f'production_sites__versions__{field_name}__gte': min_val})
+                                                has_range = True
+                                            except (ValueError, TypeError):
+                                                pass
+                                        
+                                        if max_val != '' and max_val is not None:
+                                            try:
+                                                if field.get_internal_type() == 'FloatField':
+                                                    max_val = float(max_val)
+                                                else:
+                                                    max_val = int(max_val)
+                                                range_query &= Q(**{f'production_sites__versions__{field_name}__lte': max_val})
+                                                has_range = True
+                                            except (ValueError, TypeError):
+                                                pass
+                                        
+                                        if has_range:
+                                            has_filters = True
+                                            group_query |= range_query
+                                except Exception as e:
+                                    print(f'Error processing technical filter {field_name}: {e}')
+                                    continue
 
-                        # AND this group with the queryset
-                        if group_query:
-                            queryset = queryset.filter(group_query)
-                            print(f"✅ Applied user filter group with {len(filters)} filters")
-            except (json.JSONDecodeError, TypeError):
-                pass
+                        if has_filters and group_query:
+                            print(f'Applying group filter: {group_query}')
+                            queryset = queryset.filter(group_query).distinct()
+            except (json.JSONDecodeError, TypeError) as e:
+                print(f'Error parsing filter_groups: {e}')
 
-        count = queryset.count()
-        return queryset
+        # Apply search from query params
+        search = self.request.query_params.get('search', '')
+        if search:
+            queryset = queryset.filter(
+                Q(company_name__icontains=search) |
+                Q(country__icontains=search) |
+                Q(region__icontains=search)
+            )
+
+        return queryset.order_by('company_name')
 
 # ============= SUBSCRIPTION VIEWS =============
 

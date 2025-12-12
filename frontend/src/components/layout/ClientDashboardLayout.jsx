@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useToast } from '../../contexts/ToastContext';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import Breadcrumb from '../Breadcrumb';
 import axios from 'axios';
@@ -16,6 +17,7 @@ import useAnnouncementBadge from '../../hooks/useAnnouncementBadge';
 
 const ClientDashboardLayout = ({ children, pageTitle, pageSubtitleTop, pageSubtitleBottom, breadcrumbs }) => {
   const { user, logout } = useAuth();
+  const toast = useToast();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -467,6 +469,11 @@ const ClientDashboardLayout = ({ children, pageTitle, pageSubtitleTop, pageSubti
 
   const sidebarWidth = isSidebarOpen ? 'w-64' : 'w-20';
 
+  // Handle logout
+  const handleLogout = async () => {
+    await logout();
+  };
+
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
       {/* Add bell ring animation */}
@@ -516,7 +523,7 @@ const ClientDashboardLayout = ({ children, pageTitle, pageSubtitleTop, pageSubti
               </div>
               {(isSidebarOpen) && (
                 <div className="transition-opacity duration-200">
-                  <h2 className="text-lg font-bold text-white">Zeugma</h2>
+                  <h2 className="text-lg font-bold text-white">A Data</h2>
                   <p className="text-xs text-slate-400">Client Portal</p>
                 </div>
               )}
@@ -593,7 +600,7 @@ const ClientDashboardLayout = ({ children, pageTitle, pageSubtitleTop, pageSubti
 
           <div className="mt-3 space-y-2">
             <button
-              onClick={logout}
+              onClick={handleLogout}
               className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-slate-300 hover:bg-red-600/10 hover:text-red-400 transition-all"
             >
               <LogOut className="w-5 h-5" />
@@ -949,7 +956,7 @@ const ClientDashboardLayout = ({ children, pageTitle, pageSubtitleTop, pageSubti
                       <div className="p-2">
                         <button
                           onClick={() => {
-                            logout();
+                            handleLogout();
                             setShowAvatarMenu(false);
                           }}
                           className="w-full flex items-center gap-3 px-4 py-3 hover:bg-red-50 rounded-xl transition-colors text-left group"

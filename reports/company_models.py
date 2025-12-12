@@ -34,6 +34,7 @@ class CompanyStatus(models.TextChoices):
     COMPLETE = 'COMPLETE', 'Complete Site (Verified by telephone interview)'
     INCOMPLETE = 'INCOMPLETE', 'Incomplete Site (Unverified, estimated data)'
     DELETED = 'DELETED', 'Deleted Site (No data, kept for future reference)'
+    NONE = 'NONE', 'None (No status assigned)'
 
 
 # =============================================================================
@@ -132,6 +133,16 @@ class Company(models.Model):
     initials_4 = models.CharField("Initials 4", max_length=10, blank=True)
     surname_4 = models.CharField("Surname 4", max_length=100, blank=True)
     position_4 = models.CharField("Position 4", max_length=100, blank=True)
+    
+    # ==========================================================================
+    # GDPR COMPLIANCE
+    # ==========================================================================
+    
+    hide_contact_persons = models.BooleanField(
+        "Hide Contact Persons (GDPR)",
+        default=False,
+        help_text="If checked, contact person information will not be displayed (GDPR compliance)"
+    )
     
     # ==========================================================================
     # STATUS & SOURCE TRACKING
@@ -457,7 +468,7 @@ class Company(models.Model):
 # =============================================================================
 
 class CompanyCategory(models.TextChoices):
-    """The 10 main production categories"""
+    """The 11 main production categories"""
     INJECTION = 'INJECTION', 'Injection Moulders'
     BLOW = 'BLOW', 'Blow Moulders'
     ROTO = 'ROTO', 'Roto Moulders'
@@ -468,6 +479,7 @@ class CompanyCategory(models.TextChoices):
     PROFILE = 'PROFILE', 'Profile Extruders'
     CABLE = 'CABLE', 'Cable Extruders'
     COMPOUNDER = 'COMPOUNDER', 'Compounders'
+    RECYCLER = 'RECYCLER', 'Recyclers'
 
 
 class ProductionSite(models.Model):
@@ -1115,6 +1127,105 @@ class ProductionSiteVersion(models.Model):
     batch_mixers = models.IntegerField("Batch Mixers", null=True, blank=True)
     polymer_producer = models.BooleanField("Polymer Producer", default=False)
     production_volume_number = models.IntegerField("Production Volume Number", null=True, blank=True)
+    
+    # ==========================================================================
+    # RECYCLER CATEGORY FIELDS
+    # ==========================================================================
+    
+    # Waste Sources
+    house_municipal_source = models.BooleanField("House Municipal Source", default=False)
+    commercial_source = models.BooleanField("Commercial Source", default=False)
+    industrial_source = models.BooleanField("Industrial Source", default=False)
+    agricultural_source = models.BooleanField("Agricultural Source", default=False)
+    
+    # Contamination Status
+    clean = models.BooleanField("Clean", default=False)
+    dirty_soiled = models.BooleanField("Dirty/Soiled", default=False)
+    wet_damp = models.BooleanField("Wet/Damp", default=False)
+    hazardous = models.BooleanField("Hazardous", default=False)
+    other_contaminations = models.CharField("Other Contaminations", max_length=255, blank=True)
+    
+    # Collection Service
+    collection_service = models.BooleanField("Collection Service", default=False)
+    minimum_volume_waste_accepted = models.CharField("Minimum Volume Waste Accepted", max_length=255, blank=True)
+    maximum_capacity = models.CharField("Maximum Capacity", max_length=255, blank=True)
+    
+    # Packaging Waste Types
+    packaging_film = models.BooleanField("Packaging Film", default=False)
+    food_trays_containers = models.BooleanField("Food Trays Containers", default=False)
+    bottles = models.BooleanField("Bottles", default=False)
+    drum_crate_box = models.BooleanField("Drum/Crate/Box", default=False)
+    eps_packaging = models.BooleanField("EPS Packaging", default=False)
+    other_packaging = models.CharField("Other Packaging", max_length=255, blank=True)
+    
+    # Building Waste
+    pvc_building_profiles = models.BooleanField("PVC Building Profiles", default=False)
+    building_pipe = models.BooleanField("Building Pipe", default=False)
+    other_building = models.CharField("Other Building", max_length=255, blank=True)
+    
+    # Agricultural Waste
+    agricultural_chemical_containers = models.BooleanField("Agricultural Chemical Containers", default=False)
+    agricultural_plant_containers = models.BooleanField("Agricultural Plant Containers", default=False)
+    
+    # Automotive Waste
+    automotive_elv = models.BooleanField("Automotive ELV", default=False)
+    automotive_bumper = models.BooleanField("Automotive/Bumper", default=False)
+    automotive_interior_trim = models.BooleanField("Automotive/Interior Trim", default=False)
+    automotive_battery = models.BooleanField("Automotive/Battery", default=False)
+    automotive_fuel_tank = models.BooleanField("Automotive/Fuel Tank", default=False)
+    automotive_cable = models.BooleanField("Automotive/Cable", default=False)
+    other_automotive = models.CharField("Other Automotive", max_length=255, blank=True)
+    recycle_non_elv = models.BooleanField("Recycle Non ELV", default=False)
+    
+    # WEEE Waste
+    weee = models.BooleanField("WEEE", default=False)
+    weee_large_appliance = models.BooleanField("WEEE Large Appliance", default=False)
+    weee_small_appliance = models.BooleanField("WEEE Small Appliance", default=False)
+    weee_it_electronic = models.BooleanField("WEEE IT Electronic", default=False)
+    other_weee = models.CharField("Other WEEE", max_length=255, blank=True)
+    recycle_non_weee = models.BooleanField("Recycle Non WEEE", default=False)
+    
+    # Textile Waste
+    textile_fibre_filament = models.BooleanField("Textile/Fibre Filament", default=False)
+    textile_woven = models.BooleanField("Textile/Woven", default=False)
+    textile_non_woven = models.BooleanField("Textile/Non Woven", default=False)
+    
+    # Other Waste Types
+    other_moulded_parts = models.BooleanField("Other Moulded Parts", default=False)
+    toys_sports_leisure = models.BooleanField("Toys/Sports/Leisure", default=False)
+    other_markets = models.TextField("Other Markets", blank=True)
+    main_source = models.TextField("Main Source", blank=True)
+    
+    # Additional Materials (Recycler-specific)
+    asa = models.BooleanField("ASA", default=False)
+    pur = models.BooleanField("PUR", default=False)
+    
+    # Recycling Processes
+    prewash = models.BooleanField("Prewash", default=False)
+    sorting = models.BooleanField("Sorting", default=False)
+    size_reduction = models.BooleanField("Size Reduction", default=False)
+    washing = models.BooleanField("Washing", default=False)
+    separation = models.BooleanField("Separation", default=False)
+    metal_detection = models.BooleanField("Metal Detection", default=False)
+    pelletising = models.BooleanField("Pelletising", default=False)
+    other_mechanical_process = models.TextField("Other Mechanical Process", blank=True)
+    feedstock_chemical_recycling = models.BooleanField("Feedstock/Chemical Recycling", default=False)
+    
+    # Recycler Equipment
+    number_of_recycling_lines = models.IntegerField("Number of Recycling Lines", null=True, blank=True)
+    single_screws = models.IntegerField("Single Screws", null=True, blank=True)
+    twin_screws = models.IntegerField("Twin Screws", null=True, blank=True)
+    
+    # Output Products
+    regrind = models.BooleanField("Regrind", default=False)
+    agglomerate_crumbs = models.BooleanField("Agglomerate/Crumbs", default=False)
+    pellets = models.BooleanField("Pellets", default=False)
+    filled_compounds = models.BooleanField("Filled Compounds", default=False)
+    
+    # Quality & Applications
+    food_grade = models.BooleanField("Food Grade", default=False)
+    finished_products = models.CharField("Finished Products", max_length=255, blank=True)
+    volume_of_recycled_product = models.CharField("Volume of Recycled Product", max_length=255, blank=True)
     
     # ==========================================================================
     # AUDIT FIELDS

@@ -174,6 +174,39 @@ export const CATEGORY_FIELDS = {
     'masterbatch_percentage', 'masterbatches_applications', 'main_applications',
     'number_of_machines', 'twin_screw_extruders', 'single_screw_extruders',
     'batch_mixers', 'polymer_producer', 'production_volume_number', 'polymer_range'
+  ],
+
+  RECYCLER: [
+    // Waste Sources
+    'house_municipal_source', 'commercial_source', 'industrial_source', 'agricultural_source',
+    // Waste Condition
+    'clean', 'dirty_soiled', 'wet_damp', 'hazardous', 'other_contaminations',
+    // Collection
+    'collection_service', 'minimum_volume_waste_accepted', 'maximum_capacity',
+    // Packaging Waste
+    'packaging_film', 'food_trays_containers', 'bottles', 'drum_crate_box', 'eps_packaging', 'other_packaging',
+    // Building Waste
+    'pvc_building_profiles', 'building_pipe', 'other_building',
+    // Agricultural Waste
+    'agricultural_film', 'agricultural_chemical_containers', 'agricultural_plant_containers',
+    // Automotive Waste
+    'automotive_elv', 'automotive_bumper', 'automotive_interior_trim', 'automotive_battery',
+    'automotive_fuel_tank', 'automotive_cable', 'other_automotive', 'recycle_non_elv',
+    // WEEE Waste
+    'weee', 'weee_large_appliance', 'weee_small_appliance', 'weee_it_electronic', 'other_weee', 'recycle_non_weee',
+    // Textile Waste
+    'textile_fibre_filament', 'textile_woven', 'textile_non_woven',
+    // Other Waste Types
+    'other_moulded_parts', 'medical', 'toys_sports_leisure', 'other_markets', 'main_source',
+    // Materials Processed
+    'lldpe', 'ldpe', 'hdpe', 'pp', 'ps', 'abs', 'pvc', 'pet', 'pa', 'pc', 'asa', 'pur', 'san', 'pmma', 'pom', 'pbt', 'tpes', 'other_materials', 'main_materials',
+    // Recycling Processes
+    'prewash', 'sorting', 'size_reduction', 'washing', 'separation', 'metal_detection', 'pelletising', 'other_mechanical_process',
+    'feedstock_chemical_recycling', 'number_of_recycling_lines', 'single_screws', 'twin_screws',
+    // Output Products
+    'regrind', 'agglomerate_crumbs', 'pellets', 'colour_compounds', 'filled_compounds', 'other_products',
+    // Applications
+    'food_grade', 'main_applications', 'finished_products', 'volume_of_recycled_product'
   ]
 };
 

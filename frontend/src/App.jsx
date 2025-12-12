@@ -8,8 +8,7 @@ import { ToastContainer } from './components/Toast';
 
 // Import pages
 import HomePage from './pages/HomePage';
-import LoginPage from './pages/auth/LoginPage';
-import SignupPage from './pages/auth/SignupPage';
+import AuthPage from './pages/auth/LoginPage';
 
 // Dashboard-Layout Pages
 import StaffDashboard from './pages/dashboards/StaffDashboard';
@@ -38,11 +37,11 @@ import UserActivityPage from './pages/users/UserActivityPage';
 
 
 // Database-Report Pages
-import SuperdatabasePage from './pages/database/SuperdatabasePage';
 import UnverifiedSitesPage from './pages/database/UnverifiedSitesPage';
-import CreateReportPage from './pages/reports/CreateReportPage';
+import CreateCompanyReportPage from './pages/reports/CreateCompanyReportPage';
 import CustomReportsPage from './pages/reports/CustomReportsPage';
 import ReportDetailPage from './pages/reports/ReportDetailPage';
+import ReportCompanyViewPage from './pages/reports/ReportCompanyViewPage';
 import UnverifiedSiteDetailPage from './pages/database/UnverifiedSiteDetailPage';
 import UnverifiedSiteEditPage from './pages/database/UnverifiedSiteEditPage';
 import UnverifiedSiteAddPage from './pages/database/UnverifiedSiteAddPage';
@@ -50,6 +49,7 @@ import UnverifiedSiteAddPage from './pages/database/UnverifiedSiteAddPage';
 import ClientReportsPage from './pages/client/ClientReportsPage';
 import ClientReportViewPage from './pages/client/ClientReportViewPage';
 import ClientReportVisualizationPage from './pages/client/ClientReportVisualizationPage';
+import ClientReportFocusViewPage from './pages/client/ClientReportFocusViewPage';
 
 // Subscription Management Pages
 import SubscriptionManagementPage from './pages/SubscriptionManagementPage';
@@ -122,8 +122,8 @@ function App() {
             <Routes>
             {/* Public routes */}
             <Route path="/" element={<HomePage />} />
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/signup" element={<SignupPage />} />
+            <Route path="/login" element={<AuthPage />} />
+            <Route path="/signup" element={<AuthPage initialMode="signup" />} />
             <Route path="/verify-email/:uidb64/:token" element={<VerifyEmailPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/reset-password/:uidb64/:token" element={<ResetPasswordPage />} />
@@ -133,7 +133,7 @@ function App() {
             <Route path="/client-dashboard" element={<ProtectedRoute><ClientDashboard /></ProtectedRoute>} />
             <Route path="/guest-dashboard" element={<ProtectedRoute><GuestDashboard /></ProtectedRoute>} />
             <Route path="/data-collector-dashboard" element={<ProtectedRoute allowedRoles={['DATA_COLLECTOR']}><DataCollectorDashboard /></ProtectedRoute>} />
-            <Route path="/superdatabase" element={<ProtectedRoute><SuperdatabasePage /></ProtectedRoute>} />
+            <Route path="/superdatabase" element={<Navigate to="/company-database" replace />} />
             <Route path="/widget-management" element={<ProtectedRoute><WidgetManagement /></ProtectedRoute>} />
 
             {/* User Management Route */}
@@ -145,13 +145,15 @@ function App() {
             <Route path="/dashboard/user-activity" element={<ProtectedRoute><DashboardLayout><UserActivityDashboard /></DashboardLayout></ProtectedRoute>} />
             <Route path="/user-activity" element={<UserActivityPage />} />
 
-            {/* Custom Reports Routes */}
+            {/* Custom Reports Routes - Now using Company Database */}
             <Route path="/custom-reports" element={<ProtectedRoute><CustomReportsPage /></ProtectedRoute>} />
-            <Route path="/custom-reports/create" element={<ProtectedRoute><CreateReportPage /></ProtectedRoute>} />
+            <Route path="/custom-reports/create" element={<ProtectedRoute><CreateCompanyReportPage /></ProtectedRoute>} />
             <Route path="/custom-reports/:reportId" element={<ProtectedRoute><ReportDetailPage /></ProtectedRoute>} />
-            <Route path="/custom-reports/:reportId/edit" element={<ProtectedRoute><CreateReportPage /></ProtectedRoute>} />
+            <Route path="/custom-reports/:reportId/edit" element={<ProtectedRoute><CreateCompanyReportPage /></ProtectedRoute>} />
+            <Route path="/custom-reports/:reportId/companies/:companyId" element={<ProtectedRoute><ReportCompanyViewPage /></ProtectedRoute>} />
 
             <Route path="/client/reports/:reportId/visualization" element={<ClientReportVisualizationPage />} />
+            <Route path="/client/reports/:reportId/focus" element={<ProtectedRoute allowedRoles={['CLIENT']}><ClientReportFocusViewPage /></ProtectedRoute>}/>
             <Route path="/client/reports" element={<ProtectedRoute allowedRoles={['CLIENT']}><ClientReportsPage /></ProtectedRoute>}/>
             <Route path="/client/reports/:reportId" element={<ProtectedRoute allowedRoles={['CLIENT']}><ClientReportViewPage /></ProtectedRoute>}/>
 
@@ -210,6 +212,10 @@ function App() {
             <Route path="/company-database/new" element={<ProtectedRoute><AddCompanyPage /></ProtectedRoute>} />
             <Route path="/companies/:id" element={<ProtectedRoute><CompanyDetailPage /></ProtectedRoute>} />
             <Route path="/companies/:id/sites/:siteId/versions" element={<ProtectedRoute><VersionsPage /></ProtectedRoute>} />
+
+            {/* Company Reports Routes - Reports from Company Database */}
+            <Route path="/company-reports/create" element={<ProtectedRoute><CreateCompanyReportPage /></ProtectedRoute>} />
+            <Route path="/company-reports/:reportId/edit" element={<ProtectedRoute><CreateCompanyReportPage /></ProtectedRoute>} />
 
             {/* Catch all */}
             <Route path="*" element={<Navigate to="/" replace />} />

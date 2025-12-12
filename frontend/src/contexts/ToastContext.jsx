@@ -9,7 +9,7 @@ const ToastContext = createContext(null);
 export const ToastProvider = ({ children }) => {
   const [toasts, setToasts] = useState([]);
 
-  const showToast = useCallback((message, type = 'success', duration = 5000) => {
+  const showToast = useCallback((message, type = 'success', duration = 4000) => {
     const id = toastId++;
     const newToast = { id, message, type, duration };
 
@@ -29,11 +29,11 @@ export const ToastProvider = ({ children }) => {
     setToasts((prev) => prev.filter((toast) => toast.id !== id));
   }, []);
 
-  // Convenience methods with default durations
-  const success = useCallback((message, duration = 5000) => showToast(message, 'success', duration), [showToast]);
+  // Convenience methods with default durations (4 seconds)
+  const success = useCallback((message, duration = 4000) => showToast(message, 'success', duration), [showToast]);
   const error = useCallback((message, duration = 5000) => showToast(message, 'error', duration), [showToast]);
-  const warning = useCallback((message, duration = 5000) => showToast(message, 'warning', duration), [showToast]);
-  const info = useCallback((message, duration = 5000) => showToast(message, 'info', duration), [showToast]);
+  const warning = useCallback((message, duration = 4000) => showToast(message, 'warning', duration), [showToast]);
+  const info = useCallback((message, duration = 3000) => showToast(message, 'info', duration), [showToast]);
 
   return (
     <ToastContext.Provider

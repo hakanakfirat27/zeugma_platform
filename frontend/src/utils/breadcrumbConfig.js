@@ -166,6 +166,12 @@ export const getBreadcrumbs = (pathname, dynamicData = {}) => {
       { label: 'Company Database', path: '/company-database' },
       { label: 'Add Company', path: '/company-database/new' }
     ],
+
+    // Company Reports (from Company Database)
+    '/company-reports/create': [
+      { label: 'Company Database', path: '/company-database' },
+      { label: 'Create Report', path: '/company-reports/create' }
+    ],
   };
 
   // Check for exact match first
@@ -333,6 +339,18 @@ export const getBreadcrumbs = (pathname, dynamicData = {}) => {
     ];
   }
 
+  // Client Reports - Focus View
+  if (path.match(/^\/client\/reports\/[^/]+\/focus$/)) {
+    const reportId = path.split('/')[3];
+    const reportName = dynamicData.reportName || `Report #${reportId}`;
+    return [
+      { label: 'Client Dashboard', path: '/client-dashboard' },
+      { label: 'Reports', path: '/client/reports' },
+      { label: reportName, path: `/client/reports/${reportId}` },
+      { label: 'Focus View', path: `/client/reports/${reportId}/focus` }
+    ];
+  }
+
   // Announcements with ID
   if (path.match(/^\/announcements-management\/[^/]+$/)) {
     const announcementId = path.split('/')[2];
@@ -374,6 +392,18 @@ export const getBreadcrumbs = (pathname, dynamicData = {}) => {
       { label: 'Company Database', path: '/company-database' },
       { label: companyName, path: `/companies/${companyId}` },
       { label: categoryName, path: `/companies/${companyId}/sites/${siteId}/versions` }
+    ];
+  }
+
+  // Company Reports - Edit
+  if (path.match(/^\/company-reports\/[^/]+\/edit$/)) {
+    const reportId = path.split('/')[2];
+    const reportName = dynamicData.reportName || `Report #${reportId}`;
+    return [
+      { label: 'Company Database', path: '/company-database' },
+      { label: 'Custom Reports', path: '/custom-reports' },
+      { label: reportName, path: `/custom-reports/${reportId}` },
+      { label: 'Edit', path: `/company-reports/${reportId}/edit` }
     ];
   }
 

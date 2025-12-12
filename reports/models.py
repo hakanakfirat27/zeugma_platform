@@ -32,7 +32,7 @@ except ImportError:
 
 
 # --- Company Category Class ---
-# This class defines the 10 main categories for a company record.
+# This class defines the 11 main categories for a company record.
 class CompanyCategory(models.TextChoices):
     INJECTION = 'INJECTION', 'Injection Moulders'
     BLOW = 'BLOW', 'Blow Moulders'
@@ -44,6 +44,7 @@ class CompanyCategory(models.TextChoices):
     PROFILE = 'PROFILE', 'Profile Extruders'
     CABLE = 'CABLE', 'Cable Extruders'
     COMPOUNDER = 'COMPOUNDER', 'Compounders'
+    RECYCLER = 'RECYCLER', 'Recyclers'
 
 
 # --- Superdatabase Record Class ---
@@ -475,6 +476,102 @@ class SuperdatabaseRecord(models.Model):
     polymer_producer = models.BooleanField("Polymer Producer", default=False)
     production_volume_number = models.IntegerField("Production Volume Number", null=True, blank=True)
 
+    # --- RECYCLER CATEGORY FIELDS ---
+    # Waste Sources
+    house_municipal_source = models.BooleanField("House Municipal Source", default=False)
+    commercial_source = models.BooleanField("Commercial Source", default=False)
+    industrial_source = models.BooleanField("Industrial Source", default=False)
+    agricultural_source = models.BooleanField("Agricultural Source", default=False)
+    
+    # Contamination Status
+    clean = models.BooleanField("Clean", default=False)
+    dirty_soiled = models.BooleanField("Dirty/Soiled", default=False)
+    wet_damp = models.BooleanField("Wet/Damp", default=False)
+    hazardous = models.BooleanField("Hazardous", default=False)
+    other_contaminations = models.CharField("Other Contaminations", max_length=255, blank=True)
+    
+    # Collection Service
+    collection_service = models.BooleanField("Collection Service", default=False)
+    minimum_volume_waste_accepted = models.CharField("Minimum Volume Waste Accepted", max_length=255, blank=True)
+    maximum_capacity = models.CharField("Maximum Capacity", max_length=255, blank=True)
+    
+    # Packaging Waste Types
+    packaging_film = models.BooleanField("Packaging Film", default=False)
+    food_trays_containers = models.BooleanField("Food Trays Containers", default=False)
+    bottles = models.BooleanField("Bottles", default=False)
+    drum_crate_box = models.BooleanField("Drum/Crate/Box", default=False)
+    eps_packaging = models.BooleanField("EPS Packaging", default=False)
+    other_packaging = models.CharField("Other Packaging", max_length=255, blank=True)
+    
+    # Building Waste
+    pvc_building_profiles = models.BooleanField("PVC Building Profiles", default=False)
+    building_pipe = models.BooleanField("Building Pipe", default=False)
+    other_building = models.CharField("Other Building", max_length=255, blank=True)
+    
+    # Agricultural Waste
+    agricultural_chemical_containers = models.BooleanField("Agricultural Chemical Containers", default=False)
+    agricultural_plant_containers = models.BooleanField("Agricultural Plant Containers", default=False)
+    
+    # Automotive Waste
+    automotive_elv = models.BooleanField("Automotive ELV", default=False)
+    automotive_bumper = models.BooleanField("Automotive/Bumper", default=False)
+    automotive_interior_trim = models.BooleanField("Automotive/Interior Trim", default=False)
+    automotive_battery = models.BooleanField("Automotive/Battery", default=False)
+    automotive_fuel_tank = models.BooleanField("Automotive/Fuel Tank", default=False)
+    automotive_cable = models.BooleanField("Automotive/Cable", default=False)
+    other_automotive = models.CharField("Other Automotive", max_length=255, blank=True)
+    recycle_non_elv = models.BooleanField("Recycle Non ELV", default=False)
+    
+    # WEEE Waste
+    weee = models.BooleanField("WEEE", default=False)
+    weee_large_appliance = models.BooleanField("WEEE Large Appliance", default=False)
+    weee_small_appliance = models.BooleanField("WEEE Small Appliance", default=False)
+    weee_it_electronic = models.BooleanField("WEEE IT Electronic", default=False)
+    other_weee = models.CharField("Other WEEE", max_length=255, blank=True)
+    recycle_non_weee = models.BooleanField("Recycle Non WEEE", default=False)
+    
+    # Textile Waste
+    textile_fibre_filament = models.BooleanField("Textile/Fibre Filament", default=False)
+    textile_woven = models.BooleanField("Textile/Woven", default=False)
+    textile_non_woven = models.BooleanField("Textile/Non Woven", default=False)
+    
+    # Other Waste Types
+    other_moulded_parts = models.BooleanField("Other Moulded Parts", default=False)
+    toys_sports_leisure = models.BooleanField("Toys/Sports/Leisure", default=False)
+    other_markets = models.TextField("Other Markets", blank=True)
+    main_source = models.TextField("Main Source", blank=True)
+    
+    # Additional Materials (Recycler-specific)
+    asa = models.BooleanField("ASA", default=False)
+    pur = models.BooleanField("PUR", default=False)
+    
+    # Recycling Processes
+    prewash = models.BooleanField("Prewash", default=False)
+    sorting = models.BooleanField("Sorting", default=False)
+    size_reduction = models.BooleanField("Size Reduction", default=False)
+    washing = models.BooleanField("Washing", default=False)
+    separation = models.BooleanField("Separation", default=False)
+    metal_detection = models.BooleanField("Metal Detection", default=False)
+    pelletising = models.BooleanField("Pelletising", default=False)
+    other_mechanical_process = models.TextField("Other Mechanical Process", blank=True)
+    feedstock_chemical_recycling = models.BooleanField("Feedstock/Chemical Recycling", default=False)
+    
+    # Equipment
+    number_of_recycling_lines = models.IntegerField("Number of Recycling Lines", null=True, blank=True)
+    single_screws = models.IntegerField("Single Screws", null=True, blank=True)
+    twin_screws = models.IntegerField("Twin Screws", null=True, blank=True)
+    
+    # Output Products
+    regrind = models.BooleanField("Regrind", default=False)
+    agglomerate_crumbs = models.BooleanField("Agglomerate/Crumbs", default=False)
+    pellets = models.BooleanField("Pellets", default=False)
+    filled_compounds = models.BooleanField("Filled Compounds", default=False)
+    
+    # Quality & Applications
+    food_grade = models.BooleanField("Food Grade", default=False)
+    finished_products = models.CharField("Finished Products", max_length=255, blank=True)
+    volume_of_recycled_product = models.CharField("Volume of Recycled Product", max_length=255, blank=True)
+
     # --- METADATA ---
     date_added = models.DateTimeField(auto_now_add=True)
     last_updated = models.DateTimeField(auto_now=True)
@@ -499,10 +596,17 @@ class SubscriptionStatus(models.TextChoices):
     PENDING = 'PENDING', 'Pending'
 
 
+# --- Report Source Type Class ---
+# NOTE: SUPERDATABASE has been deprecated. All reports now use COMPANY_DATABASE.
+class ReportSourceType(models.TextChoices):
+    COMPANY_DATABASE = 'COMPANY_DATABASE', 'Company Database'
+    # SUPERDATABASE removed - system now uses Company Database only
+
+
 # --- Custom Reports Class ---
 class CustomReport(models.Model):
     """
-    Custom reports that can be created from the superdatabase.
+    Custom reports that can be created from the superdatabase or company database.
     These can be sold to clients via subscriptions.
     """
     report_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
@@ -511,6 +615,15 @@ class CustomReport(models.Model):
     filter_criteria = models.JSONField(
         help_text="JSON object with filter rules",
         default=dict
+    )
+    
+    # Source database type
+    # NOTE: All reports now use COMPANY_DATABASE only
+    source_type = models.CharField(
+        max_length=20,
+        choices=ReportSourceType.choices,
+        default=ReportSourceType.COMPANY_DATABASE,
+        help_text="Which database this report queries from"
     )
 
     # Pricing
@@ -554,128 +667,13 @@ class CustomReport(models.Model):
         """
         Calculate and update the record count based on filter criteria.
         Handles categories, countries, filter groups (with technical filters), and boolean filters.
+        NOTE: All reports now use Company Database only.
         """
-        from django.db.models import Q
-        from .models import SuperdatabaseRecord
-
         try:
-            criteria = self.filter_criteria or {}
-            queryset = SuperdatabaseRecord.objects.all()
-
-            # Handle categories
-            if 'categories' in criteria:
-                categories = criteria['categories']
-                if isinstance(categories, list) and len(categories) > 0:
-                    category_query = Q()
-                    for category in categories:
-                        category_query |= Q(category__iexact=category)
-                    queryset = queryset.filter(category_query)
-                elif isinstance(categories, str) and categories:
-                    queryset = queryset.filter(category__iexact=categories)
-            elif 'category' in criteria and criteria['category']:
-                queryset = queryset.filter(category__iexact=criteria['category'])
-
-            # Handle countries
-            if 'country' in criteria:
-                countries = criteria['country']
-                if isinstance(countries, list) and len(countries) > 0:
-                    queryset = queryset.filter(country__in=countries)
-                elif isinstance(countries, str) and countries:
-                    queryset = queryset.filter(country=countries)
-
-            # Handle filter groups with technical filters
-            if 'filter_groups' in criteria:
-                filter_groups = criteria['filter_groups']
-                if isinstance(filter_groups, list):
-                    for group in filter_groups:
-                        if not isinstance(group, dict):
-                            continue
-
-                        group_query = Q()
-
-                        # Boolean filters
-                        filters = group.get('filters', {})
-                        if filters and isinstance(filters, dict):
-                            for field_name, field_value in filters.items():
-                                try:
-                                    SuperdatabaseRecord._meta.get_field(field_name)
-                                    if field_value is True:
-                                        group_query |= Q(**{field_name: True})
-                                    elif field_value is False:
-                                        group_query |= Q(**{field_name: False}) | Q(**{f'{field_name}__isnull': True})
-                                except Exception:
-                                    continue
-
-                        # Technical filters
-                        technical_filters = group.get('technicalFilters', {})
-                        if technical_filters and isinstance(technical_filters, dict):
-                            for field_name, filter_config in technical_filters.items():
-                                if not isinstance(filter_config, dict):
-                                    continue
-
-                                try:
-                                    field_obj = SuperdatabaseRecord._meta.get_field(field_name)
-                                    mode = filter_config.get('mode', 'range')
-
-                                    if mode == 'equals':
-                                        equals_val = filter_config.get('equals', '')
-                                        if equals_val != '' and equals_val is not None:
-                                            try:
-                                                if field_obj.get_internal_type() == 'FloatField':
-                                                    equals_val = float(equals_val)
-                                                else:
-                                                    equals_val = int(equals_val)
-                                                group_query |= Q(**{field_name: equals_val})
-                                            except (ValueError, TypeError):
-                                                pass
-
-                                    elif mode == 'range':
-                                        min_val = filter_config.get('min', '')
-                                        max_val = filter_config.get('max', '')
-                                        range_query = Q()
-
-                                        if min_val != '' and min_val is not None:
-                                            try:
-                                                if field_obj.get_internal_type() == 'FloatField':
-                                                    min_val = float(min_val)
-                                                else:
-                                                    min_val = int(min_val)
-                                                range_query &= Q(**{f'{field_name}__gte': min_val})
-                                            except (ValueError, TypeError):
-                                                pass
-
-                                        if max_val != '' and max_val is not None:
-                                            try:
-                                                if field_obj.get_internal_type() == 'FloatField':
-                                                    max_val = float(max_val)
-                                                else:
-                                                    max_val = int(max_val)
-                                                range_query &= Q(**{f'{field_name}__lte': max_val})
-                                            except (ValueError, TypeError):
-                                                pass
-
-                                        if range_query:
-                                            group_query |= range_query
-                                except Exception:
-                                    continue
-
-                        # Apply group query
-                        if group_query:
-                            queryset = queryset.filter(group_query)
-
-            # Handle remaining boolean filters (backward compatibility)
-            for field, value in criteria.items():
-                if field not in ['category', 'categories', 'country', 'filter_groups'] and isinstance(value, bool):
-                    try:
-                        queryset = queryset.filter(**{field: value})
-                    except Exception:
-                        pass
-
-            # Update count
-            self.record_count = queryset.count()
+            # All reports now use Company Database
+            self.record_count = self._count_company_database_records()
             self.save(update_fields=['record_count'])
             return self.record_count
-
         except Exception as e:
             # Don't crash - just set to 0
             self.record_count = 0
@@ -684,29 +682,188 @@ class CustomReport(models.Model):
 
     def get_filtered_records(self):
         """
-        Get SuperdatabaseRecord queryset filtered by this report's criteria.
+        Get Company queryset filtered by this report's criteria.
+        NOTE: All reports now use Company Database only.
+        Returns Company objects with their production sites and versions.
         """
         from django.db.models import Q
+        from .company_models import Company, CompanyStatus, ProductionSiteVersion
 
-        queryset = SuperdatabaseRecord.objects.all()
+        criteria = self.filter_criteria or {}
+        queryset = Company.objects.all()
 
-        # Apply category filter - ONLY 'category' (singular), not 'categories'
-        if 'category' in self.filter_criteria and self.filter_criteria['category']:
-            queryset = queryset.filter(category__iexact=self.filter_criteria['category'])
+        # Handle status filters (Company Database specific)
+        if 'status' in criteria:
+            status_list = criteria['status']
+            if isinstance(status_list, list) and len(status_list) > 0:
+                queryset = queryset.filter(status__in=status_list)
+            elif isinstance(status_list, str):
+                queryset = queryset.filter(status=status_list)
+        else:
+            # Default: exclude deleted companies
+            queryset = queryset.exclude(status=CompanyStatus.DELETED)
 
         # Apply country filter
-        if 'country' in self.filter_criteria:
-            countries = self.filter_criteria['country']
+        if 'country' in criteria:
+            countries = criteria['country']
             if isinstance(countries, list) and len(countries) > 0:
                 queryset = queryset.filter(country__in=countries)
+            elif isinstance(countries, str) and countries:
+                queryset = queryset.filter(country=countries)
 
-        # Apply boolean filters (materials, properties, etc.)
-        for field, value in self.filter_criteria.items():
-            if field not in ['category', 'country']:
-                if isinstance(value, bool):
-                    queryset = queryset.filter(**{field: value})
+        # Handle categories
+        if 'categories' in criteria:
+            categories = criteria['categories']
+            if isinstance(categories, list) and len(categories) > 0:
+                queryset = queryset.filter(
+                    production_sites__category__in=categories
+                ).distinct()
+            elif isinstance(categories, str) and categories:
+                queryset = queryset.filter(
+                    production_sites__category=categories
+                ).distinct()
+        elif 'category' in criteria and criteria['category']:
+            queryset = queryset.filter(
+                production_sites__category=criteria['category']
+            ).distinct()
+
+        # Handle filter groups with material filters
+        if 'filter_groups' in criteria:
+            filter_groups = criteria['filter_groups']
+            if isinstance(filter_groups, list):
+                for group in filter_groups:
+                    if not isinstance(group, dict):
+                        continue
+
+                    group_query = Q()
+
+                    # Boolean filters (materials)
+                    filters = group.get('filters', {})
+                    if filters and isinstance(filters, dict):
+                        for field_name, field_value in filters.items():
+                            try:
+                                ProductionSiteVersion._meta.get_field(field_name)
+                                if field_value is True:
+                                    group_query |= Q(
+                                        production_sites__versions__is_current=True,
+                                        **{f'production_sites__versions__{field_name}': True}
+                                    )
+                                elif field_value is False:
+                                    group_query |= (
+                                        Q(
+                                            production_sites__versions__is_current=True,
+                                            **{f'production_sites__versions__{field_name}': False}
+                                        ) |
+                                        Q(
+                                            production_sites__versions__is_current=True,
+                                            **{f'production_sites__versions__{field_name}__isnull': True}
+                                        )
+                                    )
+                            except Exception:
+                                continue
+
+                    # Apply group query
+                    if group_query:
+                        queryset = queryset.filter(group_query).distinct()
 
         return queryset
+
+    def _count_company_database_records(self):
+        """
+        Count records from Company Database based on filter criteria.
+        Used when source_type is COMPANY_DATABASE.
+        """
+        from django.db.models import Q
+        from .company_models import Company, CompanyStatus
+        
+        try:
+            criteria = self.filter_criteria or {}
+            queryset = Company.objects.all()
+            
+            # Handle status filters (Company Database specific)
+            if 'status' in criteria:
+                status_list = criteria['status']
+                if isinstance(status_list, list) and len(status_list) > 0:
+                    queryset = queryset.filter(status__in=status_list)
+                elif isinstance(status_list, str):
+                    queryset = queryset.filter(status=status_list)
+            else:
+                # Default: exclude deleted companies
+                queryset = queryset.exclude(status=CompanyStatus.DELETED)
+            
+            # Handle countries
+            if 'country' in criteria:
+                countries = criteria['country']
+                if isinstance(countries, list) and len(countries) > 0:
+                    queryset = queryset.filter(country__in=countries)
+                elif isinstance(countries, str) and countries:
+                    queryset = queryset.filter(country=countries)
+            
+            # Handle categories (filter companies that have production sites with these categories)
+            if 'categories' in criteria:
+                categories = criteria['categories']
+                if isinstance(categories, list) and len(categories) > 0:
+                    queryset = queryset.filter(
+                        production_sites__category__in=categories
+                    ).distinct()
+                elif isinstance(categories, str) and categories:
+                    queryset = queryset.filter(
+                        production_sites__category=categories
+                    ).distinct()
+            elif 'category' in criteria and criteria['category']:
+                queryset = queryset.filter(
+                    production_sites__category=criteria['category']
+                ).distinct()
+            
+            # Handle filter groups with material filters
+            if 'filter_groups' in criteria:
+                filter_groups = criteria['filter_groups']
+                if isinstance(filter_groups, list):
+                    from .company_models import ProductionSiteVersion
+                    
+                    for group in filter_groups:
+                        if not isinstance(group, dict):
+                            continue
+                        
+                        group_query = Q()
+                        
+                        # Boolean filters (materials)
+                        filters = group.get('filters', {})
+                        if filters and isinstance(filters, dict):
+                            for field_name, field_value in filters.items():
+                                try:
+                                    # Check if field exists on ProductionSiteVersion
+                                    ProductionSiteVersion._meta.get_field(field_name)
+                                    
+                                    # FIXED: Use versions__is_current instead of current_version (which is a property)
+                                    if field_value is True:
+                                        group_query |= Q(
+                                            production_sites__versions__is_current=True,
+                                            **{f'production_sites__versions__{field_name}': True}
+                                        )
+                                    elif field_value is False:
+                                        group_query |= (
+                                            Q(
+                                                production_sites__versions__is_current=True,
+                                                **{f'production_sites__versions__{field_name}': False}
+                                            ) |
+                                            Q(
+                                                production_sites__versions__is_current=True,
+                                                **{f'production_sites__versions__{field_name}__isnull': True}
+                                            )
+                                        )
+                                except Exception:
+                                    continue
+                        
+                        # Apply group query
+                        if group_query:
+                            queryset = queryset.filter(group_query).distinct()
+            
+            return queryset.count()
+            
+        except Exception as e:
+            print(f"Error counting Company Database records: {e}")
+            return 0
 
 
 # --- Subscription Class ---
@@ -1088,6 +1245,7 @@ class DataCollectionProject(models.Model):
             ('PROFILE', 'Profile Extruders'),
             ('CABLE', 'Cable Extruders'),
             ('COMPOUNDER', 'Compounders'),
+            ('RECYCLER', 'Recyclers'),
         ],
         help_text="Primary category for this project"
     )
@@ -1882,6 +2040,102 @@ class UnverifiedSite(models.Model):
     batch_mixers = models.IntegerField("Batch Mixers", null=True, blank=True)
     polymer_producer = models.BooleanField("Polymer Producer", default=False)
     production_volume_number = models.IntegerField("Production Volume Number", null=True, blank=True)
+
+    # --- RECYCLER CATEGORY FIELDS ---
+    # Waste Sources
+    house_municipal_source = models.BooleanField("House Municipal Source", default=False)
+    commercial_source = models.BooleanField("Commercial Source", default=False)
+    industrial_source = models.BooleanField("Industrial Source", default=False)
+    agricultural_source = models.BooleanField("Agricultural Source", default=False)
+    
+    # Contamination Status
+    clean = models.BooleanField("Clean", default=False)
+    dirty_soiled = models.BooleanField("Dirty/Soiled", default=False)
+    wet_damp = models.BooleanField("Wet/Damp", default=False)
+    hazardous = models.BooleanField("Hazardous", default=False)
+    other_contaminations = models.CharField("Other Contaminations", max_length=255, blank=True)
+    
+    # Collection Service
+    collection_service = models.BooleanField("Collection Service", default=False)
+    minimum_volume_waste_accepted = models.CharField("Minimum Volume Waste Accepted", max_length=255, blank=True)
+    maximum_capacity = models.CharField("Maximum Capacity", max_length=255, blank=True)
+    
+    # Packaging Waste Types
+    packaging_film = models.BooleanField("Packaging Film", default=False)
+    food_trays_containers = models.BooleanField("Food Trays Containers", default=False)
+    bottles = models.BooleanField("Bottles", default=False)
+    drum_crate_box = models.BooleanField("Drum/Crate/Box", default=False)
+    eps_packaging = models.BooleanField("EPS Packaging", default=False)
+    other_packaging = models.CharField("Other Packaging", max_length=255, blank=True)
+    
+    # Building Waste
+    pvc_building_profiles = models.BooleanField("PVC Building Profiles", default=False)
+    building_pipe = models.BooleanField("Building Pipe", default=False)
+    other_building = models.CharField("Other Building", max_length=255, blank=True)
+    
+    # Agricultural Waste
+    agricultural_chemical_containers = models.BooleanField("Agricultural Chemical Containers", default=False)
+    agricultural_plant_containers = models.BooleanField("Agricultural Plant Containers", default=False)
+    
+    # Automotive Waste
+    automotive_elv = models.BooleanField("Automotive ELV", default=False)
+    automotive_bumper = models.BooleanField("Automotive/Bumper", default=False)
+    automotive_interior_trim = models.BooleanField("Automotive/Interior Trim", default=False)
+    automotive_battery = models.BooleanField("Automotive/Battery", default=False)
+    automotive_fuel_tank = models.BooleanField("Automotive/Fuel Tank", default=False)
+    automotive_cable = models.BooleanField("Automotive/Cable", default=False)
+    other_automotive = models.CharField("Other Automotive", max_length=255, blank=True)
+    recycle_non_elv = models.BooleanField("Recycle Non ELV", default=False)
+    
+    # WEEE Waste
+    weee = models.BooleanField("WEEE", default=False)
+    weee_large_appliance = models.BooleanField("WEEE Large Appliance", default=False)
+    weee_small_appliance = models.BooleanField("WEEE Small Appliance", default=False)
+    weee_it_electronic = models.BooleanField("WEEE IT Electronic", default=False)
+    other_weee = models.CharField("Other WEEE", max_length=255, blank=True)
+    recycle_non_weee = models.BooleanField("Recycle Non WEEE", default=False)
+    
+    # Textile Waste
+    textile_fibre_filament = models.BooleanField("Textile/Fibre Filament", default=False)
+    textile_woven = models.BooleanField("Textile/Woven", default=False)
+    textile_non_woven = models.BooleanField("Textile/Non Woven", default=False)
+    
+    # Other Waste Types
+    other_moulded_parts = models.BooleanField("Other Moulded Parts", default=False)
+    toys_sports_leisure = models.BooleanField("Toys/Sports/Leisure", default=False)
+    other_markets = models.TextField("Other Markets", blank=True)
+    main_source = models.TextField("Main Source", blank=True)
+    
+    # Additional Materials (Recycler-specific)
+    asa = models.BooleanField("ASA", default=False)
+    pur = models.BooleanField("PUR", default=False)
+    
+    # Recycling Processes
+    prewash = models.BooleanField("Prewash", default=False)
+    sorting = models.BooleanField("Sorting", default=False)
+    size_reduction = models.BooleanField("Size Reduction", default=False)
+    washing = models.BooleanField("Washing", default=False)
+    separation = models.BooleanField("Separation", default=False)
+    metal_detection = models.BooleanField("Metal Detection", default=False)
+    pelletising = models.BooleanField("Pelletising", default=False)
+    other_mechanical_process = models.TextField("Other Mechanical Process", blank=True)
+    feedstock_chemical_recycling = models.BooleanField("Feedstock/Chemical Recycling", default=False)
+    
+    # Equipment
+    number_of_recycling_lines = models.IntegerField("Number of Recycling Lines", null=True, blank=True)
+    single_screws = models.IntegerField("Single Screws", null=True, blank=True)
+    twin_screws = models.IntegerField("Twin Screws", null=True, blank=True)
+    
+    # Output Products
+    regrind = models.BooleanField("Regrind", default=False)
+    agglomerate_crumbs = models.BooleanField("Agglomerate/Crumbs", default=False)
+    pellets = models.BooleanField("Pellets", default=False)
+    filled_compounds = models.BooleanField("Filled Compounds", default=False)
+    
+    # Quality & Applications
+    food_grade = models.BooleanField("Food Grade", default=False)
+    finished_products = models.CharField("Finished Products", max_length=255, blank=True)
+    volume_of_recycled_product = models.CharField("Volume of Recycled Product", max_length=255, blank=True)
  
     project = models.ForeignKey(
         DataCollectionProject,

@@ -37,18 +37,42 @@ export const useCustomReportRecords = (reportId, filters) => {
       if (filters.ordering) {
         params.append('ordering', filters.ordering);
       }
-      if (filters.countries?.length > 0) {
-        params.append('countries', filters.countries.join(','));
+      
+      // CRITICAL: Always send these params so backend knows if user explicitly deselected all
+      // Empty string means "user deselected all" → return 0 results
+      // Not present means "use report defaults"
+      
+      // Handle countries filter - ALWAYS send if the array exists
+      if (filters.countries !== undefined) {
+        const countriesValue = Array.isArray(filters.countries) ? filters.countries.join(',') : '';
+        params.append('countries', countriesValue);
+        console.log('Sending countries:', countriesValue || '(empty - will return 0 results)');
+      }
+      
+      // Handle categories filter - ALWAYS send if the array exists
+      if (filters.categories !== undefined) {
+        const categoriesValue = Array.isArray(filters.categories) ? filters.categories.join(',') : '';
+        params.append('categories', categoriesValue);
+        console.log('Sending categories:', categoriesValue || '(empty - will return 0 results)');
+      }
+      
+      // Handle status filter - ALWAYS send if the array exists
+      if (filters.status !== undefined) {
+        const statusValue = Array.isArray(filters.status) ? filters.status.join(',') : '';
+        params.append('status', statusValue);
+        console.log('Sending status:', statusValue || '(empty - will return 0 results)');
       }
 
-      // NEW: Handle filter groups
-      if (filters.filter_groups) {
+      // Handle filter groups (materials, technical filters, business type)
+      // ALWAYS send filter_groups if defined - even empty array means "no filters applied"
+      if (filters.filter_groups !== undefined) {
         params.append('filter_groups', filters.filter_groups);
+        console.log('Sending filter_groups:', filters.filter_groups);
       }
 
       // Add any additional filters
       Object.keys(filters).forEach(key => {
-        if (['page', 'page_size', 'search', 'ordering', 'countries', 'filter_groups'].includes(key)) {
+        if (['page', 'page_size', 'search', 'ordering', 'countries', 'filter_groups', 'status', 'categories'].includes(key)) {
           return;
         }
         if (filters[key] !== undefined) {
@@ -56,12 +80,16 @@ export const useCustomReportRecords = (reportId, filters) => {
         }
       });
 
-      const response = await api.get(`/api/custom-reports/${reportId}/records/?${params.toString()}`);
+      const url = `/api/custom-reports/${reportId}/records/?${params.toString()}`;
+      console.log('Fetching report records:', url);
+      
+      const response = await api.get(url);
+      console.log('Response count:', response.data?.count || 0);
       return response.data;
     },
     enabled: !!reportId,
-    placeholderData: keepPreviousData, // THIS IS KEY - keeps previous data while loading
-    staleTime: 30000, // 30 seconds
+    placeholderData: keepPreviousData,
+    staleTime: 30000,
   });
 };
 

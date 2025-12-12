@@ -6,7 +6,7 @@ import { getBreadcrumbs } from '../../utils/breadcrumbConfig';
 import {
   Database, Search, X, Filter, Download, ArrowLeft, FileText,
   Globe, BarChart3, PieChart, TrendingUp, Calendar, AlertCircle,
-  Users, Package, MapPin, Clock
+  Users, Package, MapPin, Clock, TableProperties
 } from 'lucide-react';
 import {
   BarChart, Bar, PieChart as RechartsPie, Pie, Cell,
@@ -17,7 +17,7 @@ import DataTable from '../../components/database/DataTable';
 import RecordDetailModal from '../../components/database/RecordDetailModal';
 import Pagination from '../../components/database/Pagination';
 import LoadingSpinner from '../../components/LoadingSpinner';
-import FilterSidebarWithGroups from '../../components/database/FilterSidebarWithGroups';
+import CompanyFilterSidebar from '../../components/database/CompanyFilterSidebar';
 import SavedSearchManager from '../../components/client/SavedSearchManager';
 import { getSavedSearches } from '../../services/savedSearchService';
 import ExportModal from '../../components/client/ExportModal';
@@ -28,7 +28,8 @@ import {
   useClientReportCountries,
   useClientReportFilterOptions,
   useClientReportTechnicalFilterOptions,
-  useClientReportAccess
+  useClientReportAccess,
+  useClientMaterialStats
 } from '../../hooks/useClientReports';
 
 const COLORS = ['#8B5CF6', '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#EC4899', '#06B6D4', '#6366F1'];
@@ -45,6 +46,7 @@ const ClientReportViewPage = () => {
   const [filters, setFilters] = useState({});
   const [countryFilters, setCountryFilters] = useState([]);
   const [categoryFilters, setCategoryFilters] = useState([]);
+  const [statusFilters, setStatusFilters] = useState([]);
   const [filterGroups, setFilterGroups] = useState([]);
   const [ordering, setOrdering] = useState('');
   const [selectedRecord, setSelectedRecord] = useState(null);
@@ -52,11 +54,27 @@ const ClientReportViewPage = () => {
   const [exportLoading, setExportLoading] = useState(false);
   const [defaultSearchLoaded, setDefaultSearchLoaded] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
+  const [filtersInitialized, setFiltersInitialized] = useState(false);
+  
+  // Report default values (for reset functionality)
+  const [reportDefaultStatus, setReportDefaultStatus] = useState(['COMPLETE', 'INCOMPLETE']);
+  const [reportDefaultFilterGroups, setReportDefaultFilterGroups] = useState([]);
   const location = useLocation();  
   const breadcrumbs = getBreadcrumbs(location.pathname);   
 
   // REACT QUERY HOOKS
   const { data: reportAccess, isLoading: accessLoading } = useClientReportAccess(reportId);
+
+  // Custom breadcrumbs with report name
+  const customBreadcrumbs = useMemo(() => {
+    if (!reportAccess?.report_title) return breadcrumbs;
+    
+    return [
+      { label: 'Client Dashboard', path: '/client/dashboard' },
+      { label: 'Reports', path: '/client/reports' },
+      { label: reportAccess.report_title, path: `/client/reports/${reportId}` }
+    ];
+  }, [reportAccess, reportId, breadcrumbs]);
 
     const queryFilters = useMemo(() => ({
       page: currentPage,
@@ -65,9 +83,10 @@ const ClientReportViewPage = () => {
       ordering: ordering,
       countries: countryFilters,
       categories: categoryFilters,
+      status: statusFilters,
       filter_groups: filterGroups.length > 0 ? JSON.stringify(filterGroups) : undefined,
       ...filters
-    }), [currentPage, pageSize, searchQuery, ordering, countryFilters, categoryFilters, filterGroups, filters]);
+    }), [currentPage, pageSize, searchQuery, ordering, countryFilters, categoryFilters, statusFilters, filterGroups, filters]);
 
   const { data: reportData, isLoading: dataLoading } = useClientReportData(
     reportId,
@@ -87,15 +106,287 @@ const ClientReportViewPage = () => {
     statsFilters
   );
 
+  // Material stats with filters applied
+  const { data: materialStats, isLoading: materialStatsLoading } = useClientMaterialStats(
+    reportId,
+    statsFilters
+  );
+
   const { data: allCountries = [] } = useClientReportCountries(reportId);
   const { data: filterOptions = [] } = useClientReportFilterOptions(reportId);
   const { data: technicalFilterOptions = [] } = useClientReportTechnicalFilterOptions(reportId);
 
+  const customColumns = useMemo(() => [
+    {
+      accessorKey: 'company_name',
+      header: 'COMPANY NAME',
+      minSize: 250,
+      cell: ({ row }) => (
+        <div className="font-medium text-gray-900 truncate text-sm">
+          {row.original.company_name || '-'}
+        </div>
+      ),
+      enableSorting: true,
+    },
+    {
+      accessorKey: 'country',
+      header: 'COUNTRY',
+      size: 120,
+      cell: ({ row }) => (
+        <div className="text-gray-700 text-sm">
+          {row.original.country || '-'}
+        </div>
+      ),
+      enableSorting: true,
+    },
+    {
+      accessorKey: 'categories',
+      header: 'CATEGORIES',
+      size: 150,
+      cell: ({ row }) => {
+        const categories = row.original.categories || [];
+        
+        if (!categories || categories.length === 0) {
+          return <span className="text-gray-400 text-sm">-</span>;
+        }
+
+        const CATEGORY_LABELS = {
+          INJECTION: 'Injection', BLOW: 'Blow', ROTO: 'Roto',
+          PE_FILM: 'PE Film', SHEET: 'Sheet', PIPE: 'Pipe',
+          TUBE_HOSE: 'Tube & Hose', PROFILE: 'Profile',
+          CABLE: 'Cable', COMPOUNDER: 'Compounder',
+        };
+
+        const CATEGORY_COLORS = {
+          INJECTION: 'bg-blue-100 text-blue-800',
+          BLOW: 'bg-green-100 text-green-800',
+          ROTO: 'bg-purple-100 text-purple-800',
+          PE_FILM: 'bg-yellow-100 text-yellow-800',
+          SHEET: 'bg-red-100 text-red-800',
+          PIPE: 'bg-indigo-100 text-indigo-800',
+          TUBE_HOSE: 'bg-pink-100 text-pink-800',
+          PROFILE: 'bg-orange-100 text-orange-800',
+          CABLE: 'bg-teal-100 text-teal-800',
+          COMPOUNDER: 'bg-cyan-100 text-cyan-800',
+        };
+
+        const firstCategory = categories[0];
+        const colorClass = CATEGORY_COLORS[firstCategory] || 'bg-gray-100 text-gray-800';
+        const label = CATEGORY_LABELS[firstCategory] || firstCategory;
+
+        return (
+          <div className="flex items-center gap-1">
+            <span className={`inline-flex px-2 py-0.5 text-xs font-medium rounded-full ${colorClass}`}>
+              {label}
+            </span>
+            {categories.length > 1 && (
+              <span className="text-xs text-gray-500">+{categories.length - 1}</span>
+            )}
+          </div>
+        );
+      },
+      enableSorting: true,
+    },
+    {
+      accessorKey: 'status',
+      header: 'STATUS',
+      size: 100,
+      cell: ({ row }) => {
+        const status = row.original.status || 'ACTIVE';
+        
+        const STATUS_COLORS = {
+          ACTIVE: 'bg-green-100 text-green-800',
+          INACTIVE: 'bg-yellow-100 text-yellow-800',
+          DELETED: 'bg-red-100 text-red-800',
+        };
+
+        const STATUS_LABELS = {
+          ACTIVE: 'Complete',
+          INACTIVE: 'Incomplete',
+          DELETED: 'Deleted',
+        };
+
+        const colorClass = STATUS_COLORS[status] || 'bg-gray-100 text-gray-800';
+        const label = STATUS_LABELS[status] || status;
+
+        return (
+          <span className={`inline-flex px-2 py-0.5 text-xs font-medium rounded-full ${colorClass}`}>
+            {label}
+          </span>
+        );
+      },
+      enableSorting: true,
+    },
+  ], []);
+
+  // NO TRANSFORMATION NEEDED - Backend returns correct format
+  const records = useMemo(() => {
+    const rawRecords = reportData?.results || [];
+    
+    // Debug: Log raw data from API (only once)
+    if (rawRecords.length > 0 && !window.__client_report_logged) {
+      console.log('📊 Raw API record:', rawRecords[0]);
+      window.__client_report_logged = true;
+    }
+    
+    // Return records as-is - backend already provides correct structure
+    return rawRecords;
+  }, [reportData]);
+
   // Extract data from React Query responses
-  const records = reportData?.results || [];
   const totalCount = reportData?.count || 0;
   const totalPages = Math.ceil(totalCount / pageSize);
   const availableCategories = stats?.available_categories || [];
+
+  // Extract report criteria from subscription data
+  const reportCriteria = useMemo(() => {
+    // Backend sends 'report_filter_criteria' field from SubscriptionSerializer
+    const criteria = reportAccess?.report_filter_criteria || {};
+    console.log('🔍 Report criteria from subscription:', criteria);
+    return criteria;
+  }, [reportAccess]);
+
+  // Get report's configured categories
+  const reportCategories = useMemo(() => {
+    if (!reportCriteria || Object.keys(reportCriteria).length === 0) return [];
+    
+    let categories = [];
+    if (Array.isArray(reportCriteria.categories) && reportCriteria.categories.length > 0) {
+      categories = reportCriteria.categories;
+    } else if (typeof reportCriteria.categories === 'string' && reportCriteria.categories) {
+      categories = [reportCriteria.categories];
+    } else if (reportCriteria.category) {
+      categories = Array.isArray(reportCriteria.category) 
+        ? reportCriteria.category 
+        : [reportCriteria.category];
+    }
+    
+    console.log('📦 Report categories from criteria:', categories);
+    return categories;
+  }, [reportCriteria]);
+
+  // Get report's configured countries
+  const reportCountries = useMemo(() => {
+    if (!reportCriteria) return [];
+    if (Array.isArray(reportCriteria.country)) return reportCriteria.country;
+    return [];
+  }, [reportCriteria]);
+
+  // Get report's configured status filters
+  const reportStatusFiltersCriteria = useMemo(() => {
+    if (!reportCriteria || Object.keys(reportCriteria).length === 0) return ['COMPLETE'];
+    
+    let status = [];
+    if (Array.isArray(reportCriteria.status) && reportCriteria.status.length > 0) {
+      status = reportCriteria.status;
+    } else if (reportCriteria.status) {
+      status = [reportCriteria.status];
+    } else {
+      status = ['COMPLETE']; // Default
+    }
+    
+    console.log('✅ Report status from criteria:', status);
+    return status;
+  }, [reportCriteria]);
+
+  // Get report's configured filter groups
+  const reportFilterGroupsCriteria = useMemo(() => {
+    if (!reportCriteria) return [];
+    
+    // If filter_groups exists, use it
+    if (Array.isArray(reportCriteria.filter_groups) && reportCriteria.filter_groups.length > 0) {
+      return reportCriteria.filter_groups;
+    }
+    
+    // Check for legacy materials at top level
+    const legacyMaterials = {};
+    const excludedKeys = ['category', 'categories', 'country', 'status', 'filter_groups'];
+    Object.keys(reportCriteria).forEach(key => {
+      if (!excludedKeys.includes(key) && typeof reportCriteria[key] === 'boolean') {
+        legacyMaterials[key] = reportCriteria[key];
+      }
+    });
+    
+    if (Object.keys(legacyMaterials).length > 0) {
+      return [{
+        id: 'legacy-materials',
+        name: 'Filter Group 1',
+        filters: legacyMaterials,
+        technicalFilters: {}
+      }];
+    }
+    
+    return [];
+  }, [reportCriteria]);
+
+  // Initialize filters from report criteria when data is loaded
+  useEffect(() => {
+    if (filtersInitialized) return;
+    
+    // Wait for report access data to be loaded
+    if (!reportAccess) {
+      console.log('⏳ Waiting for reportAccess...');
+      return;
+    }
+    
+    // Wait for stats to load (we need availableCategories and allCountries for fallbacks)
+    // But only if report doesn't specify them
+    const needsAvailableCategories = reportCategories.length === 0;
+    const needsAllCountries = reportCountries.length === 0;
+    
+    if (needsAvailableCategories && availableCategories.length === 0) {
+      console.log('⏳ Waiting for availableCategories...');
+      return;
+    }
+    
+    if (needsAllCountries && allCountries.length === 0) {
+      console.log('⏳ Waiting for allCountries...');
+      return;
+    }
+    
+    console.log('🚀 Initializing client report filters:', {
+      reportCriteria,
+      reportCategories,
+      reportCountries,
+      reportStatusFiltersCriteria,
+      availableCategories,
+      allCountries: allCountries.length
+    });
+    
+    // Initialize status from report criteria
+    setStatusFilters([...reportStatusFiltersCriteria]);
+    setReportDefaultStatus([...reportStatusFiltersCriteria]);
+    
+    // Initialize categories from report criteria
+    // If report has specific categories, use them; otherwise use all available from stats
+    if (reportCategories.length > 0) {
+      console.log('✅ Setting category filters from report:', reportCategories);
+      setCategoryFilters([...reportCategories]);
+    } else if (availableCategories.length > 0) {
+      console.log('⚠️ Falling back to all available categories:', availableCategories);
+      setCategoryFilters([...availableCategories]);
+    }
+    
+    // Initialize countries from report criteria
+    // If report has specific countries, use them; otherwise use all available from stats
+    if (reportCountries.length > 0) {
+      console.log('✅ Setting country filters from report:', reportCountries);
+      setCountryFilters([...reportCountries]);
+    } else if (allCountries.length > 0) {
+      console.log('⚠️ Falling back to all available countries:', allCountries.length);
+      setCountryFilters([...allCountries]);
+    }
+    
+    // Initialize filter groups from report criteria
+    if (reportFilterGroupsCriteria.length > 0) {
+      setFilterGroups([...reportFilterGroupsCriteria]);
+      setReportDefaultFilterGroups([...reportFilterGroupsCriteria]);
+    }
+    
+    // Mark initialization complete
+    setFiltersInitialized(true);
+    console.log('✅ Filters initialized successfully');
+  }, [reportAccess, reportCriteria, reportStatusFiltersCriteria, reportCategories, reportCountries, reportFilterGroupsCriteria, availableCategories, allCountries, filtersInitialized]);
 
   // Format the expiry date
   const formattedExpiryDate = reportAccess?.end_date
@@ -111,16 +402,15 @@ const ClientReportViewPage = () => {
     ? Math.ceil((new Date(reportAccess.end_date) - new Date()) / (1000 * 60 * 60 * 24))
     : 0;
 
-  // Get top categories (top 3) - using stats.categories
-  const topCategories = useMemo(() => {
-    if (!stats?.categories || !Array.isArray(stats.categories)) return [];
-
-    // Sort by count and take top 3
-    return stats.categories
-      .slice()
-      .sort((a, b) => (b.count || 0) - (a.count || 0))
-      .slice(0, 3);
-  }, [stats]);
+  // Get top materials (top 3) - from backend endpoint with filters applied
+  const topMaterials = useMemo(() => {
+    if (!materialStats?.top_materials) return [];
+    
+    return materialStats.top_materials.map(item => ({
+      material: item.label,
+      count: item.count
+    }));
+  }, [materialStats]);
 
   // Get top countries (try multiple possible field names)
   const topCountries = useMemo(() => {
@@ -258,6 +548,21 @@ const ClientReportViewPage = () => {
     navigate(url);
   };
 
+  // Navigate to focus view with filters
+  const navigateToFocusView = () => {
+    const params = new URLSearchParams();
+    
+    if (searchQuery) params.append('search', searchQuery);
+    if (countryFilters.length > 0) params.append('countries', countryFilters.join(','));
+    if (categoryFilters.length > 0) params.append('categories', categoryFilters.join(','));
+    if (statusFilters.length > 0) params.append('status', statusFilters.join(','));
+    if (filterGroups.length > 0) params.append('filter_groups', JSON.stringify(filterGroups));
+    
+    const queryString = params.toString();
+    const url = `/client/reports/${reportId}/focus${queryString ? `?${queryString}` : ''}`;
+    navigate(url);
+  };
+
   /**
    * CRITICAL FIX: Handle loading saved searches with proper filter separation
    * This properly handles countries, categories, and other filters
@@ -344,7 +649,7 @@ const ClientReportViewPage = () => {
 
   const selectAllRecords = (checked) => {
     if (checked) {
-      const allIds = records.map(r => r.factory_id);
+      const allIds = records.map(r => r.id);
       setSelectedRecords(new Set(allIds));
     } else {
       setSelectedRecords(new Set());
@@ -381,11 +686,14 @@ const ClientReportViewPage = () => {
     setCurrentPage(1);
   };
 
+    // Reset all filters to report defaults
     const clearAllFilters = () => {
       setFilters({});
-      setCountryFilters([]);
-      setCategoryFilters([]);
-      setFilterGroups([]);  // NEW: Clear filter groups
+      // Reset to report criteria defaults
+      setCountryFilters(reportCountries.length > 0 ? [...reportCountries] : [...allCountries]);
+      setCategoryFilters(reportCategories.length > 0 ? [...reportCategories] : [...availableCategories]);
+      setStatusFilters([...reportStatusFiltersCriteria]);
+      setFilterGroups([...reportFilterGroupsCriteria]);
       setSearchQuery('');
       setCurrentPage(1);
     };
@@ -395,23 +703,67 @@ const ClientReportViewPage = () => {
       setCurrentPage(1);
     };
 
-    // NEW: Reset filter groups
+    // Reset filter groups to report defaults (called from sidebar Reset button)
     const handleResetFilterGroups = () => {
-      setFilterGroups([]);
-      setCountryFilters([]);
-      setCategoryFilters([]);
+      // Reset to report criteria defaults
+      setFilterGroups([...reportFilterGroupsCriteria]);
+      setCountryFilters(reportCountries.length > 0 ? [...reportCountries] : [...allCountries]);
+      setCategoryFilters(reportCategories.length > 0 ? [...reportCategories] : [...availableCategories]);
+      setStatusFilters([...reportStatusFiltersCriteria]);
       setFilters({});
       setCurrentPage(1);
     };
 
+    // Count material/technical filters from filter groups
     const groupFilterCount = filterGroups.reduce((sum, group) => {
-      return sum + Object.keys(group.filters || {}).length;
+      const materialCount = Object.keys(group.filters || {}).length;
+      const technicalCount = Object.entries(group.technicalFilters || {}).filter(([_, f]) => {
+        if (f.mode === 'equals') return f.equals !== '' && f.equals !== undefined;
+        return (f.min !== '' && f.min !== undefined) || (f.max !== '' && f.max !== undefined);
+      }).length;
+      return sum + materialCount + technicalCount;
     }, 0);
 
+    // Count report default filter groups
+    const reportGroupFilterCount = reportFilterGroupsCriteria.reduce((sum, group) => {
+      const materialCount = Object.keys(group.filters || {}).length;
+      const technicalCount = Object.entries(group.technicalFilters || {}).filter(([_, f]) => {
+        if (f.mode === 'equals') return f.equals !== '' && f.equals !== undefined;
+        return (f.min !== '' && f.min !== undefined) || (f.max !== '' && f.max !== undefined);
+      }).length;
+      return sum + materialCount + technicalCount;
+    }, 0);
+
+    // Calculate active filters count - only count DEVIATIONS from report criteria defaults
+    // Report defaults come from filter_criteria
+    const reportDefaultCountries = reportCountries.length > 0 ? reportCountries : allCountries;
+    const reportDefaultCategories = reportCategories.length > 0 ? reportCategories : availableCategories;
+    
+    const isCountriesAtDefault = reportDefaultCountries.length > 0 && 
+      countryFilters.length === reportDefaultCountries.length &&
+      countryFilters.every(c => reportDefaultCountries.includes(c));
+    
+    const isCategoriesAtDefault = reportDefaultCategories.length > 0 && 
+      categoryFilters.length === reportDefaultCategories.length &&
+      categoryFilters.every(c => reportDefaultCategories.includes(c));
+    
+    const isStatusAtDefault = statusFilters.length === reportStatusFiltersCriteria.length &&
+      statusFilters.every(s => reportStatusFiltersCriteria.includes(s));
+    
+    // Check if filter groups match report defaults
+    const isFilterGroupsAtDefault = JSON.stringify(filterGroups) === JSON.stringify(reportFilterGroupsCriteria) ||
+      (filterGroups.length === 0 && reportFilterGroupsCriteria.length === 0);
+    
     const activeFiltersCount =
-      countryFilters.length +
-      categoryFilters.length +
-      groupFilterCount +  // NEW: Include filter groups in count
+      // Countries: only count if different from report default
+      (!isCountriesAtDefault && countryFilters.length > 0 ? countryFilters.length : 0) +
+      // Categories: only count if different from report default
+      (!isCategoriesAtDefault && categoryFilters.length > 0 ? categoryFilters.length : 0) +
+      // Status: only count if different from report default
+      (!isStatusAtDefault ? statusFilters.length : 0) +
+      // Filter groups: count deviation from default
+      (!isFilterGroupsAtDefault ? groupFilterCount : 0) +
+      // Legacy filters
       Object.keys(filters).filter(key => filters[key] !== undefined).length;
 
   if (accessLoading) {
@@ -428,7 +780,7 @@ const ClientReportViewPage = () => {
     <ClientDashboardLayout
       pageTitle={reportAccess?.report_title || 'Report View'}
       pageSubtitleBottom={reportAccess?.report_description || 'View and analyze report data'}
-      breadcrumbs={breadcrumbs}
+      breadcrumbs={customBreadcrumbs}
     >
       <div className="p-6">
         {/* STATS CARDS */}
@@ -449,7 +801,7 @@ const ClientReportViewPage = () => {
             </div>
           </div>
 
-          {/* Top Categories Card */}
+          {/* Top Materials Card */}
           <div className="relative overflow-hidden bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl shadow-lg p-6 text-white">
             <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16"></div>
             <div className="relative">
@@ -459,18 +811,18 @@ const ClientReportViewPage = () => {
                 </div>
                 <TrendingUp className="w-8 h-8 text-white/30" />
               </div>
-              <p className="text-sm text-purple-100 mb-2 font-medium">Top Categories</p>
-              {statsLoading ? (
+              <p className="text-sm text-purple-100 mb-2 font-medium">Top Materials</p>
+              {materialStatsLoading ? (
                 <p className="text-sm text-purple-100">Loading...</p>
-              ) : topCategories.length > 0 ? (
+              ) : topMaterials.length > 0 ? (
                 <div className="space-y-1">
-                  {topCategories.map((item, index) => (
+                  {topMaterials.map((item, index) => (
                     <div key={index} className="flex items-center justify-between text-sm">
                       <span className="text-purple-50 truncate">
-                        {item.category || 'Unknown'}
+                        {item.material}
                       </span>
                       <span className="text-purple-100 font-semibold ml-2">
-                        {item.count || 0}
+                        {item.count}
                       </span>
                     </div>
                   ))}
@@ -598,12 +950,21 @@ const ClientReportViewPage = () => {
               )}
             </button>
               <button
-                onClick={navigateToVisualization}
-                className="px-6 py-3 bg-purple-600 text-white rounded-xl hover:bg-purple-700 flex items-center gap-2 shadow-lg"
+              onClick={navigateToVisualization}
+              className="px-6 py-3 bg-purple-600 text-white rounded-xl hover:bg-purple-700 flex items-center gap-2 shadow-lg"
               >
-                <BarChart3 className="w-5 h-5" />
-                Visualization
+              <BarChart3 className="w-5 h-5" />
+              Visualization
               </button>
+            <button
+              onClick={navigateToFocusView}
+              className="px-6 py-3 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 flex items-center gap-2 shadow-lg"
+              title="View all companies with all fields in Excel-like format"
+            >
+              <TableProperties className="w-5 h-5" />
+              Focus View
+            </button>
+            {/* Export button - commented out for now, will use later
             <button
               onClick={handleExport}
               disabled={exportLoading}
@@ -612,6 +973,7 @@ const ClientReportViewPage = () => {
               <Download className="w-5 h-5" />
               Export
             </button>
+            */}
 
           </div>
 
@@ -628,8 +990,8 @@ const ClientReportViewPage = () => {
                 </button>
               </div>
               <div className="flex flex-wrap gap-2">
-                {/* Category Filter Chips */}
-                {categoryFilters.length > 0 && (
+                {/* Category Filter Chips - only show if NOT at report default */}
+                {!isCategoriesAtDefault && categoryFilters.length > 0 && (
                   <>
                     {categoryFilters.map(categoryValue => (
                       <span
@@ -734,8 +1096,8 @@ const ClientReportViewPage = () => {
                   </div>
                 ))}
 
-                {/* Country Filters */}
-                {countryFilters.map(country => (
+                {/* Country Filters - only show if NOT at report default */}
+                {!isCountriesAtDefault && countryFilters.length > 0 && countryFilters.map(country => (
                   <span
                     key={country}
                     className="inline-flex items-center gap-2 px-3 py-1.5 bg-purple-100 text-purple-800 border border-purple-300 rounded-full text-sm font-medium"
@@ -795,20 +1157,62 @@ const ClientReportViewPage = () => {
 
                         // 1. Build Category Section
                         if (categoryFilters.length > 0) {
-                          sections.push(
-                            <div key="categories">
-                              <strong>Category:</strong> {categoryFilters.join(', ')}
-                            </div>
-                          );
+                          // Check if all categories are selected
+                          const allCategoriesSelected = availableCategories.length > 0 && 
+                            categoryFilters.length === availableCategories.length &&
+                            categoryFilters.every(c => availableCategories.includes(c));
+                          
+                          if (allCategoriesSelected) {
+                            sections.push(
+                              <div key="categories">
+                                <strong>Category:</strong> All categories ({availableCategories.length})
+                              </div>
+                            );
+                          } else if (categoryFilters.length <= 5) {
+                            // Show individual categories if 5 or fewer
+                            sections.push(
+                              <div key="categories">
+                                <strong>Category:</strong> {categoryFilters.join(', ')}
+                              </div>
+                            );
+                          } else {
+                            // Show count if more than 5 categories
+                            sections.push(
+                              <div key="categories">
+                                <strong>Category:</strong> {categoryFilters.length} categories selected
+                              </div>
+                            );
+                          }
                         }
 
                         // 2. Build Country Section
                         if (countryFilters.length > 0) {
-                          sections.push(
-                            <div key="countries">
-                              <strong>Country:</strong> {countryFilters.join(', ')}
-                            </div>
-                          );
+                          // Check if all countries are selected
+                          const allCountriesSelected = allCountries.length > 0 && 
+                            countryFilters.length === allCountries.length &&
+                            countryFilters.every(c => allCountries.includes(c));
+                          
+                          if (allCountriesSelected) {
+                            sections.push(
+                              <div key="countries">
+                                <strong>Country:</strong> All countries ({allCountries.length})
+                              </div>
+                            );
+                          } else if (countryFilters.length <= 5) {
+                            // Show individual countries if 5 or fewer
+                            sections.push(
+                              <div key="countries">
+                                <strong>Country:</strong> {countryFilters.join(', ')}
+                              </div>
+                            );
+                          } else {
+                            // Show count if more than 5 countries
+                            sections.push(
+                              <div key="countries">
+                                <strong>Country:</strong> {countryFilters.length} countries selected
+                              </div>
+                            );
+                          }
                         }
 
                         // 3. Build Filter Groups Section (OR within groups, AND between groups)
@@ -911,13 +1315,15 @@ if (filterGroups.length > 0) {
             <div className="bg-white rounded-2xl shadow-lg overflow-hidden mb-6 border border-gray-100">
               <DataTable
                 data={records}
-                onRowClick={(record) => setSelectedRecord(record.factory_id)}
+                onRowClick={(record) => setSelectedRecord(record)}
                 isGuest={false}
                 onSort={setOrdering}
                 currentSort={ordering}
                 selectedRecords={selectedRecords}
                 onSelectRecord={toggleRecordSelection}
                 onSelectAll={selectAllRecords}
+                customColumns={customColumns}  // ADD THIS
+                idField="id"  // ADD THIS
               />
             </div>
 
@@ -940,20 +1346,30 @@ if (filterGroups.length > 0) {
       </div>
 
       {/* FILTER DRAWER */}
-        {/* Filter Sidebar with Groups */}
+        {/* Filter Sidebar - Report Context */}
         {showFilters && (
-          <FilterSidebarWithGroups
+          <CompanyFilterSidebar
             isOpen={showFilters}
             onClose={() => setShowFilters(false)}
             filterGroups={filterGroups}
             filterOptions={filterOptions}
             technicalFilterOptions={technicalFilterOptions}
+            // Report context props
+            isReportContext={true}
+            reportStatusFilters={reportDefaultStatus}
+            reportFilterGroups={reportDefaultFilterGroups}
+            // Status filters
+            statusFilters={statusFilters}
+            onStatusFilterChange={setStatusFilters}
+            // Country filters
             countryFilters={countryFilters}
             onCountryFilterChange={setCountryFilters}
             allCountries={allCountries}
+            // Category filters
             categoryFilters={categoryFilters}
             onCategoryFilterChange={setCategoryFilters}
             availableCategories={availableCategories}
+            // Actions
             onApply={handleApplyFilterGroups}
             onReset={handleResetFilterGroups}
           />
@@ -962,7 +1378,7 @@ if (filterGroups.length > 0) {
       {/* DETAIL MODAL */}
       {selectedRecord && (
         <RecordDetailModal
-          factoryId={selectedRecord}
+          record={selectedRecord}
           onClose={() => setSelectedRecord(null)}
           isGuest={false}
         />
