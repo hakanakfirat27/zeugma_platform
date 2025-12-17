@@ -14,6 +14,10 @@ import {
 } from 'lucide-react';
 import useChatUnreadCount from '../../hooks/useChatUnreadCount';
 import useAnnouncementBadge from '../../hooks/useAnnouncementBadge';
+import FloatingHelpButton from '../help/FloatingHelpButton';
+import ProductTour from '../help/ProductTour';
+import { clientDashboardTourSteps } from '../help/tourSteps';
+import { useTour } from '../../contexts/TourContext';
 
 const ClientDashboardLayout = ({ children, pageTitle, pageSubtitleTop, pageSubtitleBottom, breadcrumbs }) => {
   const { user, logout } = useAuth();
@@ -45,13 +49,45 @@ const ClientDashboardLayout = ({ children, pageTitle, pageSubtitleTop, pageSubti
   const [showAnnouncementPopup, setShowAnnouncementPopup] = useState(false);
   const [currentAnnouncement, setCurrentAnnouncement] = useState(null);
 
+  // Product Tour - use context
+  const { startTour } = useTour();
+
+  // Check if user has seen the tour before
+  useEffect(() => {
+    const hasSeenTour = localStorage.getItem('clientTourCompleted');
+    // Optionally auto-start tour for first-time users
+    // if (!hasSeenTour) startTour();
+  }, []);
+
+  // Keyboard shortcut for help (press '?')
+  useEffect(() => {
+    const handleKeyPress = (e) => {
+      // Only trigger if not typing in an input
+      if (e.key === '?' && !['INPUT', 'TEXTAREA'].includes(e.target.tagName)) {
+        e.preventDefault();
+        navigate('/client/help-center');
+      }
+    };
+
+    document.addEventListener('keypress', handleKeyPress);
+    return () => document.removeEventListener('keypress', handleKeyPress);
+  }, [navigate]);
+
+  const handleStartTour = () => {
+    startTour();
+  };
+
+  const handleTourComplete = () => {
+    localStorage.setItem('clientTourCompleted', 'true');
+  };
+
   const navLinks = [
     { name: 'Dashboard', path: '/client/dashboard', icon: LayoutDashboard, color: 'text-blue-500' },
     { name: 'Reports', path: '/client/reports', icon: FileText, color: 'text-purple-500' },
     { name: 'Subscriptions', path: '/client/subscriptions', icon: CreditCard, color: 'text-green-500' },
     { name: 'Chat', path: '/client/chat', icon: MessageSquare, color: 'text-orange-500' },
     { name: 'Announcements', path: '/client/announcements', icon: Megaphone, color: 'text-pink-500', badge: unreadAnnouncementsCount },
-    { name: 'FAQ', path: '/client/faq', icon: HelpCircle, color: 'text-pink-500' },
+    { name: 'Help Center', path: '/client/help-center', icon: HelpCircle, color: 'text-cyan-500' },
   ];
 
   // Get CSRF token from cookie
@@ -512,6 +548,7 @@ const ClientDashboardLayout = ({ children, pageTitle, pageSubtitleTop, pageSubti
       `}</style>
 
       <aside
+        data-tour="sidebar"
         className={`${sidebarWidth} transition-all duration-300 ease-in-out bg-gradient-to-b from-slate-800 via-slate-900 to-slate-900 text-white flex flex-col shadow-2xl relative z-50`}
       >
         {/* Logo Section */}
@@ -681,7 +718,7 @@ const ClientDashboardLayout = ({ children, pageTitle, pageSubtitleTop, pageSubti
               </button>
 
               {/* Notifications */}
-              <div className="relative" ref={notificationRef}>
+              <div className="relative" ref={notificationRef} data-tour="notifications">
                 <button
                   onClick={() => {
                     setShowNotifications(!showNotifications);
@@ -835,7 +872,7 @@ const ClientDashboardLayout = ({ children, pageTitle, pageSubtitleTop, pageSubti
               </div>
 
                 {/* User Avatar Dropdown */}
-                <div className="relative" ref={avatarMenuRef}>
+                <div className="relative" ref={avatarMenuRef} data-tour="profile-menu">
                   <button
                     onClick={() => setShowAvatarMenu(!showAvatarMenu)}
                     className="flex items-center gap-2 p-1 pr-3 hover:bg-gray-100 rounded-xl transition-colors"
@@ -865,17 +902,17 @@ const ClientDashboardLayout = ({ children, pageTitle, pageSubtitleTop, pageSubti
                             <p className="text-sm font-bold text-white">
                               {user?.full_name || user?.username}
                             </p>
-                            <p className="text-xs text-purple-100">
+                            {/*<p className="text-xs text-purple-100">
                               {user?.email}
-                            </p>
+                            </p>*/}
                           </div>
                         </div>
 
-                        {/* Premium Badge */}
+                        {/* Premium Badge 
                         <div className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 bg-white/10 backdrop-blur-xl rounded-full border border-white/20">
                           <Shield className="w-3.5 h-3.5 text-white" />
                           <span className="text-xs font-semibold text-white">Premium Member</span>
-                        </div>
+                        </div>*/}
                       </div>
 
                       {/* Menu Items */}
@@ -1046,6 +1083,15 @@ const ClientDashboardLayout = ({ children, pageTitle, pageSubtitleTop, pageSubti
           </div>
         </div>
       )}
+
+      {/* Floating Help Button */}
+      <FloatingHelpButton onStartTour={handleStartTour} />
+
+      {/* Product Tour */}
+      <ProductTour
+        steps={clientDashboardTourSteps}
+        onComplete={handleTourComplete}
+      />
     </div>
   );
 };

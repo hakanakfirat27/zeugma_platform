@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from './contexts/AuthContext';
 import { AnnouncementProvider } from './contexts/AnnouncementContext';
+import { TourProvider } from './contexts/TourContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import { ToastProvider, useToast } from './contexts/ToastContext';
 import { ToastContainer } from './components/Toast';
@@ -88,7 +89,9 @@ import AdminEditSitePage from './pages/admin/AdminEditSitePage';
 // Other Pages
 import MyTasksPage from './pages/MyTasksPage';
 import ClientFAQPage from './pages/client/ClientFAQPage';
+import ClientHelpCenter from './pages/client/ClientHelpCenter';
 import CompanyResearchPage from './pages/CompanyResearchPage';
+import FeedbackPage from './pages/FeedbackPage';
 
 import CompanyDatabasePage from './pages/database/CompanyDatabasePage';
 import CompanyDetailPage from './pages/database/CompanyDetailPage';
@@ -118,6 +121,7 @@ function App() {
     <QueryClientProvider client={queryClient}> 
       <AuthProvider>
         <ToastProvider>
+          <TourProvider>
           <ToastRenderer />
             <Routes>
             {/* Public routes */}
@@ -164,6 +168,7 @@ function App() {
             <Route path="/client/dashboard" element={<ProtectedRoute allowedRoles={['CLIENT']}><ClientDashboard /></ProtectedRoute>}/>
             <Route path="/client/subscriptions" element={<ProtectedRoute allowedRoles={['CLIENT']}><ClientSubscriptionsPage /></ProtectedRoute>}/>
             <Route path="/client/faq" element={<ProtectedRoute allowedRoles={['CLIENT']}><ClientFAQPage /></ProtectedRoute>}/>
+            <Route path="/client/help-center" element={<ProtectedRoute allowedRoles={['CLIENT']}><ClientHelpCenter /></ProtectedRoute>}/>
 
             {/* Notifications Routes */}
             <Route path="/client/notifications" element={<ProtectedRoute><ClientDashboardLayout><ClientNotifications /></ClientDashboardLayout></ProtectedRoute>}/>
@@ -202,7 +207,13 @@ function App() {
             <Route path="/admin/projects/:projectId" element={<ProtectedRoute allowedRoles={['SUPERADMIN', 'STAFF_ADMIN']}><AdminProjectDetailPage /></ProtectedRoute>} />
             <Route path="/admin/projects/:projectId/add-site" element={<ProtectedRoute allowedRoles={['SUPERADMIN', 'STAFF_ADMIN']}><AdminAddSiteToProjectPage /></ProtectedRoute>} />
             <Route path="/admin/projects/:projectId/sites/:siteId/view" element={<ProtectedRoute allowedRoles={['SUPERADMIN', 'STAFF_ADMIN']}><AdminViewSitePage /></ProtectedRoute>} />
-            <Route path="/admin/projects/:projectId/sites/:siteId/edit" element={<ProtectedRoute allowedRoles={['SUPERADMIN', 'STAFF_ADMIN']}><AdminEditSitePage /></ProtectedRoute>} />            
+            <Route path="/admin/projects/:projectId/sites/:siteId/edit" element={<ProtectedRoute allowedRoles={['SUPERADMIN', 'STAFF_ADMIN']}><AdminEditSitePage /></ProtectedRoute>} />
+
+            {/* Feedback (Admin) - Combined Help Center & Report Feedback */}
+            <Route path="/feedback" element={<ProtectedRoute allowedRoles={['SUPERADMIN', 'STAFF_ADMIN']}><FeedbackPage /></ProtectedRoute>} />
+            {/* Redirect old routes to new combined page */}
+            <Route path="/help-center-feedback" element={<Navigate to="/feedback?tab=help" replace />} />
+            <Route path="/report-feedback" element={<Navigate to="/feedback?tab=report" replace />} />            
 
             <Route path="/my-tasks" element={<ProtectedRoute><MyTasksPage /></ProtectedRoute>} />
             <Route path="/company-research" element={<ProtectedRoute allowedRoles={['DATA_COLLECTOR', 'STAFF_ADMIN', 'SUPERADMIN']}><CompanyResearchPage /></ProtectedRoute>} />
@@ -221,6 +232,7 @@ function App() {
             <Route path="*" element={<Navigate to="/" replace />} />
 
           </Routes>
+          </TourProvider>
         </ToastProvider>
       </AuthProvider>
     </QueryClientProvider>

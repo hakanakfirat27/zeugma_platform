@@ -12,7 +12,9 @@ from .client_views import (
     ClientReportExportAPIView,
     ClientReportColumnsAPIView,
     ClientTechnicalFilterOptionsAPIView,
-    ClientMaterialStatsAPIView
+    ClientMaterialStatsAPIView,
+    HelpArticleFeedbackAPIView,
+    ReportFeedbackAPIView
 )
 from .saved_search_views import (
     SavedSearchListCreateAPIView,
@@ -51,4 +53,10 @@ urlpatterns = [
     
     # Get material stats with filters applied
     path('material-stats/', ClientMaterialStatsAPIView.as_view(), name='client-material-stats'),
+    
+    # Help Center article feedback
+    path('help-article-feedback/', HelpArticleFeedbackAPIView.as_view(), name='help-article-feedback'),
+    
+    # Report feedback
+    path('report-feedback/', ReportFeedbackAPIView.as_view(), name='report-feedback'),
 ]

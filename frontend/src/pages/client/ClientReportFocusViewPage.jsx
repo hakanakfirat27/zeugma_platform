@@ -15,6 +15,7 @@ import LoadingSpinner from '../../components/LoadingSpinner';
 import Pagination from '../../components/database/Pagination';
 import CompanyFilterSidebar from '../../components/database/CompanyFilterSidebar';
 import RecordDetailModal from '../../components/database/RecordDetailModal';
+import ReportFeedbackModal from '../../components/client/ReportFeedbackModal';
 import api from '../../utils/api';
 import {
   useClientReportAccess,
@@ -1651,6 +1652,12 @@ const ClientReportFocusViewPage = () => {
           </div>
         </div>
       )}
+
+      {/* FLOATING FEEDBACK BUTTON & MODAL */}
+      <ReportFeedbackModal 
+        reportId={reportId} 
+        reportTitle={reportAccess?.report_title}
+      />
     </ClientDashboardLayout>
   );
 };

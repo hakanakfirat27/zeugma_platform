@@ -17,7 +17,8 @@ from .models import (
     ReviewNote,
     ProjectActivityLog,
     CallLog, 
-    FieldConfirmation
+    FieldConfirmation,
+    HelpArticleFeedback
 )
 
 from .fields import (
@@ -589,4 +590,31 @@ class CompanyNoteAdmin(admin.ModelAdmin):
 class CompanyHistoryAdmin(admin.ModelAdmin):
     list_display = ['company', 'action', 'performed_by', 'timestamp']
     list_filter = ['action']
-    readonly_fields = ['history_id', 'timestamp', 'changes']    
+    readonly_fields = ['history_id', 'timestamp', 'changes']
+
+
+@admin.register(HelpArticleFeedback)
+class HelpArticleFeedbackAdmin(admin.ModelAdmin):
+    """Admin interface for viewing Help Center article feedback from clients."""
+    list_display = ['user', 'article_id', 'is_helpful', 'created_at', 'updated_at']
+    list_filter = ['is_helpful', 'article_id', 'created_at']
+    search_fields = ['user__username', 'user__email', 'article_id', 'comment']
+    readonly_fields = ['feedback_id', 'created_at', 'updated_at']
+    ordering = ['-created_at']
+    
+    fieldsets = (
+        ('Feedback Details', {
+            'fields': ('feedback_id', 'user', 'article_id', 'is_helpful')
+        }),
+        ('Comment', {
+            'fields': ('comment',),
+            'classes': ('collapse',)
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('user')    

@@ -1,20 +1,19 @@
 // frontend/src/pages/UserManagementPage.jsx
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { getBreadcrumbs } from '../../utils/breadcrumbConfig';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import UsernameInput from '../../components/auth/UsernameInput';
 import EmailInput from '../../components/auth/EmailInput';
-import ExpandableRow from '../../contexts/ExpandableRow';
 
 import {
-  ArrowLeft, Users, Plus, Search, X, Edit, Trash2, Eye,
+  Users, Search, X, Edit, Trash2, Eye,
   ChevronDown, CheckCircle, XCircle, Download,
-  AlertCircle, UserPlus, Save, Mail, User, Shield,
+  UserPlus, Save, Mail, Shield,
   Phone, Building, ChevronsUpDown, Calendar, Wifi,
-  Settings, GripVertical, ChevronRight, ChevronUp,
-  Columns, Maximize2, Check, Activity
+  Settings, GripVertical, ChevronUp,
+  Columns, Check, Activity
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
@@ -81,15 +80,15 @@ const RoleBadge = ({ role }) => {
 
 // Default column configuration
 const DEFAULT_COLUMNS = [
-  { id: 'user', label: 'User', field: 'first_name', visible: true, width: 300, sortable: true, resizable: true },
-  { id: 'username', label: 'Username', field: 'username', visible: true, width: 150, sortable: true, resizable: true },
-  { id: 'email', label: 'Email', field: 'email', visible: false, width: 200, sortable: true, resizable: true },
-  { id: 'phone', label: 'Phone', field: 'phone_number', visible: false, width: 150, sortable: false, resizable: true },
-  { id: 'company', label: 'Company', field: 'company_name', visible: true, width: 200, sortable: true, resizable: true },
-  { id: 'role', label: 'Role', field: 'role', visible: true, width: 150, sortable: true, resizable: true },
-  { id: 'status', label: 'Status', field: 'is_active', visible: false, width: 120, sortable: true, resizable: true },
-  { id: 'online', label: 'Online Status', field: 'is_online', visible: true, width: 150, sortable: false, resizable: true },
-  { id: 'dateJoined', label: 'Date Joined', field: 'date_joined', visible: true, width: 150, sortable: true, resizable: true },
+  { id: 'user', label: 'User', field: 'first_name', visible: true, sortable: true },
+  { id: 'username', label: 'Username', field: 'username', visible: true, sortable: true },
+  { id: 'email', label: 'Email', field: 'email', visible: false, sortable: true },
+  { id: 'phone', label: 'Phone', field: 'phone_number', visible: false, sortable: false },
+  { id: 'company', label: 'Company', field: 'company_name', visible: true, sortable: true },
+  { id: 'role', label: 'Role', field: 'role', visible: true, sortable: true },
+  { id: 'status', label: 'Status', field: 'is_active', visible: false, sortable: true },
+  { id: 'online', label: 'Online', field: 'is_online', visible: true, sortable: false },
+  { id: 'dateJoined', label: 'Joined', field: 'date_joined', visible: true, sortable: true },
 ];
 
 // localStorage key
@@ -550,78 +549,27 @@ const OnlineUsersModal = ({ isOpen, onClose, onlineUsers, isLoading, onUserClick
 };
 
 // Sortable Table Header Component
-const ResizableHeader = ({ column, currentSort, onSort, onResize }) => {
-  const [isMouseDown, setIsMouseDown] = useState(false);
-  const startX = useRef(0);
-  const startWidth = useRef(0);
-
-  const handleMouseDown = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsMouseDown(true);
-    startX.current = e.clientX;
-    startWidth.current = column.width;
-    document.body.style.cursor = 'col-resize';
-    document.body.style.userSelect = 'none';
-  };
-
-  useEffect(() => {
-    const handleMouseMove = (e) => {
-      if (isMouseDown) {
-        const diff = e.clientX - startX.current;
-        const newWidth = Math.max(100, startWidth.current + diff);
-        onResize(column.id, newWidth);
-      }
-    };
-
-    const handleMouseUp = () => {
-      setIsMouseDown(false);
-      document.body.style.cursor = '';
-      document.body.style.userSelect = '';
-    };
-
-    if (isMouseDown) {
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
-    }
-
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [isMouseDown, column.id, onResize]);
-
+const SortableHeader = ({ column, currentSort, onSort }) => {
   const isActive = currentSort.startsWith(column.field) || currentSort.startsWith(`-${column.field}`);
   const isDesc = currentSort === `-${column.field}`;
 
   return (
-    <th
-      className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider bg-gray-50 select-none relative group"
-      style={{ width: column.width, minWidth: column.width, maxWidth: column.width }}
-    >
+    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider bg-gray-50 whitespace-nowrap">
       <div
-        className="flex items-center gap-2 cursor-pointer"
+        className={`flex items-center gap-1.5 ${column.sortable ? 'cursor-pointer hover:text-gray-900' : ''}`}
         onClick={() => column.sortable && onSort(column.field)}
       >
         <span>{column.label}</span>
         {column.sortable && (
           <div className="flex flex-col">
             {isActive ? (
-              isDesc ? <ChevronDown className="w-4 h-4 text-indigo-600" /> : <ChevronUp className="w-4 h-4 text-indigo-600" />
+              isDesc ? <ChevronDown className="w-3.5 h-3.5 text-indigo-600" /> : <ChevronUp className="w-3.5 h-3.5 text-indigo-600" />
             ) : (
-              <ChevronsUpDown className="w-4 h-4 text-gray-400" />
+              <ChevronsUpDown className="w-3.5 h-3.5 text-gray-400" />
             )}
           </div>
         )}
       </div>
-
-      {/* Resize handle */}
-      {column.resizable && (
-        <div
-          className="absolute top-0 right-0 h-full w-1 cursor-col-resize hover:bg-indigo-400 group-hover:bg-indigo-200"
-          onMouseDown={handleMouseDown}
-        />
-      )}
     </th>
   );
 };
@@ -805,9 +753,6 @@ const UserManagementPage = () => {
     return saved ? JSON.parse(saved) : DEFAULT_COLUMNS;
   });
   const [isColumnSettingsOpen, setIsColumnSettingsOpen] = useState(false);
-  const [expandedRows, setExpandedRows] = useState(new Set());
-  const [inlineEditingRow, setInlineEditingRow] = useState(null);
-  const [editedData, setEditedData] = useState({});
 
   // Enable real-time user status updates via WebSocket
   useUserStatus();
@@ -826,53 +771,10 @@ const handleResetColumns = () => {
   localStorage.removeItem(COLUMNS_STORAGE_KEY);
 };
 
-const handleColumnResize = (columnId, newWidth) => {
-  setColumns(columns.map(col =>
-    col.id === columnId ? { ...col, width: newWidth } : col
-  ));
-};
-
-// Row expansion handlers
-const handleToggleExpand = (userId) => {
-  const newExpanded = new Set(expandedRows);
-  if (newExpanded.has(userId)) {
-    newExpanded.delete(userId);
-  } else {
-    newExpanded.add(userId);
-  }
-  setExpandedRows(newExpanded);
-};
-
-// Inline editing handlers
-const handleInlineEdit = (user) => {
-  setInlineEditingRow(user.id);
-  setEditedData({
-    first_name: user.first_name || '',
-    last_name: user.last_name || '',
-    username: user.username,
-    email: user.email,
-    phone_number: user.phone_number || '',
-    company_name: user.company_name || '',
-    role: user.role,
-    is_active: user.is_active,
-  });
-};
-
-const handleInlineEditSave = () => {
-  if (inlineEditingRow) {
-    mutation.mutate({ id: inlineEditingRow, ...editedData });
-    setInlineEditingRow(null);
-    setEditedData({});
-  }
-};
-
-const handleInlineEditCancel = () => {
-  setInlineEditingRow(null);
-  setEditedData({});
-};
-
-const handleEditedDataChange = (field, value) => {
-  setEditedData({ ...editedData, [field]: value });
+// Row click handler - opens view modal
+const handleRowClick = (user) => {
+  setViewingUser(user);
+  setIsViewModalOpen(true);
 };
 
   // Existing query for the user list
@@ -1200,26 +1102,22 @@ const handleEditedDataChange = (field, value) => {
 
           {/* Table */}
             <div className="overflow-x-auto" style={{ maxHeight: 'calc(100vh - 400px)' }}>
-              <table className="min-w-full divide-y divide-gray-200">
+              <table className="w-full divide-y divide-gray-200 table-auto">
                 {/* Sticky Header */}
                 <thead className="bg-gray-50 sticky top-0 z-10 shadow-sm">
                   <tr>
-                    {/* Expand/Collapse column */}
-                    <th className="px-6 py-4 w-12 bg-gray-50"></th>
-
                     {/* Dynamic columns based on visibility */}
                     {columns.filter(col => col.visible).map((column) => (
-                      <ResizableHeader
+                      <SortableHeader
                         key={column.id}
                         column={column}
                         currentSort={ordering}
                         onSort={handleSort}
-                        onResize={handleColumnResize}
                       />
                     ))}
 
                     {/* Actions column */}
-                    <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider bg-gray-50 sticky right-0">
+                    <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider bg-gray-50 w-28">
                       Actions
                     </th>
                   </tr>
@@ -1229,46 +1127,126 @@ const handleEditedDataChange = (field, value) => {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {isLoading ? (
                     <tr>
-                      <td colSpan={columns.filter(col => col.visible).length + 2} className="text-center py-12">
+                      <td colSpan={columns.filter(col => col.visible).length + 1} className="text-center py-12">
                         <LoadingSpinner />
                       </td>
                     </tr>
                   ) : isError ? (
                     <tr>
-                      <td colSpan={columns.filter(col => col.visible).length + 2} className="text-center py-12 text-red-600">
+                      <td colSpan={columns.filter(col => col.visible).length + 1} className="text-center py-12 text-red-600">
                         {error.message}
                       </td>
                     </tr>
                   ) : users.length === 0 ? (
                     <tr>
-                      <td colSpan={columns.filter(col => col.visible).length + 2} className="text-center py-12 text-gray-500">
+                      <td colSpan={columns.filter(col => col.visible).length + 1} className="text-center py-12 text-gray-500">
                         No users found.
                       </td>
                     </tr>
                   ) : (
-                    users.map((user, index) => (
-                      <ExpandableRow
-                        key={user.id}
-                        user={user}
-                        index={index}
-                        columns={columns}
-                        isExpanded={expandedRows.has(user.id)}
-                        onToggleExpand={handleToggleExpand}
-                        onEdit={handleOpenModal}
-                        onView={handleViewUser}
-                        onDelete={handleDelete}
-                        isInlineEdit={inlineEditingRow === user.id}
-                        onInlineEdit={handleInlineEdit}
-                        onInlineEditSave={handleInlineEditSave}
-                        onInlineEditCancel={handleInlineEditCancel}
-                        editedData={editedData}
-                        onEditedDataChange={handleEditedDataChange}
-                        RoleBadge={RoleBadge}
-                        StatusBadge={StatusBadge}
-                        OnlineStatusBadge={OnlineStatusBadge}
-                        formatDate={formatDate}
-                      />
-                    ))
+                    users.map((user, index) => {
+                      const bgClass = index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50';
+                      
+                      // Render cell content based on column type
+                      const renderCell = (column) => {
+                        switch (column.id) {
+                          case 'user':
+                            return (
+                              <div className="flex items-center gap-3">
+                                <div className="w-9 h-9 bg-indigo-100 rounded-full flex items-center justify-center font-bold text-indigo-600 text-sm flex-shrink-0">
+                                  {user.initials}
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="text-sm font-semibold text-gray-900 truncate">{user.full_name}</p>
+                                  <p className="text-xs text-gray-500 truncate">{user.email}</p>
+                                </div>
+                              </div>
+                            );
+                          case 'username':
+                            return <span className="text-sm text-gray-700 font-mono">{user.username}</span>;
+                          case 'email':
+                            return <span className="text-sm text-gray-700 truncate">{user.email}</span>;
+                          case 'phone':
+                            return user.phone_number ? (
+                              <span className="text-sm text-gray-700">{user.phone_number}</span>
+                            ) : (
+                              <span className="text-sm text-gray-400">-</span>
+                            );
+                          case 'company':
+                            return user.company_name ? (
+                              <span className="text-sm text-gray-700 truncate block max-w-[180px]" title={user.company_name}>
+                                {user.company_name}
+                              </span>
+                            ) : (
+                              <span className="text-sm text-gray-400">-</span>
+                            );
+                          case 'role':
+                            return <RoleBadge role={user.role} />;
+                          case 'status':
+                            return <StatusBadge isActive={user.is_active} />;
+                          case 'online':
+                            return <OnlineStatusBadge isOnline={user.is_online} />;
+                          case 'dateJoined':
+                            return <span className="text-sm text-gray-700">{formatDate(user.date_joined)}</span>;
+                          default:
+                            return null;
+                        }
+                      };
+
+                      return (
+                        <tr
+                          key={user.id}
+                          className={`hover:bg-indigo-50 transition-colors cursor-pointer ${bgClass}`}
+                          onClick={() => handleRowClick(user)}
+                        >
+                          {/* Dynamic Columns */}
+                          {columns.filter(col => col.visible).map((column) => (
+                            <td
+                              key={column.id}
+                              className="px-4 py-3 whitespace-nowrap"
+                            >
+                              {renderCell(column)}
+                            </td>
+                          ))}
+
+                          {/* Actions Column */}
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <div className="flex items-center justify-center gap-1">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleViewUser(user);
+                                }}
+                                className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                                title="View user details"
+                              >
+                                <Eye className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleOpenModal(user);
+                                }}
+                                className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
+                                title="Edit user"
+                              >
+                                <Edit className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDelete(user);
+                                }}
+                                className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                                title="Delete user"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
                   )}
                 </tbody>
               </table>

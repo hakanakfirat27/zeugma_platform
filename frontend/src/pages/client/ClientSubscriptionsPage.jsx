@@ -92,7 +92,7 @@ const ClientSubscriptionsPage = () => {
       pageSubtitleBottom="Manage and track all your report subscriptions"
       breadcrumbs={breadcrumbs}
     >
-      <div className="p-6">
+      <div className="p-6" data-tour="subscriptions">
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-5 mb-8">
           <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-2xl shadow-lg p-6 text-white">

@@ -14,6 +14,8 @@ from .views import (
     DatabaseStatsAPIView,
     DashboardWidgetViewSet,
     EnabledWidgetsAPIView,
+    HelpArticleFeedbackAdminAPIView,
+    ReportFeedbackAdminAPIView,
 )
 from .company_views import (
     CompanyListCreateAPIView,
@@ -116,6 +118,11 @@ urlpatterns = [
     path('import-export/preview/', import_preview, name='import-preview'),
     path('import-export/confirm/', import_confirm, name='import-confirm'),
 
+    # Help Center Feedback Admin
+    path('help-center-feedback/', HelpArticleFeedbackAdminAPIView.as_view(), name='help-center-feedback-admin'),
+    
+    # Report Feedback Admin
+    path('report-feedback/', ReportFeedbackAdminAPIView.as_view(), name='report-feedback-admin'),
 ]
 
 # The router automatically creates these endpoints:

@@ -10,7 +10,7 @@ import {
   LayoutDashboard, Database, FileText, CreditCard, Users, Settings, MessageSquare, Bell,
   LogOut, ChevronDown, Menu, X, User, Maximize, Minimize, Calendar, MapPin, Phone, Mail,
   Building, Shield, CheckCircle, Clock, TrendingUp, Activity, RefreshCw, Search, Filter,
-  FolderOpen, AlertCircle, ChevronRight, ArrowRight, Check, Trash2, CheckCheck, FolderKanban, Building2 
+  FolderOpen, AlertCircle, ChevronRight, ArrowRight, Check, Trash2, CheckCheck, FolderKanban, Building2, Star 
 } from 'lucide-react';
 
 const DashboardLayout = ({ children, pageTitle, headerActions, pageSubtitleTop, pageSubtitleBottom, breadcrumbs }) => {
@@ -56,6 +56,7 @@ const navLinks = [
   { name: 'Subscriptions', path: '/subscriptions', icon: CreditCard, roles: ['SUPERADMIN', 'STAFF_ADMIN'], color: 'text-green-500' },
   { name: 'User Management', path: '/user-management', icon: Users, roles: ['SUPERADMIN'], color: 'text-red-500' },
   { name: 'Announcements', path: '/announcements-management', icon: Bell, roles: ['SUPERADMIN', 'STAFF_ADMIN'], color: 'text-red-500' },
+  { name: 'Feedback', path: '/feedback', icon: Star, roles: ['SUPERADMIN', 'STAFF_ADMIN'], color: 'text-amber-500' },
   { name: 'Chat', path: '/staff-chat', icon: MessageSquare, roles: ['SUPERADMIN', 'STAFF_ADMIN'], color: 'text-orange-500' },
 ];
 

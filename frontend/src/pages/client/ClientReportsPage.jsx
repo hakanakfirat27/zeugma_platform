@@ -67,7 +67,7 @@ const ClientReportsPage = () => {
       pageSubtitleBottom="Access and manage your subscribed reports"
       breadcrumbs={breadcrumbs}
     >
-      <div className="p-6">
+      <div className="p-6" data-tour="my-reports">
         {/* Filters and Search */}
         <div className="bg-white rounded-2xl shadow-sm p-5 mb-6 border border-gray-100">
           <div className="flex items-center justify-between gap-4 flex-wrap">

@@ -152,6 +152,12 @@ export const getBreadcrumbs = (pathname, dynamicData = {}) => {
       { label: 'FAQ', path: '/client/faq' }
     ],
 
+    // Help Center
+    '/client/help-center': [
+      { label: 'Client Dashboard', path: '/client-dashboard' },
+      { label: 'Help Center', path: '/client/help-center' }
+    ],
+
     // Widget Management
     '/widget-management': [
       { label: 'Staff Dashboard', path: '/staff-dashboard' },
@@ -404,6 +410,14 @@ export const getBreadcrumbs = (pathname, dynamicData = {}) => {
       { label: 'Custom Reports', path: '/custom-reports' },
       { label: reportName, path: `/custom-reports/${reportId}` },
       { label: 'Edit', path: `/company-reports/${reportId}/edit` }
+    ];
+  }
+
+  // Feedback (Admin) - Combined page
+  if (path === '/feedback') {
+    return [
+      { label: 'Dashboard', path: '/staff-dashboard' },
+      { label: 'Feedback', path: '/feedback' }
     ];
   }
 

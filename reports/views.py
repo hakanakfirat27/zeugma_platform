@@ -814,6 +814,259 @@ class FilterOptionsAPIView(APIView):
         return Response(response_data)
 
 
+# ========================================
+# HELP CENTER ARTICLE FEEDBACK ADMIN API
+# ========================================
+from .models import HelpArticleFeedback, ReportFeedback
+from django.db.models import Avg
+
+class HelpArticleFeedbackAdminAPIView(APIView):
+    """
+    Admin API for viewing all Help Center article feedback.
+    Only accessible by SUPERADMIN and STAFF_ADMIN users.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        """
+        Get all feedback with optional filters.
+        Query params:
+        - article_id: Filter by specific article
+        - is_helpful: Filter by helpful status (true/false)
+        - search: Search by user email/username
+        - ordering: Order by field (default: -created_at)
+        """
+        # Check admin permission
+        if request.user.role not in [UserRole.SUPERADMIN, UserRole.STAFF_ADMIN]:
+            return Response(
+                {'error': 'Admin access required'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        queryset = HelpArticleFeedback.objects.select_related('user').all()
+
+        # Apply filters
+        article_id = request.query_params.get('article_id')
+        if article_id:
+            queryset = queryset.filter(article_id=article_id)
+
+        is_helpful = request.query_params.get('is_helpful')
+        if is_helpful is not None:
+            is_helpful_bool = is_helpful.lower() == 'true'
+            queryset = queryset.filter(is_helpful=is_helpful_bool)
+
+        search = request.query_params.get('search')
+        if search:
+            queryset = queryset.filter(
+                Q(user__username__icontains=search) |
+                Q(user__email__icontains=search) |
+                Q(user__first_name__icontains=search) |
+                Q(user__last_name__icontains=search)
+            )
+
+        # Ordering
+        ordering = request.query_params.get('ordering', '-created_at')
+        queryset = queryset.order_by(ordering)
+
+        # Build response
+        feedback_list = []
+        for fb in queryset:
+            feedback_list.append({
+                'feedback_id': str(fb.feedback_id),
+                'user': {
+                    'id': fb.user.id,
+                    'username': fb.user.username,
+                    'email': fb.user.email,
+                    'full_name': fb.user.get_full_name() or fb.user.username,
+                },
+                'article_id': fb.article_id,
+                'is_helpful': fb.is_helpful,
+                'comment': fb.comment,
+                'created_at': fb.created_at.isoformat(),
+                'updated_at': fb.updated_at.isoformat(),
+            })
+
+        # Get summary stats
+        total_count = HelpArticleFeedback.objects.count()
+        helpful_count = HelpArticleFeedback.objects.filter(is_helpful=True).count()
+        not_helpful_count = HelpArticleFeedback.objects.filter(is_helpful=False).count()
+        
+        # Get article-level stats
+        article_stats = HelpArticleFeedback.objects.values('article_id').annotate(
+            total=Count('feedback_id'),
+            helpful=Count('feedback_id', filter=Q(is_helpful=True)),
+            not_helpful=Count('feedback_id', filter=Q(is_helpful=False))
+        ).order_by('-total')
+
+        return Response({
+            'feedback': feedback_list,
+            'summary': {
+                'total': total_count,
+                'helpful': helpful_count,
+                'not_helpful': not_helpful_count,
+                'helpful_percentage': round((helpful_count / total_count * 100), 1) if total_count > 0 else 0
+            },
+            'by_article': list(article_stats)
+        })
+
+
+# ========================================
+# REPORT FEEDBACK ADMIN API
+# ========================================
+class ReportFeedbackAdminAPIView(APIView):
+    """
+    Admin API for viewing all report feedback.
+    Only accessible by SUPERADMIN and STAFF_ADMIN users.
+    Supports filtering, pagination, and provides summary statistics.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        """
+        Get all report feedback with optional filters.
+        Query params:
+        - report_id: Filter by specific report UUID
+        - rating: Filter by rating (1-5)
+        - min_rating: Filter by minimum rating
+        - max_rating: Filter by maximum rating
+        - search: Search by user email/username or report title
+        - ordering: Order by field (default: -created_at)
+        - page: Page number for pagination
+        - page_size: Items per page (default: 10)
+        """
+        # Check admin permission
+        if request.user.role not in [UserRole.SUPERADMIN, UserRole.STAFF_ADMIN]:
+            return Response(
+                {'error': 'Admin access required'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        queryset = ReportFeedback.objects.select_related('user', 'report').all()
+
+        # Apply filters
+        report_id = request.query_params.get('report_id')
+        if report_id:
+            queryset = queryset.filter(report__report_id=report_id)
+
+        rating = request.query_params.get('rating')
+        if rating:
+            try:
+                queryset = queryset.filter(rating=int(rating))
+            except ValueError:
+                pass
+
+        min_rating = request.query_params.get('min_rating')
+        if min_rating:
+            try:
+                queryset = queryset.filter(rating__gte=int(min_rating))
+            except ValueError:
+                pass
+
+        max_rating = request.query_params.get('max_rating')
+        if max_rating:
+            try:
+                queryset = queryset.filter(rating__lte=int(max_rating))
+            except ValueError:
+                pass
+
+        search = request.query_params.get('search')
+        if search:
+            queryset = queryset.filter(
+                Q(user__username__icontains=search) |
+                Q(user__email__icontains=search) |
+                Q(user__first_name__icontains=search) |
+                Q(user__last_name__icontains=search) |
+                Q(report__title__icontains=search) |
+                Q(comment__icontains=search)
+            )
+
+        # Ordering
+        ordering = request.query_params.get('ordering', '-created_at')
+        valid_orderings = ['created_at', '-created_at', 'rating', '-rating', 'report__title', '-report__title']
+        if ordering in valid_orderings:
+            queryset = queryset.order_by(ordering)
+        else:
+            queryset = queryset.order_by('-created_at')
+
+        # Pagination
+        page = int(request.query_params.get('page', 1))
+        page_size = int(request.query_params.get('page_size', 10))
+        start_idx = (page - 1) * page_size
+        end_idx = start_idx + page_size
+        
+        total_count = queryset.count()
+        paginated_queryset = queryset[start_idx:end_idx]
+
+        # Build response
+        feedback_list = []
+        for fb in paginated_queryset:
+            feedback_list.append({
+                'feedback_id': str(fb.feedback_id),
+                'user': {
+                    'id': fb.user.id,
+                    'username': fb.user.username,
+                    'email': fb.user.email,
+                    'full_name': fb.user.get_full_name() or fb.user.username,
+                },
+                'report': {
+                    'report_id': str(fb.report.report_id),
+                    'title': fb.report.title,
+                },
+                'rating': fb.rating,
+                'comment': fb.comment,
+                'data_quality_rating': fb.data_quality_rating,
+                'data_completeness_rating': fb.data_completeness_rating,
+                'ease_of_use_rating': fb.ease_of_use_rating,
+                'created_at': fb.created_at.isoformat(),
+                'updated_at': fb.updated_at.isoformat(),
+            })
+
+        # Get summary stats (from all feedback, not just current page)
+        all_feedback = ReportFeedback.objects.all()
+        total_feedback = all_feedback.count()
+        avg_rating = all_feedback.aggregate(avg=Avg('rating'))['avg'] or 0
+        avg_data_quality = all_feedback.exclude(data_quality_rating__isnull=True).aggregate(avg=Avg('data_quality_rating'))['avg'] or 0
+        avg_data_completeness = all_feedback.exclude(data_completeness_rating__isnull=True).aggregate(avg=Avg('data_completeness_rating'))['avg'] or 0
+        avg_ease_of_use = all_feedback.exclude(ease_of_use_rating__isnull=True).aggregate(avg=Avg('ease_of_use_rating'))['avg'] or 0
+
+        # Rating distribution
+        rating_distribution = []
+        for i in range(1, 6):
+            count = all_feedback.filter(rating=i).count()
+            rating_distribution.append({
+                'rating': i,
+                'count': count,
+                'percentage': round((count / total_feedback * 100), 1) if total_feedback > 0 else 0
+            })
+
+        # Get report-level stats
+        report_stats = ReportFeedback.objects.values(
+            'report__report_id', 'report__title'
+        ).annotate(
+            total=Count('feedback_id'),
+            avg_rating=Avg('rating')
+        ).order_by('-total')
+
+        return Response({
+            'feedback': feedback_list,
+            'pagination': {
+                'page': page,
+                'page_size': page_size,
+                'total_count': total_count,
+                'total_pages': (total_count + page_size - 1) // page_size
+            },
+            'summary': {
+                'total_feedback': total_feedback,
+                'average_rating': round(avg_rating, 2),
+                'average_data_quality': round(avg_data_quality, 2),
+                'average_data_completeness': round(avg_data_completeness, 2),
+                'average_ease_of_use': round(avg_ease_of_use, 2),
+                'rating_distribution': rating_distribution
+            },
+            'by_report': list(report_stats)
+        })
+
+
 # --- Superdatabase Record Detail APIView Class ---
 # DEPRECATED: This class is kept for backward compatibility but now redirects to Company Database
 class SuperdatabaseRecordDetailAPIView(generics.RetrieveAPIView):

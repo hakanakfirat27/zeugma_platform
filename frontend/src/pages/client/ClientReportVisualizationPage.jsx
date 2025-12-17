@@ -17,6 +17,7 @@ import { MapContainer, TileLayer, CircleMarker, Popup, useMap } from 'react-leaf
 import 'leaflet/dist/leaflet.css';
 import ClientDashboardLayout from '../../components/layout/ClientDashboardLayout';
 import LoadingSpinner from '../../components/LoadingSpinner';
+import ReportFeedbackModal from '../../components/client/ReportFeedbackModal';
 import {
   useClientReportData,
   useClientReportStats,
@@ -1169,6 +1170,12 @@ const ClientReportVisualizationPage = () => {
           )}
         </div>
       </div>
+
+      {/* FLOATING FEEDBACK BUTTON & MODAL */}
+      <ReportFeedbackModal 
+        reportId={reportId} 
+        reportTitle={reportAccess?.report_title}
+      />
     </ClientDashboardLayout>
   );
 };

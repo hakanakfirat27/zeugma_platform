@@ -106,7 +106,7 @@ const ClientDashboard = () => {
     >
       <div className="p-6">
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div data-tour="dashboard-stats" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           {/* Total Reports */}
           <div className="relative overflow-hidden bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl shadow-lg p-6 text-white">
             <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16"></div>
@@ -157,7 +157,7 @@ const ClientDashboard = () => {
         {/* Recent Reports & Subscriptions */}
         <div className="grid lg:grid-cols-2 gap-6">
           {/* Recent Reports */}
-          <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
+          <div data-tour="my-reports" className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
             <div className="flex items-center justify-between mb-6">
               <div>
                 <h3 className="text-lg font-bold text-gray-900">Recent Reports</h3>
@@ -205,7 +205,7 @@ const ClientDashboard = () => {
           </div>
 
           {/* Subscription Status */}
-          <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
+          <div data-tour="subscriptions" className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
             <div className="flex items-center justify-between mb-6">
               <div>
                 <h3 className="text-lg font-bold text-gray-900">Subscription Status</h3>

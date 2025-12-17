@@ -21,6 +21,7 @@ import CompanyFilterSidebar from '../../components/database/CompanyFilterSidebar
 import SavedSearchManager from '../../components/client/SavedSearchManager';
 import { getSavedSearches } from '../../services/savedSearchService';
 import ExportModal from '../../components/client/ExportModal';
+import ReportFeedbackModal from '../../components/client/ReportFeedbackModal';
 import api from '../../utils/api';
 import {
   useClientReportData,
@@ -1344,6 +1345,12 @@ if (filterGroups.length > 0) {
           </>
         )}
       </div>
+
+      {/* FLOATING FEEDBACK BUTTON & MODAL */}
+      <ReportFeedbackModal 
+        reportId={reportId} 
+        reportTitle={reportAccess?.report_title}
+      />
 
       {/* FILTER DRAWER */}
         {/* Filter Sidebar - Report Context */}

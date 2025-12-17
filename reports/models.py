@@ -1326,7 +1326,7 @@ class DataCollectionProject(models.Model):
         if not self.project_code:
             self.project_code = self._generate_project_code()
         super().save(*args, **kwargs)
-    
+
     def _generate_project_code(self):
         """
         Generate unique project code like PRJ-000001.
@@ -1354,7 +1354,6 @@ class DataCollectionProject(models.Model):
             new_num = 1
         
         return f"PRJ-{str(new_num).zfill(6)}"
-
 
     def get_total_sites(self):
         """Total number of sites - use only when not using queryset annotations"""
@@ -1392,6 +1391,60 @@ class DataCollectionProject(models.Model):
         if total == 0:
             return 0
         return round((self.get_approved_sites() / total) * 100, 1)
+
+
+# --- Help Center Article Feedback ---
+class HelpArticleFeedback(models.Model):
+    """
+    Stores feedback for Help Center articles from client users.
+    Tracks whether articles were helpful and optional comments.
+    """
+    feedback_id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False
+    )
+    
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='help_article_feedbacks',
+        help_text="User who submitted the feedback"
+    )
+    
+    article_id = models.CharField(
+        max_length=100,
+        help_text="Identifier for the help article (e.g., 'welcome', 'viewing-reports')"
+    )
+    
+    is_helpful = models.BooleanField(
+        help_text="Whether the user found the article helpful"
+    )
+    
+    comment = models.TextField(
+        blank=True,
+        null=True,
+        help_text="Optional additional feedback comment"
+    )
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = "Help Article Feedback"
+        verbose_name_plural = "Help Article Feedbacks"
+        ordering = ['-created_at']
+        # Each user can only have one feedback per article
+        unique_together = ['user', 'article_id']
+        indexes = [
+            models.Index(fields=['user', 'article_id']),
+            models.Index(fields=['is_helpful']),
+            models.Index(fields=['-created_at']),
+        ]
+    
+    def __str__(self):
+        helpful_text = "Helpful" if self.is_helpful else "Not Helpful"
+        return f"{self.user.username} - {self.article_id}: {helpful_text}"
 
 
 # --- Review Note Class ---
@@ -3081,4 +3134,90 @@ class CompanyResearchResult(models.Model):
             self.model_used = self.result_data.get('model_used', '')
         
         super().save(*args, **kwargs)
+
+
+# --- Report Feedback Class ---
+class ReportFeedback(models.Model):
+    """
+    Stores feedback for reports from client users.
+    Tracks satisfaction rating and optional comments.
+    """
+    feedback_id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False
+    )
+    
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='report_feedbacks',
+        help_text="User who submitted the feedback"
+    )
+    
+    report = models.ForeignKey(
+        CustomReport,
+        on_delete=models.CASCADE,
+        related_name='feedbacks',
+        help_text="Report this feedback is for"
+    )
+    
+    # Rating from 1-5 stars
+    rating = models.IntegerField(
+        help_text="Rating from 1 (poor) to 5 (excellent)",
+        choices=[
+            (1, '1 - Poor'),
+            (2, '2 - Fair'),
+            (3, '3 - Good'),
+            (4, '4 - Very Good'),
+            (5, '5 - Excellent'),
+        ]
+    )
+    
+    comment = models.TextField(
+        blank=True,
+        null=True,
+        help_text="Optional additional feedback comment"
+    )
+    
+    # Specific feedback categories (optional)
+    data_quality_rating = models.IntegerField(
+        null=True,
+        blank=True,
+        choices=[(1, '1'), (2, '2'), (3, '3'), (4, '4'), (5, '5')],
+        help_text="Rating for data quality"
+    )
+    
+    data_completeness_rating = models.IntegerField(
+        null=True,
+        blank=True,
+        choices=[(1, '1'), (2, '2'), (3, '3'), (4, '4'), (5, '5')],
+        help_text="Rating for data completeness"
+    )
+    
+    ease_of_use_rating = models.IntegerField(
+        null=True,
+        blank=True,
+        choices=[(1, '1'), (2, '2'), (3, '3'), (4, '4'), (5, '5')],
+        help_text="Rating for ease of use"
+    )
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = "Report Feedback"
+        verbose_name_plural = "Report Feedbacks"
+        ordering = ['-created_at']
+        # Each user can only have one feedback per report
+        unique_together = ['user', 'report']
+        indexes = [
+            models.Index(fields=['user', 'report']),
+            models.Index(fields=['rating']),
+            models.Index(fields=['-created_at']),
+            models.Index(fields=['report', '-created_at']),
+        ]
+    
+    def __str__(self):
+        return f"{self.user.username} - {self.report.title}: {self.rating}/5"
 

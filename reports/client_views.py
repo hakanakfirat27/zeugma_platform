@@ -13,7 +13,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
 
 from accounts.models import UserRole
-from .models import Subscription, CustomReport, SubscriptionStatus
+from .models import Subscription, CustomReport, SubscriptionStatus, ReportFeedback
 from .company_models import Company, ProductionSiteVersion, CompanyStatus
 from .company_serializers import CompanyListSerializer
 from .pagination import CustomPagination
@@ -21,6 +21,7 @@ import csv
 import json
 from .client_serializers import ClientReportRecordSerializer
 from .company_models import Company, ProductionSite, ProductionSiteVersion, CompanyStatus
+from .models import HelpArticleFeedback
 import datetime
 from .fields import (
     COMMON_FIELDS,
@@ -1923,3 +1924,305 @@ class ClientMaterialStatsAPIView(APIView):
             'top_materials': material_stats[:3],  # Top 3 for stat card
             'total_records': queryset.count()
         })
+
+
+# ========================================
+# HELP CENTER ARTICLE FEEDBACK API
+# ========================================
+class HelpArticleFeedbackAPIView(APIView):
+    """
+    API for submitting and retrieving Help Center article feedback.
+    Clients can rate whether articles were helpful.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        """
+        Get all feedback submitted by the current user.
+        Returns a dictionary mapping article_id to feedback status.
+        """
+        if request.user.role != UserRole.CLIENT:
+            return Response(
+                {'error': 'Only clients can access this endpoint'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # Get all feedback for this user
+        feedbacks = HelpArticleFeedback.objects.filter(user=request.user)
+        
+        # Build response dict
+        feedback_dict = {}
+        for fb in feedbacks:
+            feedback_dict[fb.article_id] = {
+                'helpful': fb.is_helpful,
+                'comment': fb.comment,
+                'timestamp': fb.created_at.isoformat()
+            }
+
+        return Response(feedback_dict)
+
+    def post(self, request):
+        """
+        Submit feedback for a Help Center article.
+        Creates or updates existing feedback.
+        """
+        if request.user.role != UserRole.CLIENT:
+            return Response(
+                {'error': 'Only clients can access this endpoint'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        article_id = request.data.get('article_id')
+        is_helpful = request.data.get('is_helpful')
+        comment = request.data.get('comment', '')
+
+        # Validation
+        if not article_id:
+            return Response(
+                {'error': 'article_id is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if is_helpful is None:
+            return Response(
+                {'error': 'is_helpful is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Create or update feedback
+        feedback, created = HelpArticleFeedback.objects.update_or_create(
+            user=request.user,
+            article_id=article_id,
+            defaults={
+                'is_helpful': is_helpful,
+                'comment': comment
+            }
+        )
+
+        return Response({
+            'success': True,
+            'message': 'Feedback submitted successfully',
+            'data': {
+                'article_id': feedback.article_id,
+                'is_helpful': feedback.is_helpful,
+                'comment': feedback.comment,
+                'timestamp': feedback.created_at.isoformat(),
+                'created': created
+            }
+        }, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+
+
+# ========================================
+# REPORT FEEDBACK API
+# ========================================
+class ReportFeedbackAPIView(APIView):
+    """
+    API for submitting and retrieving report feedback from clients.
+    Clients can rate reports they have access to.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        """
+        Get feedback for a specific report or all feedback by current user.
+        Query params:
+        - report_id: Get feedback for a specific report
+        - (no params): Get all feedback submitted by the user
+        """
+        if request.user.role != UserRole.CLIENT:
+            return Response(
+                {'error': 'Only clients can access this endpoint'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        report_id = request.query_params.get('report_id')
+
+        if report_id:
+            # Get feedback for a specific report
+            try:
+                feedback = ReportFeedback.objects.get(
+                    user=request.user,
+                    report__report_id=report_id
+                )
+                return Response({
+                    'has_feedback': True,
+                    'feedback': {
+                        'feedback_id': str(feedback.feedback_id),
+                        'report_id': str(feedback.report.report_id),
+                        'report_title': feedback.report.title,
+                        'rating': feedback.rating,
+                        'comment': feedback.comment,
+                        'data_quality_rating': feedback.data_quality_rating,
+                        'data_completeness_rating': feedback.data_completeness_rating,
+                        'ease_of_use_rating': feedback.ease_of_use_rating,
+                        'created_at': feedback.created_at.isoformat(),
+                        'updated_at': feedback.updated_at.isoformat()
+                    }
+                })
+            except ReportFeedback.DoesNotExist:
+                return Response({'has_feedback': False, 'feedback': None})
+        else:
+            # Get all feedback by this user
+            feedbacks = ReportFeedback.objects.filter(user=request.user).select_related('report')
+            data = []
+            for fb in feedbacks:
+                data.append({
+                    'feedback_id': str(fb.feedback_id),
+                    'report_id': str(fb.report.report_id),
+                    'report_title': fb.report.title,
+                    'rating': fb.rating,
+                    'comment': fb.comment,
+                    'data_quality_rating': fb.data_quality_rating,
+                    'data_completeness_rating': fb.data_completeness_rating,
+                    'ease_of_use_rating': fb.ease_of_use_rating,
+                    'created_at': fb.created_at.isoformat(),
+                    'updated_at': fb.updated_at.isoformat()
+                })
+            return Response(data)
+
+    def post(self, request):
+        """
+        Submit feedback for a report.
+        Creates or updates existing feedback.
+        """
+        if request.user.role != UserRole.CLIENT:
+            return Response(
+                {'error': 'Only clients can access this endpoint'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        report_id = request.data.get('report_id')
+        rating = request.data.get('rating')
+        comment = request.data.get('comment', '')
+        data_quality_rating = request.data.get('data_quality_rating')
+        data_completeness_rating = request.data.get('data_completeness_rating')
+        ease_of_use_rating = request.data.get('ease_of_use_rating')
+
+        # Validation
+        if not report_id:
+            return Response(
+                {'error': 'report_id is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if rating is None:
+            return Response(
+                {'error': 'rating is required (1-5)'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            rating = int(rating)
+            if rating < 1 or rating > 5:
+                raise ValueError()
+        except (ValueError, TypeError):
+            return Response(
+                {'error': 'rating must be an integer between 1 and 5'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Verify user has access to this report (active subscription)
+        today = timezone.now().date()
+        try:
+            subscription = Subscription.objects.get(
+                client=request.user,
+                report__report_id=report_id,
+                status=SubscriptionStatus.ACTIVE,
+                start_date__lte=today,
+                end_date__gte=today
+            )
+            report = subscription.report
+        except Subscription.DoesNotExist:
+            return Response(
+                {'error': 'You do not have access to this report'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # Build defaults dict
+        defaults = {
+            'rating': rating,
+            'comment': comment,
+        }
+        
+        # Add optional ratings if provided
+        if data_quality_rating is not None:
+            try:
+                data_quality_rating = int(data_quality_rating)
+                if 1 <= data_quality_rating <= 5:
+                    defaults['data_quality_rating'] = data_quality_rating
+            except (ValueError, TypeError):
+                pass
+        
+        if data_completeness_rating is not None:
+            try:
+                data_completeness_rating = int(data_completeness_rating)
+                if 1 <= data_completeness_rating <= 5:
+                    defaults['data_completeness_rating'] = data_completeness_rating
+            except (ValueError, TypeError):
+                pass
+        
+        if ease_of_use_rating is not None:
+            try:
+                ease_of_use_rating = int(ease_of_use_rating)
+                if 1 <= ease_of_use_rating <= 5:
+                    defaults['ease_of_use_rating'] = ease_of_use_rating
+            except (ValueError, TypeError):
+                pass
+
+        # Create or update feedback
+        feedback, created = ReportFeedback.objects.update_or_create(
+            user=request.user,
+            report=report,
+            defaults=defaults
+        )
+
+        return Response({
+            'success': True,
+            'message': 'Feedback submitted successfully',
+            'data': {
+                'feedback_id': str(feedback.feedback_id),
+                'report_id': str(feedback.report.report_id),
+                'report_title': feedback.report.title,
+                'rating': feedback.rating,
+                'comment': feedback.comment,
+                'data_quality_rating': feedback.data_quality_rating,
+                'data_completeness_rating': feedback.data_completeness_rating,
+                'ease_of_use_rating': feedback.ease_of_use_rating,
+                'created_at': feedback.created_at.isoformat(),
+                'created': created
+            }
+        }, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+
+    def delete(self, request):
+        """
+        Delete feedback for a report.
+        """
+        if request.user.role != UserRole.CLIENT:
+            return Response(
+                {'error': 'Only clients can access this endpoint'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        report_id = request.query_params.get('report_id')
+        
+        if not report_id:
+            return Response(
+                {'error': 'report_id is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            feedback = ReportFeedback.objects.get(
+                user=request.user,
+                report__report_id=report_id
+            )
+            feedback.delete()
+            return Response({
+                'success': True,
+                'message': 'Feedback deleted successfully'
+            })
+        except ReportFeedback.DoesNotExist:
+            return Response(
+                {'error': 'Feedback not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
