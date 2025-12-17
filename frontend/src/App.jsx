@@ -51,6 +51,8 @@ import ClientReportsPage from './pages/client/ClientReportsPage';
 import ClientReportViewPage from './pages/client/ClientReportViewPage';
 import ClientReportVisualizationPage from './pages/client/ClientReportVisualizationPage';
 import ClientReportFocusViewPage from './pages/client/ClientReportFocusViewPage';
+import CollectionsPage from './pages/client/CollectionsPage';
+import CollectionDetailPage from './pages/client/CollectionDetailPage';
 
 // Subscription Management Pages
 import SubscriptionManagementPage from './pages/SubscriptionManagementPage';
@@ -169,6 +171,8 @@ function App() {
             <Route path="/client/subscriptions" element={<ProtectedRoute allowedRoles={['CLIENT']}><ClientSubscriptionsPage /></ProtectedRoute>}/>
             <Route path="/client/faq" element={<ProtectedRoute allowedRoles={['CLIENT']}><ClientFAQPage /></ProtectedRoute>}/>
             <Route path="/client/help-center" element={<ProtectedRoute allowedRoles={['CLIENT']}><ClientHelpCenter /></ProtectedRoute>}/>
+            <Route path="/client/collections" element={<ProtectedRoute allowedRoles={['CLIENT']}><CollectionsPage /></ProtectedRoute>}/>
+            <Route path="/client/collections/:collectionId" element={<ProtectedRoute allowedRoles={['CLIENT']}><CollectionDetailPage /></ProtectedRoute>}/>
 
             {/* Notifications Routes */}
             <Route path="/client/notifications" element={<ProtectedRoute><ClientDashboardLayout><ClientNotifications /></ClientDashboardLayout></ProtectedRoute>}/>

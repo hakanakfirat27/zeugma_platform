@@ -3221,3 +3221,344 @@ class ReportFeedback(models.Model):
     def __str__(self):
         return f"{self.user.username} - {self.report.title}: {self.rating}/5"
 
+
+# =============================================================================
+# CLIENT NOTES MODEL
+# =============================================================================
+class ClientNote(models.Model):
+    """
+    Private notes that clients can add to reports or individual company records.
+    These notes are only visible to the client who created them.
+    """
+    
+    NOTE_COLORS = [
+        ('yellow', 'Yellow'),
+        ('blue', 'Blue'),
+        ('green', 'Green'),
+        ('pink', 'Pink'),
+        ('purple', 'Purple'),
+        ('orange', 'Orange'),
+    ]
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    
+    # Owner of the note
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='client_notes'
+    )
+    
+    # Report association (required)
+    report = models.ForeignKey(
+        'CustomReport',
+        on_delete=models.CASCADE,
+        related_name='client_notes'
+    )
+    
+    # Optional: Link to specific company record
+    # If null, note is for the entire report
+    record_id = models.CharField(
+        max_length=50,
+        null=True,
+        blank=True,
+        help_text="ID of the SuperdatabaseRecord this note is attached to (can be UUID or integer)"
+    )
+    
+    # Optional: Company name for display purposes (denormalized for quick access)
+    company_name = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        help_text="Company name for quick display"
+    )
+    
+    # Note content
+    title = models.CharField(
+        max_length=200,
+        blank=True,
+        null=True,
+        help_text="Optional title for the note"
+    )
+    
+    content = models.TextField(
+        help_text="Note content"
+    )
+    
+    # Visual customization
+    color = models.CharField(
+        max_length=20,
+        choices=NOTE_COLORS,
+        default='yellow'
+    )
+    
+    is_pinned = models.BooleanField(
+        default=False,
+        help_text="Pinned notes appear at the top"
+    )
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = "Client Note"
+        verbose_name_plural = "Client Notes"
+        ordering = ['-is_pinned', '-updated_at']
+        indexes = [
+            models.Index(fields=['user', 'report']),
+            models.Index(fields=['user', 'report', 'record_id']),
+            models.Index(fields=['-is_pinned', '-updated_at']),
+        ]
+    
+    def __str__(self):
+        if self.record_id:
+            return f"Note by {self.user.username} on {self.company_name or f'Record #{self.record_id}'}"
+        return f"Note by {self.user.username} on {self.report.title}"
+    
+    @property
+    def is_report_note(self):
+        """Returns True if this is a report-level note (not attached to a specific record)"""
+        return self.record_id is None
+
+
+# =============================================================================
+# FAVORITES & BOOKMARKS MODELS
+# =============================================================================
+
+class FavoriteCompany(models.Model):
+    """
+    Tracks companies that users have starred/favorited from reports.
+    """
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False
+    )
+    
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='favorite_companies'
+    )
+    
+    report = models.ForeignKey(
+        'CustomReport',
+        on_delete=models.CASCADE,
+        related_name='favorited_by'
+    )
+    
+    # Record identifier (can be UUID or integer as string)
+    record_id = models.CharField(
+        max_length=50,
+        help_text="ID of the company record"
+    )
+    
+    # Denormalized for quick access
+    company_name = models.CharField(
+        max_length=255,
+        help_text="Company name for display purposes"
+    )
+    
+    country = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True
+    )
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        verbose_name = "Favorite Company"
+        verbose_name_plural = "Favorite Companies"
+        unique_together = ['user', 'report', 'record_id']
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['user', 'report']),
+            models.Index(fields=['user', '-created_at']),
+        ]
+    
+    def __str__(self):
+        return f"{self.user.username} - {self.company_name}"
+
+
+class PinnedReport(models.Model):
+    """
+    Tracks which reports are pinned to the user's dashboard.
+    """
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False
+    )
+    
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='pinned_reports'
+    )
+    
+    subscription = models.ForeignKey(
+        'Subscription',
+        on_delete=models.CASCADE,
+        related_name='pinned_by'
+    )
+    
+    # Display order for sorting pinned reports
+    display_order = models.IntegerField(default=0)
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        verbose_name = "Pinned Report"
+        verbose_name_plural = "Pinned Reports"
+        unique_together = ['user', 'subscription']
+        ordering = ['display_order', '-created_at']
+    
+    def __str__(self):
+        return f"{self.user.username} - {self.subscription.report.title}"
+
+
+COLLECTION_COLORS = [
+    ('blue', 'Blue'),
+    ('purple', 'Purple'),
+    ('green', 'Green'),
+    ('red', 'Red'),
+    ('orange', 'Orange'),
+    ('pink', 'Pink'),
+    ('teal', 'Teal'),
+    ('indigo', 'Indigo'),
+]
+
+COLLECTION_ICONS = [
+    ('folder', 'Folder'),
+    ('star', 'Star'),
+    ('bookmark', 'Bookmark'),
+    ('heart', 'Heart'),
+    ('briefcase', 'Briefcase'),
+    ('target', 'Target'),
+    ('flag', 'Flag'),
+    ('tag', 'Tag'),
+]
+
+
+class CompanyCollection(models.Model):
+    """
+    Custom collections/lists that users can create to organize companies.
+    """
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False
+    )
+    
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='company_collections'
+    )
+    
+    name = models.CharField(
+        max_length=100,
+        help_text="Collection name"
+    )
+    
+    description = models.TextField(
+        blank=True,
+        null=True,
+        help_text="Optional description"
+    )
+    
+    color = models.CharField(
+        max_length=20,
+        choices=COLLECTION_COLORS,
+        default='blue'
+    )
+    
+    icon = models.CharField(
+        max_length=50,
+        choices=COLLECTION_ICONS,
+        default='folder'
+    )
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = "Company Collection"
+        verbose_name_plural = "Company Collections"
+        ordering = ['name']
+        indexes = [
+            models.Index(fields=['user', 'name']),
+        ]
+    
+    def __str__(self):
+        return f"{self.user.username} - {self.name}"
+    
+    @property
+    def item_count(self):
+        return self.items.count()
+
+
+class CollectionItem(models.Model):
+    """
+    Individual companies added to a collection.
+    """
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False
+    )
+    
+    collection = models.ForeignKey(
+        CompanyCollection,
+        on_delete=models.CASCADE,
+        related_name='items'
+    )
+    
+    report = models.ForeignKey(
+        'CustomReport',
+        on_delete=models.CASCADE,
+        related_name='collection_items'
+    )
+    
+    # Record identifier
+    record_id = models.CharField(
+        max_length=50,
+        help_text="ID of the company record"
+    )
+    
+    # Denormalized for quick access
+    company_name = models.CharField(
+        max_length=255,
+        help_text="Company name for display purposes"
+    )
+    
+    country = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True
+    )
+    
+    # Optional note for this item
+    note = models.TextField(
+        blank=True,
+        null=True,
+        help_text="Optional note about why this company was added"
+    )
+    
+    # Timestamps
+    added_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        verbose_name = "Collection Item"
+        verbose_name_plural = "Collection Items"
+        unique_together = ['collection', 'report', 'record_id']
+        ordering = ['-added_at']
+    
+    def __str__(self):
+        return f"{self.collection.name} - {self.company_name}"
+

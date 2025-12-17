@@ -10,7 +10,7 @@ import {
   LayoutDashboard, FileText, CreditCard, MessageSquare, HelpCircle,
   LogOut, Menu, Bell, Maximize, Settings, ChevronRight,
   Database, ArrowRight, Check, X, Trash2, CheckCheck,
-  User, Shield, ChevronDown, Megaphone
+  User, Shield, ChevronDown, Megaphone, FolderHeart
 } from 'lucide-react';
 import useChatUnreadCount from '../../hooks/useChatUnreadCount';
 import useAnnouncementBadge from '../../hooks/useAnnouncementBadge';
@@ -84,6 +84,7 @@ const ClientDashboardLayout = ({ children, pageTitle, pageSubtitleTop, pageSubti
   const navLinks = [
     { name: 'Dashboard', path: '/client/dashboard', icon: LayoutDashboard, color: 'text-blue-500' },
     { name: 'Reports', path: '/client/reports', icon: FileText, color: 'text-purple-500' },
+    { name: 'Collections', path: '/client/collections', icon: FolderHeart, color: 'text-rose-500' },
     { name: 'Subscriptions', path: '/client/subscriptions', icon: CreditCard, color: 'text-green-500' },
     { name: 'Chat', path: '/client/chat', icon: MessageSquare, color: 'text-orange-500' },
     { name: 'Announcements', path: '/client/announcements', icon: Megaphone, color: 'text-pink-500', badge: unreadAnnouncementsCount },

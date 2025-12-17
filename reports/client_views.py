@@ -2226,3 +2226,69 @@ class ReportFeedbackAPIView(APIView):
                 {'error': 'Feedback not found'},
                 status=status.HTTP_404_NOT_FOUND
             )
+
+
+# ========================================
+# CLIENT SINGLE RECORD DETAIL API
+# ========================================
+class ClientRecordDetailAPIView(APIView):
+    """
+    Get a single company record details for a client.
+    Used when viewing favorite companies or collection items.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, report_id, record_id):
+        """
+        Get detailed company information for a specific record.
+        record_id is the site_id (UUID) from ProductionSite model.
+        """
+        if request.user.role != UserRole.CLIENT:
+            return Response(
+                {'error': 'Only clients can access this endpoint'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # Verify the client has an active subscription to this report
+        today = timezone.now().date()
+        try:
+            subscription = Subscription.objects.get(
+                client=request.user,
+                report__report_id=report_id,
+                status=SubscriptionStatus.ACTIVE,
+                start_date__lte=today,
+                end_date__gte=today
+            )
+        except Subscription.DoesNotExist:
+            return Response(
+                {'error': 'You do not have access to this report'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # Find the production site by site_id (UUID) field
+        try:
+            production_site = ProductionSite.objects.select_related('company').prefetch_related(
+                'versions'
+            ).get(site_id=record_id)
+        except ProductionSite.DoesNotExist:
+            return Response(
+                {'error': 'Record not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            # Handle invalid UUID format
+            return Response(
+                {'error': 'Invalid record ID format'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Verify the company is not deleted
+        if production_site.company.status == CompanyStatus.DELETED:
+            return Response(
+                {'error': 'Record not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Serialize the record using the same serializer as the list view
+        serializer = ClientReportRecordSerializer(production_site)
+        return Response(serializer.data)

@@ -6,7 +6,7 @@ import { getBreadcrumbs } from '../../utils/breadcrumbConfig';
 import {
   Database, Search, X, Filter, Download, ArrowLeft, FileText,
   Globe, BarChart3, PieChart, TrendingUp, Calendar, AlertCircle,
-  Users, Package, MapPin, Clock, TableProperties
+  Users, Package, MapPin, Clock, TableProperties, StickyNote, Star, FolderPlus
 } from 'lucide-react';
 import {
   BarChart, Bar, PieChart as RechartsPie, Pie, Cell,
@@ -22,6 +22,12 @@ import SavedSearchManager from '../../components/client/SavedSearchManager';
 import { getSavedSearches } from '../../services/savedSearchService';
 import ExportModal from '../../components/client/ExportModal';
 import ReportFeedbackModal from '../../components/client/ReportFeedbackModal';
+import ReportNotesModal from '../../components/client/ReportNotesModal';
+import CompanyNoteButton from '../../components/client/CompanyNoteButton';
+import AddToCollectionModal from '../../components/client/AddToCollectionModal';
+import useClientNotes from '../../hooks/useClientNotes';
+import useClientFavorites from '../../hooks/useClientFavorites';
+import { useToast } from '../../contexts/ToastContext';
 import api from '../../utils/api';
 import {
   useClientReportData,
@@ -38,6 +44,7 @@ const COLORS = ['#8B5CF6', '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#EC4899'
 const ClientReportViewPage = () => {
   const { reportId } = useParams();
   const navigate = useNavigate();
+  const toast = useToast();
 
   // STATE DECLARATIONS
   const [selectedRecords, setSelectedRecords] = useState(new Set());
@@ -56,6 +63,8 @@ const ClientReportViewPage = () => {
   const [defaultSearchLoaded, setDefaultSearchLoaded] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
   const [filtersInitialized, setFiltersInitialized] = useState(false);
+  const [showReportNotesModal, setShowReportNotesModal] = useState(false);
+  const [reportNotesCount, setReportNotesCount] = useState(0);
   
   // Report default values (for reset functionality)
   const [reportDefaultStatus, setReportDefaultStatus] = useState(['COMPLETE', 'INCOMPLETE']);
@@ -116,6 +125,48 @@ const ClientReportViewPage = () => {
   const { data: allCountries = [] } = useClientReportCountries(reportId);
   const { data: filterOptions = [] } = useClientReportFilterOptions(reportId);
   const { data: technicalFilterOptions = [] } = useClientReportTechnicalFilterOptions(reportId);
+
+  // Notes hook
+  const { recordNotesMap, fetchNotesStats, stats: notesStats } = useClientNotes(reportId);
+
+  // Favorites hook
+  const { 
+    favoritedRecordIds, 
+    toggleFavorite, 
+    isFavorited,
+    collections,
+    createCollection,
+    addToMultipleCollections,
+    fetchFavoriteStats,
+    isInCollection,
+    getCollectionCount,
+    fetchCollectionStats
+  } = useClientFavorites(reportId, toast);
+
+  // State for collection modal
+  const [showCollectionModal, setShowCollectionModal] = useState(false);
+  const [selectedCompanyForCollection, setSelectedCompanyForCollection] = useState(null);
+
+  // Sync reportNotesCount from hook stats (only report notes, not company notes)
+  useEffect(() => {
+    if (notesStats?.report_notes !== undefined) {
+      setReportNotesCount(notesStats.report_notes);
+    }
+  }, [notesStats]);
+
+  // Track company views when detail modal opens
+  useEffect(() => {
+    if (selectedRecord && reportId) {
+      // Track the view
+      api.post('/dashboard/api/track-view/', {
+        report_id: reportId,
+        record_id: selectedRecord.id,
+        company_name: selectedRecord.company_name,
+        country: selectedRecord.country,
+        category: selectedRecord.categories?.[0] || null
+      }).catch(err => console.log('View tracking error:', err));
+    }
+  }, [selectedRecord, reportId]);
 
   const customColumns = useMemo(() => [
     {
@@ -218,7 +269,86 @@ const ClientReportViewPage = () => {
       },
       enableSorting: true,
     },
-  ], []);
+    // Actions column (Favorites + Collection + Notes)
+    {
+      accessorKey: 'actions',
+      header: 'ACTIONS',
+      size: 120,
+      cell: ({ row }) => {
+        const recordId = row.original.id;
+        const noteCount = recordNotesMap[recordId] || 0;
+        const isRecordFavorited = isFavorited(recordId);
+        const collectionCount = getCollectionCount(recordId);
+        const inCollection = isInCollection(recordId);
+        
+        return (
+          <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+            {/* Favorite Button */}
+            <button
+              onClick={async (e) => {
+                e.stopPropagation();
+                try {
+                  await toggleFavorite({
+                    reportId,
+                    recordId,
+                    companyName: row.original.company_name,
+                    country: row.original.country,
+                  });
+                } catch (error) {
+                  console.error('Error toggling favorite:', error);
+                }
+              }}
+              className={`p-1.5 rounded-lg transition-all ${
+                isRecordFavorited
+                  ? 'text-yellow-500 bg-yellow-50 hover:bg-yellow-100'
+                  : 'text-gray-400 hover:text-yellow-500 hover:bg-yellow-50'
+              }`}
+              title={isRecordFavorited ? 'Remove from favorites' : 'Add to favorites'}
+            >
+              <Star className="w-4 h-4" fill={isRecordFavorited ? 'currentColor' : 'none'} />
+            </button>
+            
+            {/* Add to Collection Button */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setSelectedCompanyForCollection({
+                  reportId,
+                  recordId,
+                  companyName: row.original.company_name,
+                  country: row.original.country,
+                });
+                setShowCollectionModal(true);
+              }}
+              className={`relative p-1.5 rounded-lg transition-all ${
+                inCollection
+                  ? 'text-blue-600 bg-blue-50 hover:bg-blue-100'
+                  : 'text-gray-400 hover:text-blue-600 hover:bg-blue-50'
+              }`}
+              title={inCollection ? `In ${collectionCount} collection(s)` : 'Add to collection'}
+            >
+              <FolderPlus className="w-4 h-4" />
+              {collectionCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-blue-600 text-white text-[10px] font-bold rounded-full min-w-[14px] h-[14px] flex items-center justify-center px-0.5">
+                  {collectionCount}
+                </span>
+              )}
+            </button>
+            
+            {/* Notes Button */}
+            <CompanyNoteButton
+              reportId={reportId}
+              recordId={recordId}
+              companyName={row.original.company_name}
+              noteCount={noteCount}
+              onNoteAdded={fetchNotesStats}
+            />
+          </div>
+        );
+      },
+      enableSorting: false,
+    },
+  ], [recordNotesMap, reportId, fetchNotesStats, isFavorited, toggleFavorite, favoritedRecordIds, isInCollection, getCollectionCount]);
 
   // NO TRANSFORMATION NEEDED - Backend returns correct format
   const records = useMemo(() => {
@@ -965,6 +1095,19 @@ const ClientReportViewPage = () => {
               <TableProperties className="w-5 h-5" />
               Focus View
             </button>
+            <button
+              onClick={() => setShowReportNotesModal(true)}
+              className="px-6 py-3 bg-amber-500 text-white rounded-xl hover:bg-amber-600 flex items-center gap-2 shadow-lg relative"
+              title="View and manage report notes"
+            >
+              <StickyNote className="w-5 h-5" />
+              Report Notes
+              {reportNotesCount > 0 && (
+                <span className="absolute -top-2 -right-2 bg-purple-600 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center">
+                  {reportNotesCount > 99 ? '99+' : reportNotesCount}
+                </span>
+              )}
+            </button>
             {/* Export button - commented out for now, will use later
             <button
               onClick={handleExport}
@@ -1388,6 +1531,9 @@ if (filterGroups.length > 0) {
           record={selectedRecord}
           onClose={() => setSelectedRecord(null)}
           isGuest={false}
+          reportId={reportId}
+          toast={toast}
+          onNotesChanged={fetchNotesStats}
         />
       )}
 
@@ -1402,6 +1548,31 @@ if (filterGroups.length > 0) {
           categories: categoryFilters,
           ...filters
         }}
+      />
+
+      {/* REPORT NOTES MODAL */}
+      <ReportNotesModal
+        reportId={reportId}
+        reportTitle={reportAccess?.report_title}
+        isOpen={showReportNotesModal}
+        onClose={() => setShowReportNotesModal(false)}
+        onNotesChanged={fetchNotesStats}
+      />
+
+      {/* ADD TO COLLECTION MODAL */}
+      <AddToCollectionModal
+        isOpen={showCollectionModal}
+        onClose={() => {
+          setShowCollectionModal(false);
+          setSelectedCompanyForCollection(null);
+          // Refresh collection stats to update badges
+          fetchCollectionStats();
+        }}
+        companyData={selectedCompanyForCollection}
+        collections={collections}
+        onAddToCollections={addToMultipleCollections}
+        onCreateCollection={createCollection}
+        toast={toast}
       />
     </ClientDashboardLayout>
   );

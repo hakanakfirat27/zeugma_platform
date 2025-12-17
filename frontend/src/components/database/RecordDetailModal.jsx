@@ -2,7 +2,8 @@
 // File: frontend/src/components/database/RecordDetailModal.jsx
 
 import { useState, useEffect, useMemo } from 'react';
-import { X, ExternalLink, Phone, MapPin, Building2, User, Factory, Award, Wrench, CheckCircle, MinusCircle } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { X, ExternalLink, Phone, MapPin, Building2, User, Factory, Award, Wrench, CheckCircle, MinusCircle, StickyNote, Plus, Trash2, Loader2, Edit2, AlertTriangle } from 'lucide-react';
 import LoadingSpinner from '../LoadingSpinner';
 import api from '../../utils/api';
 
@@ -37,10 +38,31 @@ const COMPANY_INFO_FIELDS = [
   { key: 'parent_company', label: 'Parent Company' },
 ];
 
-const RecordDetailModal = ({ record, onClose, isGuest = false }) => {
+const RecordDetailModal = ({ record, onClose, isGuest = false, reportId = null, toast = null, onNotesChanged = null }) => {
   const [activeTab, setActiveTab] = useState('company');
   const [categoryFields, setCategoryFields] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // Notes state
+  const [notes, setNotes] = useState([]);
+  const [notesLoading, setNotesLoading] = useState(false);
+  const [showAddNote, setShowAddNote] = useState(false);
+  const [newNoteContent, setNewNoteContent] = useState('');
+  const [savingNote, setSavingNote] = useState(false);
+  const [editingNoteId, setEditingNoteId] = useState(null);
+  const [editContent, setEditContent] = useState('');
+  
+  // Delete confirmation state
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [noteToDelete, setNoteToDelete] = useState(null);
+  const [deletingNote, setDeletingNote] = useState(false);
+
+  // Helper function to show toast
+  const showToast = (type, message) => {
+    if (toast && typeof toast[type] === 'function') {
+      toast[type](message);
+    }
+  };
 
   // Get primary category for technical details tab
   const primaryCategory = useMemo(() => {
@@ -48,17 +70,22 @@ const RecordDetailModal = ({ record, onClose, isGuest = false }) => {
     return record.categories[0];
   }, [record]);
 
+  // Determine the report ID to use
+  const effectiveReportId = useMemo(() => {
+    return reportId || record?.report_id || null;
+  }, [reportId, record]);
+
   console.log('📊 Modal opened with record:', record);
   console.log('📦 Primary category:', primaryCategory);
   
   // Log all field names in the record
-  console.log('🔑 Record keys:', Object.keys(record));
+  console.log('🔑 Record keys:', Object.keys(record || {}));
   
   // Check for specific technical fields
   const technicalFieldSamples = ['custom', 'ps', 'pp', 'hdpe', 'ldpe', 'proprietary_products'];
   console.log('🔍 Sample technical fields in record:');
   technicalFieldSamples.forEach(field => {
-    console.log(`  ${field}:`, record[field], typeof record[field]);
+    console.log(`  ${field}:`, record?.[field], typeof record?.[field]);
   });
 
   // Fetch field metadata for the primary category
@@ -86,6 +113,108 @@ const RecordDetailModal = ({ record, onClose, isGuest = false }) => {
 
     fetchMetadata();
   }, [primaryCategory]);
+
+  // Fetch notes for this record
+  useEffect(() => {
+    const fetchNotes = async () => {
+      if (!effectiveReportId || !record?.id || isGuest) {
+        return;
+      }
+
+      try {
+        setNotesLoading(true);
+        const response = await api.get('/api/client/notes/', {
+          params: {
+            report_id: effectiveReportId,
+            record_id: record.id
+          }
+        });
+        setNotes(response.data.results || []);
+      } catch (error) {
+        console.error('Error fetching notes:', error);
+        setNotes([]);
+      } finally {
+        setNotesLoading(false);
+      }
+    };
+
+    fetchNotes();
+  }, [effectiveReportId, record?.id, isGuest]);
+
+  // Add a new note
+  const handleAddNote = async () => {
+    if (!newNoteContent.trim() || !effectiveReportId || !record?.id) return;
+
+    try {
+      setSavingNote(true);
+      const response = await api.post('/api/client/notes/', {
+        report_id: effectiveReportId,
+        record_id: record.id,
+        company_name: record.company_name,
+        content: newNoteContent.trim()
+      });
+      
+      setNotes(prev => [response.data, ...prev]);
+      setNewNoteContent('');
+      setShowAddNote(false);
+      showToast('success', 'Note added successfully');
+      
+      // Notify parent that notes changed
+      if (onNotesChanged) onNotesChanged();
+    } catch (error) {
+      console.error('Error adding note:', error);
+      showToast('error', 'Failed to add note');
+    } finally {
+      setSavingNote(false);
+    }
+  };
+
+  // Update a note
+  const handleUpdateNote = async (noteId) => {
+    if (!editContent.trim()) return;
+
+    try {
+      setSavingNote(true);
+      const response = await api.patch(`/api/client/notes/${noteId}/`, {
+        content: editContent.trim()
+      });
+      
+      setNotes(prev => prev.map(n => n.id === noteId ? response.data : n));
+      setEditingNoteId(null);
+      setEditContent('');
+      showToast('success', 'Note updated successfully');
+      
+      // Notify parent that notes changed
+      if (onNotesChanged) onNotesChanged();
+    } catch (error) {
+      console.error('Error updating note:', error);
+      showToast('error', 'Failed to update note');
+    } finally {
+      setSavingNote(false);
+    }
+  };
+
+  // Delete a note
+  const handleDeleteNote = async () => {
+    if (!noteToDelete) return;
+
+    try {
+      setDeletingNote(true);
+      await api.delete(`/api/client/notes/${noteToDelete.id}/`);
+      setNotes(prev => prev.filter(n => n.id !== noteToDelete.id));
+      showToast('success', 'Note deleted successfully');
+      setShowDeleteConfirm(false);
+      setNoteToDelete(null);
+      
+      // Notify parent that notes changed
+      if (onNotesChanged) onNotesChanged();
+    } catch (error) {
+      console.error('Error deleting note:', error);
+      showToast('error', 'Failed to delete note');
+    } finally {
+      setDeletingNote(false);
+    }
+  };
 
   // Prepare technical fields (matches CompanyDetailPage orderedFields logic)
   const technicalFields = useMemo(() => {
@@ -276,7 +405,7 @@ const RecordDetailModal = ({ record, onClose, isGuest = false }) => {
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-gray-200 bg-gray-50 px-8 flex-shrink-0">
+        <div className="flex border-b border-gray-200 bg-gray-50 px-8 flex-shrink-0 overflow-x-auto">
           <TabButton 
             id="company" 
             label="Company Information" 
@@ -294,6 +423,15 @@ const RecordDetailModal = ({ record, onClose, isGuest = false }) => {
             icon={Wrench} 
             count={technicalFields.length} 
           />
+          {/* Notes Tab - Only show for non-guest users with a valid report */}
+          {!isGuest && effectiveReportId && (
+            <TabButton 
+              id="notes" 
+              label="Notes" 
+              icon={StickyNote}
+              count={notes.length} 
+            />
+          )}
         </div>
 
         {/* Content */}
@@ -440,6 +578,149 @@ const RecordDetailModal = ({ record, onClose, isGuest = false }) => {
                 </div>
               )}
 
+              {/* Notes Tab */}
+              {activeTab === 'notes' && !isGuest && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                      <StickyNote className="w-5 h-5 text-amber-600" />
+                      Company Notes
+                    </h3>
+                    {!showAddNote && (
+                      <button
+                        onClick={() => setShowAddNote(true)}
+                        className="flex items-center gap-2 px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors text-sm font-medium"
+                      >
+                        <Plus className="w-4 h-4" />
+                        Add Note
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Add Note Form */}
+                  {showAddNote && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4">
+                      <textarea
+                        value={newNoteContent}
+                        onChange={(e) => setNewNoteContent(e.target.value)}
+                        placeholder="Write your note here..."
+                        className="w-full px-4 py-3 border border-amber-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent resize-none"
+                        rows={3}
+                        autoFocus
+                      />
+                      <div className="flex justify-end gap-2 mt-3">
+                        <button
+                          onClick={() => {
+                            setShowAddNote(false);
+                            setNewNoteContent('');
+                          }}
+                          className="px-4 py-2 text-gray-600 hover:text-gray-800 text-sm font-medium"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={handleAddNote}
+                          disabled={!newNoteContent.trim() || savingNote}
+                          className="flex items-center gap-2 px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 disabled:opacity-50 text-sm font-medium"
+                        >
+                          {savingNote ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Plus className="w-4 h-4" />
+                          )}
+                          Save Note
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Notes List */}
+                  {notesLoading ? (
+                    <div className="flex items-center justify-center py-12">
+                      <Loader2 className="w-8 h-8 text-amber-500 animate-spin" />
+                    </div>
+                  ) : notes.length > 0 ? (
+                    <div className="space-y-3">
+                      {notes.map(note => (
+                        <div key={note.id} className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow">
+                          {editingNoteId === note.id ? (
+                            /* Edit Mode */
+                            <div>
+                              <textarea
+                                value={editContent}
+                                onChange={(e) => setEditContent(e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent resize-none"
+                                rows={3}
+                                autoFocus
+                              />
+                              <div className="flex justify-end gap-2 mt-3">
+                                <button
+                                  onClick={() => {
+                                    setEditingNoteId(null);
+                                    setEditContent('');
+                                  }}
+                                  className="px-3 py-1.5 text-gray-600 hover:text-gray-800 text-sm"
+                                >
+                                  Cancel
+                                </button>
+                                <button
+                                  onClick={() => handleUpdateNote(note.id)}
+                                  disabled={!editContent.trim() || savingNote}
+                                  className="px-3 py-1.5 bg-amber-500 text-white rounded-lg hover:bg-amber-600 disabled:opacity-50 text-sm"
+                                >
+                                  {savingNote ? 'Saving...' : 'Save'}
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            /* View Mode */
+                            <>
+                              <p className="text-gray-800 whitespace-pre-wrap">{note.content}</p>
+                              <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
+                                <span className="text-xs text-gray-500">
+                                  {new Date(note.created_at).toLocaleString()}
+                                  {note.updated_at !== note.created_at && (
+                                    <span className="ml-2 text-gray-400">(edited)</span>
+                                  )}
+                                </span>
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    onClick={() => {
+                                      setEditingNoteId(note.id);
+                                      setEditContent(note.content);
+                                    }}
+                                    className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
+                                    title="Edit note"
+                                  >
+                                    <Edit2 className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      setNoteToDelete(note);
+                                      setShowDeleteConfirm(true);
+                                    }}
+                                    className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                    title="Delete note"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+                      <StickyNote className="w-12 h-12 mx-auto mb-3 text-gray-400" />
+                      <p className="text-gray-500 mb-2">No notes for this company</p>
+                      <p className="text-sm text-gray-400">Click "Add Note" to create your first note</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {record?.last_updated && (
                 <div className="text-center pt-6 mt-6 border-t-2 border-gray-300">
                   <p className="text-sm text-gray-500">
@@ -474,6 +755,66 @@ const RecordDetailModal = ({ record, onClose, isGuest = false }) => {
           </div>
         </div>
       </div>
+
+      {/* Delete Note Confirmation Modal */}
+      {showDeleteConfirm && createPortal(
+        <div onClick={(e) => e.stopPropagation()}>
+          <div className="fixed inset-0 bg-black/50 z-[100]" onClick={() => {
+            setShowDeleteConfirm(false);
+            setNoteToDelete(null);
+          }} />
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+              <div className="bg-red-50 px-6 py-5">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
+                    <AlertTriangle className="w-6 h-6 text-red-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-900">Delete Note</h3>
+                    <p className="text-sm text-gray-600">This action cannot be undone</p>
+                  </div>
+                </div>
+              </div>
+              <div className="px-6 py-4">
+                <p className="text-gray-700">
+                  Are you sure you want to delete this note?
+                </p>
+                {noteToDelete && (
+                  <div className="mt-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                    <p className="text-sm text-gray-600 line-clamp-2">{noteToDelete.content}</p>
+                  </div>
+                )}
+              </div>
+              <div className="px-6 py-4 bg-gray-50 flex justify-end gap-3">
+                <button
+                  onClick={() => {
+                    setShowDeleteConfirm(false);
+                    setNoteToDelete(null);
+                  }}
+                  disabled={deletingNote}
+                  className="px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 font-medium text-sm"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDeleteNote}
+                  disabled={deletingNote}
+                  className="px-4 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium text-sm flex items-center gap-2"
+                >
+                  {deletingNote ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="w-4 h-4" />
+                  )}
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 };
