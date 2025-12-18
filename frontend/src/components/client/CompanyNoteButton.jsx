@@ -47,23 +47,23 @@ const DeleteConfirmModal = ({ isOpen, onClose, onConfirm, noteName, isDeleting }
       
       {/* Modal */}
       <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
           {/* Header */}
-          <div className="bg-red-50 px-6 py-5">
+          <div className="bg-red-50 dark:bg-red-900/30 px-6 py-5">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
-                <AlertTriangle className="w-6 h-6 text-red-600" />
+              <div className="w-12 h-12 bg-red-100 dark:bg-red-900/50 rounded-full flex items-center justify-center">
+                <AlertTriangle className="w-6 h-6 text-red-600 dark:text-red-400" />
               </div>
               <div>
-                <h3 className="text-lg font-bold text-gray-900">Delete Note</h3>
-                <p className="text-sm text-gray-600">This action cannot be undone</p>
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white">Delete Note</h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400">This action cannot be undone</p>
               </div>
             </div>
           </div>
 
           {/* Content */}
           <div className="px-6 py-4">
-            <p className="text-gray-700">
+            <p className="text-gray-700 dark:text-gray-300">
               Are you sure you want to delete {noteName ? (
                 <span className="font-semibold">"{noteName}"</span>
               ) : (
@@ -73,11 +73,11 @@ const DeleteConfirmModal = ({ isOpen, onClose, onConfirm, noteName, isDeleting }
           </div>
 
           {/* Footer */}
-          <div className="px-6 py-4 bg-gray-50 flex justify-end gap-3">
+          <div className="px-6 py-4 bg-gray-50 dark:bg-gray-700 flex justify-end gap-3">
             <button
               onClick={onClose}
               disabled={isDeleting}
-              className="px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 font-medium text-sm transition-colors disabled:opacity-50"
+              className="px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 font-medium text-sm transition-colors disabled:opacity-50"
             >
               Cancel
             </button>
@@ -290,7 +290,7 @@ const CompanyNotesViewModal = ({
       {/* Modal - Centered */}
       <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
         <div 
-          className="bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden"
+          className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
@@ -322,11 +322,11 @@ const CompanyNotesViewModal = ({
               </div>
             ) : notes.length === 0 ? (
               <div className="text-center py-12">
-                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-3">
                   <StickyNote className="w-8 h-8 text-gray-400" />
                 </div>
-                <p className="text-gray-500">No notes yet</p>
-                <p className="text-gray-400 text-sm mt-1">Add your first note below</p>
+                <p className="text-gray-500 dark:text-gray-400">No notes yet</p>
+                <p className="text-gray-400 dark:text-gray-500 text-sm mt-1">Add your first note below</p>
               </div>
             ) : (
               <div className="space-y-3">
@@ -352,11 +352,11 @@ const CompanyNotesViewModal = ({
                         {note.title && (
                           <h4 className={`font-semibold text-sm ${colors.text} mb-1`}>{note.title}</h4>
                         )}
-                        <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{note.content}</p>
+                        <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed">{note.content}</p>
                         
                         {/* Footer */}
-                        <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-200/50">
-                          <span className="text-xs text-gray-400">{formatDate(note.updated_at)}</span>
+                        <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-200/50 dark:border-gray-700">
+                          <span className="text-xs text-gray-400 dark:text-gray-500">{formatDate(note.updated_at)}</span>
                           <div className="flex items-center gap-1">
                             <button
                               onClick={() => handleTogglePin(note)}
@@ -397,7 +397,7 @@ const CompanyNotesViewModal = ({
           </div>
 
           {/* Add note button */}
-          <div className="p-4 border-t border-gray-100 bg-gray-50">
+          <div className="p-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
             <button
               onClick={() => {
                 setEditingNote(null);

@@ -31,3 +31,33 @@
   }
 }
 
+/* ============================================
+   View Transitions API - Theme Toggle Animation
+   Circular reveal effect expanding from toggle
+   ============================================ */
+
+/* Disable default crossfade animation */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+/* Old view stays below */
+::view-transition-old(root) {
+  z-index: 1;
+}
+
+/* New view appears on top with clip-path animation */
+::view-transition-new(root) {
+  z-index: 9999;
+}
+
+/* Disable animation for users who prefer reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}

@@ -280,8 +280,8 @@ const ClientDashboard = () => {
       pageTitle="Dashboard Overview"
       breadcrumbs={breadcrumbs}
       pageSubtitleBottom={
-        <p className="text-gray-600">
-          Welcome back, <span className="font-semibold text-purple-950">{getDisplayName()}</span>! Here's your subscription summary
+        <p className="text-gray-600 dark:text-gray-400">
+          Welcome back, <span className="font-semibold text-purple-950 dark:text-purple-300">{getDisplayName()}</span>! Here's your subscription summary
         </p>
       }
     >
@@ -290,9 +290,9 @@ const ClientDashboard = () => {
         {pinnedReports.length > 0 && (
           <div className="mb-8">
             <div className="flex items-center gap-2 mb-4">
-              <Pin className="w-5 h-5 text-purple-600" />
-              <h2 className="text-lg font-bold text-gray-900">Pinned Reports</h2>
-              <span className="text-sm text-gray-500">Quick access to your favorite reports</span>
+              <Pin className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+              <h2 className="text-lg font-bold text-gray-900 dark:text-white">Pinned Reports</h2>
+              <span className="text-sm text-gray-500 dark:text-gray-400">Quick access to your favorite reports</span>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {pinnedReports.map((pin) => {
@@ -437,11 +437,11 @@ const ClientDashboard = () => {
 
         {/* Recent Reports & Subscription Status */}
         <div className="grid lg:grid-cols-2 gap-6 mb-8">
-          <div data-tour="my-reports" className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
+          <div data-tour="my-reports" className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 border border-gray-100 dark:border-gray-700 transition-colors duration-300">
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h3 className="text-lg font-bold text-gray-900">Recent Reports</h3>
-                <p className="text-sm text-gray-500 mt-1">Your latest subscribed reports</p>
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white">Recent Reports</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Your latest subscribed reports</p>
               </div>
               <button
                 onClick={() => navigate('/client/reports')}
@@ -455,7 +455,7 @@ const ClientDashboard = () => {
               {stats.reports.slice(0, 5).map((report) => (
                 <div
                   key={report.id}
-                  className="flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors cursor-pointer group"
+                  className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer group"
                   onClick={() => navigate(`/client/reports/${report.report_id}`)}
                 >
                   <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -463,8 +463,8 @@ const ClientDashboard = () => {
                       <FileText className="w-5 h-5 text-white" />
                     </div>
                     <div className="min-w-0">
-                      <p className="font-semibold text-gray-900 text-sm truncate">{report.report_title}</p>
-                      <p className="text-xs text-gray-500">Expires: {new Date(report.end_date).toLocaleDateString()}</p>
+                      <p className="font-semibold text-gray-900 dark:text-white text-sm truncate">{report.report_title}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Expires: {new Date(report.end_date).toLocaleDateString()}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
@@ -496,19 +496,19 @@ const ClientDashboard = () => {
               ))}
 
               {stats.reports.length === 0 && (
-                <div className="text-center py-8 text-gray-500">
-                  <FileText className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                  <FileText className="w-12 h-12 mx-auto mb-3 text-gray-300 dark:text-gray-600" />
                   <p>No reports available</p>
                 </div>
               )}
             </div>
           </div>
 
-          <div data-tour="subscriptions" className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
+          <div data-tour="subscriptions" className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 border border-gray-100 dark:border-gray-700 transition-colors duration-300">
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h3 className="text-lg font-bold text-gray-900">Subscription Status</h3>
-                <p className="text-sm text-gray-500 mt-1">Monitor your active subscriptions</p>
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white">Subscription Status</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Monitor your active subscriptions</p>
               </div>
               <button
                 onClick={() => navigate('/client/subscriptions')}
@@ -524,18 +524,18 @@ const ClientDashboard = () => {
                 const isExpiringSoon = daysRemaining <= 30;
 
                 return (
-                  <div key={sub.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+                  <div key={sub.id} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
                     <div className="flex-1">
-                      <p className="font-semibold text-gray-900 text-sm mb-1">{sub.report_title}</p>
+                      <p className="font-semibold text-gray-900 dark:text-white text-sm mb-1">{sub.report_title}</p>
                       <div className="flex items-center gap-2">
-                        <Calendar className="w-4 h-4 text-gray-400" />
-                        <span className="text-xs text-gray-600">
+                        <Calendar className="w-4 h-4 text-gray-400 dark:text-gray-500" />
+                        <span className="text-xs text-gray-600 dark:text-gray-400">
                           {new Date(sub.end_date).toLocaleDateString()}
                         </span>
                       </div>
                     </div>
                     <div className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${
-                      isExpiringSoon ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'
+                      isExpiringSoon ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
                     }`}>
                       {daysRemaining}d left
                     </div>
@@ -544,8 +544,8 @@ const ClientDashboard = () => {
               })}
 
               {stats.subscriptions.length === 0 && (
-                <div className="text-center py-8 text-gray-500">
-                  <CreditCard className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                  <CreditCard className="w-12 h-12 mx-auto mb-3 text-gray-300 dark:text-gray-600" />
                   <p>No active subscriptions</p>
                 </div>
               )}
@@ -558,27 +558,27 @@ const ClientDashboard = () => {
           <div className="mb-8">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <Eye className="w-5 h-5 text-indigo-600" />
-                <h2 className="text-lg font-bold text-gray-900">Recently Viewed</h2>
-                <span className="text-sm text-gray-500">Companies you've recently opened</span>
+                <Eye className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                <h2 className="text-lg font-bold text-gray-900 dark:text-white">Recently Viewed</h2>
+                <span className="text-sm text-gray-500 dark:text-gray-400">Companies you've recently opened</span>
               </div>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {recentlyViewed.map((company, index) => (
                 <div
                   key={company.id}
-                  className="bg-white rounded-xl p-4 border border-gray-200 hover:shadow-lg hover:border-indigo-200 transition-all cursor-pointer group"
+                  className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 hover:shadow-lg hover:border-indigo-200 dark:hover:border-indigo-700 transition-all cursor-pointer group"
                   onClick={() => navigate(`/client/reports/${company.report_id}`)}
                 >
                   <div className={`w-10 h-10 bg-gradient-to-br ${getCompanyCardGradient(index)} rounded-lg flex items-center justify-center mb-3 group-hover:scale-105 transition-transform`}>
                     <Building2 className="w-5 h-5 text-white" />
                   </div>
-                  <p className="font-medium text-sm text-gray-900 truncate mb-1">{company.company_name}</p>
-                  <div className="flex items-center gap-1 text-xs text-gray-500">
+                  <p className="font-medium text-sm text-gray-900 dark:text-white truncate mb-1">{company.company_name}</p>
+                  <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
                     <Globe className="w-3 h-3" />
                     <span>{company.country || 'Unknown'}</span>
                   </div>
-                  <p className="text-xs text-gray-400 mt-1 truncate">{company.report_title}</p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-1 truncate">{company.report_title}</p>
                 </div>
               ))}
             </div>
@@ -588,9 +588,9 @@ const ClientDashboard = () => {
         {/* Activity Feed & Charts Row */}
         <div className="grid lg:grid-cols-3 gap-6 mb-8">
           {/* Recent Activity Feed */}
-          <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 border border-gray-100 dark:border-gray-700 transition-colors duration-300">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-gray-900">Recent Activity</h3>
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white">Recent Activity</h3>
             </div>
             
             {recentActivities.length > 0 ? (
@@ -598,18 +598,18 @@ const ClientDashboard = () => {
                 {recentActivities.map((activity) => {
                   const config = ACTIVITY_CONFIG[activity.activity_type] || {
                     icon: Activity,
-                    color: 'bg-gray-100 text-gray-600',
+                    color: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400',
                     label: 'Activity'
                   };
                   const IconComponent = config.icon;
                   
                   return (
-                    <div key={activity.id} className="flex items-start gap-3 p-3 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors">
+                    <div key={activity.id} className="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
                       <div className={`w-8 h-8 ${config.color} rounded-full flex items-center justify-center flex-shrink-0`}>
                         <IconComponent className="w-4 h-4" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm text-gray-900">
+                        <p className="text-sm text-gray-900 dark:text-white">
                           {config.label}{' '}
                           {activity.company_name && (
                             <span className="font-medium">{activity.company_name}</span>
@@ -618,24 +618,24 @@ const ClientDashboard = () => {
                             <span className="font-medium">{activity.collection_name}</span>
                           )}
                         </p>
-                        <p className="text-xs text-gray-500 mt-0.5">{activity.time_ago}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{activity.time_ago}</p>
                       </div>
                     </div>
                   );
                 })}
               </div>
             ) : (
-              <div className="text-center py-8 text-gray-500">
-                <Activity className="w-10 h-10 mx-auto mb-2 text-gray-300" />
+              <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                <Activity className="w-10 h-10 mx-auto mb-2 text-gray-300 dark:text-gray-600" />
                 <p className="text-sm">No recent activity</p>
-                <p className="text-xs text-gray-400 mt-1">Your actions will appear here</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Your actions will appear here</p>
               </div>
             )}
           </div>
 
           {/* Reports by Category - Donut charts for each report */}
-          <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
-            <h3 className="text-lg font-bold text-gray-900 mb-4">Categories by Report</h3>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 border border-gray-100 dark:border-gray-700 transition-colors duration-300">
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Categories by Report</h3>
             
             {categoryStats.length > 0 ? (
               <div className="space-y-6 max-h-96 overflow-y-auto pr-1">
@@ -643,11 +643,11 @@ const ClientDashboard = () => {
                   const totalCount = report.categories.reduce((sum, cat) => sum + cat.count, 0);
                   
                   return (
-                    <div key={report.report_id} className="border-b border-gray-100 pb-4 last:border-0 last:pb-0">
+                    <div key={report.report_id} className="border-b border-gray-100 dark:border-gray-700 pb-4 last:border-0 last:pb-0">
                       {/* Report Title */}
                       <div className="flex items-center gap-2 mb-3">
-                        <FileText className="w-4 h-4 text-purple-600 flex-shrink-0" />
-                        <span className="text-sm font-semibold text-gray-900 truncate">{report.report_title}</span>
+                        <FileText className="w-4 h-4 text-purple-600 dark:text-purple-400 flex-shrink-0" />
+                        <span className="text-sm font-semibold text-gray-900 dark:text-white truncate">{report.report_title}</span>
                       </div>
                       
                       {/* Donut Chart + Legend */}
@@ -677,7 +677,7 @@ const ClientDashboard = () => {
                           </ResponsiveContainer>
                           <div className="absolute inset-0 flex items-center justify-center">
                             <div className="text-center">
-                              <p className="text-sm font-bold text-gray-900">{totalCount}</p>
+                              <p className="text-sm font-bold text-gray-900 dark:text-white">{totalCount}</p>
                             </div>
                           </div>
                         </div>
@@ -690,12 +690,12 @@ const ClientDashboard = () => {
                                 className="w-2.5 h-2.5 rounded-full flex-shrink-0"
                                 style={{ backgroundColor: cat.color || COLORS[catIndex % COLORS.length] }}
                               />
-                              <span className="text-xs text-gray-600 truncate flex-1">{cat.category_display}</span>
-                              <span className="text-xs font-semibold text-gray-900">{cat.count}</span>
+                              <span className="text-xs text-gray-600 dark:text-gray-400 truncate flex-1">{cat.category_display}</span>
+                              <span className="text-xs font-semibold text-gray-900 dark:text-white">{cat.count}</span>
                             </div>
                           ))}
                           {report.categories.length > 4 && (
-                            <p className="text-xs text-gray-400 pl-4">+{report.categories.length - 4} more</p>
+                            <p className="text-xs text-gray-400 dark:text-gray-500 pl-4">+{report.categories.length - 4} more</p>
                           )}
                         </div>
                       </div>
@@ -704,16 +704,16 @@ const ClientDashboard = () => {
                 })}
               </div>
             ) : (
-              <div className="text-center py-8 text-gray-500">
-                <PieIcon className="w-10 h-10 mx-auto mb-2 text-gray-300" />
+              <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                <PieIcon className="w-10 h-10 mx-auto mb-2 text-gray-300 dark:text-gray-600" />
                 <p className="text-sm">No category data</p>
               </div>
             )}
           </div>
 
           {/* Companies by Country - With Flag Images + Fixed Width */}
-          <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
-            <h3 className="text-lg font-bold text-gray-900 mb-4">Top Countries</h3>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 border border-gray-100 dark:border-gray-700 transition-colors duration-300">
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Top Countries</h3>
             
             {countryStats.length > 0 ? (
               <div className="space-y-3">
@@ -745,12 +745,12 @@ const ClientDashboard = () => {
                       </span>
                       
                       {/* Country Name - Fixed Width */}
-                      <span className="text-sm font-medium text-gray-700 w-28 truncate flex-shrink-0">
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300 w-28 truncate flex-shrink-0">
                         {country.country}
                       </span>
                       
                       {/* Progress Bar - Takes remaining space */}
-                      <div className="flex-1 bg-gray-100 rounded-full h-2">
+                      <div className="flex-1 bg-gray-100 dark:bg-gray-700 rounded-full h-2">
                         <div 
                           className="h-2 rounded-full transition-all"
                           style={{ 
@@ -761,7 +761,7 @@ const ClientDashboard = () => {
                       </div>
                       
                       {/* Count */}
-                      <span className="text-sm font-semibold text-gray-900 w-10 text-right flex-shrink-0">
+                      <span className="text-sm font-semibold text-gray-900 dark:text-white w-10 text-right flex-shrink-0">
                         {country.count}
                       </span>
                     </div>
@@ -769,8 +769,8 @@ const ClientDashboard = () => {
                 })}
               </div>
             ) : (
-              <div className="text-center py-8 text-gray-500">
-                <Globe className="w-10 h-10 mx-auto mb-2 text-gray-300" />
+              <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                <Globe className="w-10 h-10 mx-auto mb-2 text-gray-300 dark:text-gray-600" />
                 <p className="text-sm">No country data</p>
               </div>
             )}
@@ -780,44 +780,44 @@ const ClientDashboard = () => {
         {/* Subscription Timeline */}
         {subscriptionTimeline.length > 0 && (
           <div className="mb-8">
-            <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 border border-gray-100 dark:border-gray-700 transition-colors duration-300">
               <div className="flex items-center justify-between mb-6">
                 <div>
-                  <h3 className="text-lg font-bold text-gray-900">Subscription Timeline</h3>
-                  <p className="text-sm text-gray-500 mt-1">Track your subscription periods</p>
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white">Subscription Timeline</h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Track your subscription periods</p>
                 </div>
                 <button
                   onClick={() => navigate('/client/subscriptions')}
-                  className="text-sm text-purple-600 hover:text-purple-700 font-medium flex items-center gap-1"
+                  className="text-sm text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 font-medium flex items-center gap-1"
                 >
                   Manage <ArrowRight className="w-4 h-4" />
                 </button>
               </div>
               
               <div className="relative">
-                <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-gray-200" />
+                <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-gray-200 dark:bg-gray-700" />
                 
                 <div className="space-y-4">
                   {subscriptionTimeline.map((sub) => (
                     <div key={sub.id} className="relative ml-10">
-                      <div className={`absolute -left-8 w-4 h-4 rounded-full border-2 border-white ${
+                      <div className={`absolute -left-8 w-4 h-4 rounded-full border-2 border-white dark:border-gray-800 ${
                         sub.is_expiring_soon ? 'bg-orange-500' : 'bg-green-500'
                       }`} />
                       
                       <div 
-                        className="bg-gray-50 rounded-xl p-4 border border-gray-200 hover:border-purple-200 hover:shadow-md transition-all cursor-pointer"
+                        className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 border border-gray-200 dark:border-gray-600 hover:border-purple-200 dark:hover:border-purple-700 hover:shadow-md transition-all cursor-pointer"
                         onClick={() => navigate(`/client/reports/${sub.report_id}`)}
                       >
                         <div className="flex items-center justify-between mb-2">
-                          <p className="font-semibold text-gray-900">{sub.report_title}</p>
+                          <p className="font-semibold text-gray-900 dark:text-white">{sub.report_title}</p>
                           <div className={`px-2 py-1 rounded-lg text-xs font-medium ${
-                            sub.is_expiring_soon ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'
+                            sub.is_expiring_soon ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
                           }`}>
                             {sub.days_remaining}d remaining
                           </div>
                         </div>
                         
-                        <div className="flex items-center gap-2 text-xs text-gray-500 mb-3">
+                        <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 mb-3">
                           <Calendar className="w-3.5 h-3.5" />
                           <span>
                             {new Date(sub.start_date).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })} 
@@ -826,7 +826,7 @@ const ClientDashboard = () => {
                           </span>
                         </div>
                         
-                        <div className="bg-gray-200 rounded-full h-1.5">
+                        <div className="bg-gray-200 dark:bg-gray-600 rounded-full h-1.5">
                           <div 
                             className={`h-1.5 rounded-full transition-all ${
                               sub.is_expiring_soon ? 'bg-orange-500' : 'bg-green-500'

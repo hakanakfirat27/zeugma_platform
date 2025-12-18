@@ -179,7 +179,7 @@ const AddToCollectionModal = ({
       
       {/* Modal */}
       <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
           {/* Header */}
           <div className="bg-gradient-to-r from-blue-500 to-indigo-500 px-6 py-4">
             <div className="flex items-center justify-between">
@@ -207,8 +207,8 @@ const AddToCollectionModal = ({
           <div className="p-4 max-h-[400px] overflow-y-auto">
             {/* Existing membership notice */}
             {existingCount > 0 && (
-              <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-xl">
-                <p className="text-sm text-green-800 flex items-center gap-2">
+              <div className="mb-4 p-3 bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700 rounded-xl">
+                <p className="text-sm text-green-800 dark:text-green-300 flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4" />
                   Already in {existingCount} collection{existingCount > 1 ? 's' : ''}
                 </p>
@@ -222,7 +222,7 @@ const AddToCollectionModal = ({
               </div>
             ) : collections.length > 0 ? (
               <div className="space-y-2 mb-4">
-                <p className="text-sm font-medium text-gray-700 mb-2">Select collections:</p>
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Select collections:</p>
                 {collections.map(collection => {
                   const IconComponent = COLLECTION_ICONS[collection.icon] || Folder;
                   const colors = COLLECTION_COLORS[collection.color] || COLLECTION_COLORS.blue;
@@ -236,10 +236,10 @@ const AddToCollectionModal = ({
                       disabled={isAlreadyIn}
                       className={`w-full flex items-center gap-3 p-3 rounded-xl border-2 transition-all ${
                         isAlreadyIn
-                          ? 'border-green-300 bg-green-50 cursor-default'
+                          ? 'border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-900/30 cursor-default'
                           : isSelected 
                             ? `${colors.border} ${colors.bg}` 
-                            : 'border-gray-200 hover:border-gray-300'
+                            : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
                       }`}
                     >
                       <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
@@ -251,7 +251,7 @@ const AddToCollectionModal = ({
                       </div>
                       <div className="flex-1 text-left">
                         <div className="flex items-center gap-2">
-                          <p className={`font-medium ${isAlreadyIn ? 'text-green-800' : 'text-gray-900'}`}>
+                          <p className={`font-medium ${isAlreadyIn ? 'text-green-800 dark:text-green-300' : 'text-gray-900 dark:text-white'}`}>
                             {collection.name}
                           </p>
                           {isAlreadyIn && (
@@ -260,7 +260,7 @@ const AddToCollectionModal = ({
                             </span>
                           )}
                         </div>
-                        <p className="text-xs text-gray-500">{collection.item_count} companies</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">{collection.item_count} companies</p>
                       </div>
                       <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${
                         isAlreadyIn
@@ -277,31 +277,31 @@ const AddToCollectionModal = ({
               </div>
             ) : (
               <div className="text-center py-6 mb-4">
-                <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-2">
+                <div className="w-12 h-12 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-2">
                   <Folder className="w-6 h-6 text-gray-400" />
                 </div>
-                <p className="text-gray-500 text-sm">No collections yet</p>
-                <p className="text-gray-400 text-xs">Create your first collection below</p>
+                <p className="text-gray-500 dark:text-gray-400 text-sm">No collections yet</p>
+                <p className="text-gray-400 dark:text-gray-500 text-xs">Create your first collection below</p>
               </div>
             )}
 
             {/* Create New Collection */}
             {showCreateNew ? (
-              <div className="border-2 border-dashed border-blue-300 rounded-xl p-4 bg-blue-50">
-                <p className="text-sm font-medium text-gray-700 mb-3">New Collection</p>
+              <div className="border-2 border-dashed border-blue-300 dark:border-blue-700 rounded-xl p-4 bg-blue-50 dark:bg-blue-900/20">
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">New Collection</p>
                 
                 <input
                   type="text"
                   value={newCollectionName}
                   onChange={(e) => setNewCollectionName(e.target.value)}
                   placeholder="Collection name..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg mb-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg mb-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 dark:text-white dark:placeholder-gray-400"
                   autoFocus
                 />
 
                 {/* Color Picker */}
                 <div className="mb-3">
-                  <p className="text-xs text-gray-600 mb-1">Color</p>
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Color</p>
                   <div className="flex gap-1.5">
                     {Object.keys(COLLECTION_COLORS).map(color => (
                       <button
@@ -317,7 +317,7 @@ const AddToCollectionModal = ({
 
                 {/* Icon Picker */}
                 <div className="mb-3">
-                  <p className="text-xs text-gray-600 mb-1">Icon</p>
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Icon</p>
                   <div className="flex gap-1.5 flex-wrap">
                     {Object.entries(COLLECTION_ICONS).map(([iconName, IconComp]) => (
                       <button
@@ -326,7 +326,7 @@ const AddToCollectionModal = ({
                         className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
                           newCollectionIcon === iconName 
                             ? `${COLLECTION_COLORS[newCollectionColor].bg} ${COLLECTION_COLORS[newCollectionColor].text}` 
-                            : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                            : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
                         }`}
                       >
                         <IconComp className="w-4 h-4" />
@@ -338,7 +338,7 @@ const AddToCollectionModal = ({
                 <div className="flex gap-2">
                   <button
                     onClick={() => setShowCreateNew(false)}
-                    className="flex-1 px-3 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm"
+                    className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-sm"
                   >
                     Cancel
                   </button>
@@ -361,7 +361,7 @@ const AddToCollectionModal = ({
             ) : (
               <button
                 onClick={() => setShowCreateNew(true)}
-                className="w-full flex items-center justify-center gap-2 p-3 border-2 border-dashed border-gray-300 rounded-xl text-gray-600 hover:border-blue-400 hover:text-blue-600 transition-colors"
+                className="w-full flex items-center justify-center gap-2 p-3 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl text-gray-600 dark:text-gray-400 hover:border-blue-400 dark:hover:border-blue-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
               >
                 <Plus className="w-5 h-5" />
                 <span className="font-medium">Create New Collection</span>
@@ -370,10 +370,10 @@ const AddToCollectionModal = ({
           </div>
 
           {/* Footer */}
-          <div className="p-4 border-t border-gray-100 bg-gray-50 flex justify-end gap-3">
+          <div className="p-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 flex justify-end gap-3">
             <button
               onClick={onClose}
-              className="px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 font-medium text-sm"
+              className="px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 font-medium text-sm"
             >
               Cancel
             </button>

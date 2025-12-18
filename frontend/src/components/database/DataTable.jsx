@@ -95,7 +95,7 @@ const DataTable = ({
           type="checkbox"
           checked={data.length > 0 && selectedRecords.size === data.length}
           onChange={onSelectAll}
-          className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+          className="w-4 h-4 rounded border-gray-300 dark:border-gray-600 text-indigo-600 focus:ring-indigo-500 cursor-pointer dark:bg-gray-700"
         />
       ),
       cell: ({ row }) => (
@@ -104,7 +104,7 @@ const DataTable = ({
           checked={selectedRecords.has(row.original[idField] || row.original.id)}
           onChange={() => onSelectRecord(row.original[idField] || row.original.id)}
           onClick={(e) => e.stopPropagation()}
-          className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+          className="w-4 h-4 rounded border-gray-300 dark:border-gray-600 text-indigo-600 focus:ring-indigo-500 cursor-pointer dark:bg-gray-700"
         />
       ),
       enableSorting: false,
@@ -113,16 +113,16 @@ const DataTable = ({
     // Actions column
     const actionsColumn = showActions ? [{
       id: 'actions',
-      header: () => <div className="text-right">Actions</div>,
+      header: () => <div className="text-right text-gray-700 dark:text-gray-300">Actions</div>,
       size: 100,
       cell: ({ row }) => (
         <div className="flex items-center justify-end gap-2">
-          <button onClick={(e) => { e.stopPropagation(); onEdit?.(row.original); }} className="text-blue-600 hover:text-blue-700 p-1" title="Edit">
+          <button onClick={(e) => { e.stopPropagation(); onEdit?.(row.original); }} className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 p-1" title="Edit">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
             </svg>
           </button>
-          <button onClick={(e) => { e.stopPropagation(); onDelete?.(row.original); }} className="text-red-600 hover:text-red-700 p-1" title="Delete">
+          <button onClick={(e) => { e.stopPropagation(); onDelete?.(row.original); }} className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 p-1" title="Delete">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
             </svg>
@@ -177,7 +177,7 @@ const DataTable = ({
         header: 'Company Name',
         minSize: 300,
         cell: ({ row }) => (
-          <div className="font-medium text-gray-900 truncate">
+          <div className="font-medium text-gray-900 dark:text-white truncate">
             {isGuest ? '████████' : row.original.company_name}
           </div>
         ),
@@ -223,9 +223,9 @@ const DataTable = ({
   });
 
   return (
-    <div className="relative border rounded-lg overflow-auto h-[70vh]">
-      <table className="min-w-full divide-y divide-gray-200">
-        <thead className="bg-gray-100 sticky top-0 z-20">
+    <div className="relative border border-gray-200 dark:border-gray-700 rounded-lg overflow-auto h-[70vh]">
+      <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+        <thead className="bg-gray-100 dark:bg-gray-700 sticky top-0 z-20">
           {table.getHeaderGroups().map(headerGroup => (
             <tr key={headerGroup.id}>
               {headerGroup.headers.map(header => {
@@ -236,7 +236,7 @@ const DataTable = ({
                 return (
                   <th
                     key={header.id}
-                    className={`px-3 py-3 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider border-b border-r border-gray-200 ${canSort ? 'cursor-pointer hover:bg-gray-200' : ''} ${isSticky ? 'sticky bg-gray-100' : ''}`}
+                    className={`px-3 py-3 text-left text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider border-b border-r border-gray-200 dark:border-gray-600 ${canSort ? 'cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600' : ''} ${isSticky ? 'sticky bg-gray-100 dark:bg-gray-700' : ''}`}
                     style={{
                       width: header.column.getSize(),
                       minWidth: header.column.columnDef.minSize,
@@ -262,20 +262,20 @@ const DataTable = ({
             </tr>
           ))}
         </thead>
-        <tbody className="bg-white divide-y divide-gray-200">
+        <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
           {table.getRowModel().rows.map((row, index) => (
             <tr
               key={row.id}
-              className={`transition-colors ${index % 2 === 0 ? 'bg-white' : 'bg-slate-50'} hover:bg-blue-50 cursor-pointer`}
+              className={`transition-colors ${index % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-slate-50 dark:bg-gray-900/50'} hover:bg-blue-50 dark:hover:bg-blue-900/20 cursor-pointer`}
               onClick={() => onRowClick(row.original)}
             >
               {row.getVisibleCells().map(cell => {
                 const isSticky = cell.column.id === 'select' || cell.column.id === 'company_name';
-                const baseBg = index % 2 === 0 ? 'bg-white' : 'bg-slate-50';
+                const baseBg = index % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-slate-50 dark:bg-gray-900/50';
                 return (
                   <td
                     key={cell.id}
-                    className={`px-3 py-2.5 text-sm whitespace-nowrap border-r border-gray-100 ${isSticky ? `sticky ${baseBg}` : ''}`}
+                    className={`px-3 py-2.5 text-sm whitespace-nowrap border-r border-gray-100 dark:border-gray-700 text-gray-900 dark:text-gray-100 ${isSticky ? `sticky ${baseBg}` : ''}`}
                     style={{
                       width: cell.column.getSize(),
                       minWidth: cell.column.columnDef.minSize,

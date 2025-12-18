@@ -766,13 +766,13 @@ const ClientReportVisualizationPage = () => {
       const itemValue = payload[0].value;
       
       return (
-        <div className="bg-white px-4 py-3 rounded-xl shadow-lg border border-gray-200">
-          <p className="font-semibold text-gray-900">{itemName}</p>
-          <p className="text-sm text-gray-600">
-            Count: <span className="font-medium text-gray-900">{itemValue?.toLocaleString()}</span>
+        <div className="bg-white dark:bg-gray-800 px-4 py-3 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700">
+          <p className="font-semibold text-gray-900 dark:text-white">{itemName}</p>
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            Count: <span className="font-medium text-gray-900 dark:text-white">{itemValue?.toLocaleString()}</span>
           </p>
           {dataItem?.percentage && (
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-gray-500 dark:text-gray-400">
               {dataItem.percentage}% of total
             </p>
           )}
@@ -868,45 +868,45 @@ const ClientReportVisualizationPage = () => {
         </div>
 
         {/* Data Summary - Rule-based insights (100% local, no AI) */}
-        <div ref={summaryRef} className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-2xl shadow-lg p-6 border border-slate-200">
+        <div ref={summaryRef} className="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-gray-800 dark:to-gray-900 rounded-2xl shadow-lg p-6 border border-slate-200 dark:border-gray-700">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center">
               <TrendingUp className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h3 className="text-lg font-bold text-gray-900">Data Summary</h3>
-              <p className="text-sm text-gray-500">Automated insights based on current data</p>
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white">Data Summary</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Automated insights based on current data</p>
             </div>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {summaryInsights.map((insight, index) => (
               <div 
-                key={`insight-${index}`}
-                className={`p-4 rounded-xl border ${
-                  insight.type === 'diversity' 
-                    ? 'bg-gradient-to-br from-purple-50 to-blue-50 border-purple-200' 
-                    : 'bg-white border-gray-200'
-                } ${
-                  insight.highlight === 'high-concentration' ? 'ring-2 ring-amber-200' : ''
-                } ${
-                  insight.highlight === 'balanced' ? 'ring-2 ring-green-200' : ''
-                }`}
+              key={`insight-${index}`}
+              className={`p-4 rounded-xl border ${
+              insight.type === 'diversity' 
+              ? 'bg-gradient-to-br from-purple-50 to-blue-50 dark:from-purple-900/30 dark:to-blue-900/30 border-purple-200 dark:border-purple-700' 
+              : 'bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600'
+              } ${
+              insight.highlight === 'high-concentration' ? 'ring-2 ring-amber-200 dark:ring-amber-700' : ''
+              } ${
+              insight.highlight === 'balanced' ? 'ring-2 ring-green-200 dark:ring-green-700' : ''
+              }`}
               >
                 <div className="flex items-start gap-3">
                   <span className="text-2xl">{insight.icon}</span>
                   <div className="flex-1">
-                    <h4 className="font-semibold text-gray-900 mb-1">{insight.title}</h4>
-                    <p className="text-sm text-gray-600 leading-relaxed">{insight.text}</p>
+                    <h4 className="font-semibold text-gray-900 dark:text-white mb-1">{insight.title}</h4>
+                    <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">{insight.text}</p>
                     {insight.score !== undefined && (
                       <div className="mt-2 flex items-center gap-2">
-                        <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+                        <div className="flex-1 h-2 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
                           <div 
                             className="h-full bg-gradient-to-r from-purple-500 to-blue-500 rounded-full transition-all duration-500"
                             style={{ width: `${insight.score}%` }}
                           />
                         </div>
-                        <span className="text-xs font-semibold text-gray-700">{insight.score}/100</span>
+                        <span className="text-xs font-semibold text-gray-700 dark:text-gray-200">{insight.score}/100</span>
                       </div>
                     )}
                   </div>
@@ -917,10 +917,10 @@ const ClientReportVisualizationPage = () => {
         </div>
 
         {/* Chart Type Filter */}
-        <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 border border-gray-100 dark:border-gray-700">
           <div className="flex items-center gap-4 flex-wrap">
-            <Filter className="w-5 h-5 text-gray-600" />
-            <span className="text-sm font-medium text-gray-700">View:</span>
+            <Filter className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-200">View:</span>
             {['all', 'map', 'distribution', 'comparison', 'advanced'].map(type => (
               <button
                 key={type}
@@ -928,7 +928,7 @@ const ClientReportVisualizationPage = () => {
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                   selectedChart === type
                     ? 'bg-purple-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                 }`}
               >
                 {type === 'map' ? '🗺️ Map' : type.charAt(0).toUpperCase() + type.slice(1)}
@@ -941,17 +941,17 @@ const ClientReportVisualizationPage = () => {
         <div className="space-y-6">
           {/* Interactive Map */}
           {(selectedChart === 'all' || selectedChart === 'map') && (
-            <div ref={mapRef} className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 chart-export-container">
+            <div ref={mapRef} className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 border border-gray-100 dark:border-gray-700 chart-export-container">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                   <MapIcon className="w-5 h-5 text-blue-600" />
-                  <h3 className="text-lg font-bold text-gray-900">Interactive Company Map</h3>
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white">Interactive Company Map</h3>
                 </div>
-                <div className="text-sm text-gray-500">
+                <div className="text-sm text-gray-500 dark:text-gray-300">
                   {mapData.length} countries mapped
                 </div>
               </div>
-              <div className="h-[500px] rounded-xl overflow-hidden border border-gray-200">
+              <div className="h-[500px] rounded-xl overflow-hidden border border-gray-200 dark:border-gray-600 [&_.leaflet-container]:dark:brightness-90">
                 <MapContainer
                   center={[30, 10]}
                   zoom={2}
@@ -988,21 +988,21 @@ const ClientReportVisualizationPage = () => {
               </div>
               <div className="mt-4">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-semibold text-gray-700">Top 10 Countries</span>
-                  <span className="text-xs text-gray-500">by company count</span>
+                  <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">Top 10 Countries</span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">by company count</span>
                 </div>
                 <div className="flex flex-wrap gap-3">
                   {mapData.slice(0, 10).map((item, index) => (
                     <div 
                       key={`legend-${index}-${item.country}`}
-                      className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 rounded-lg"
+                      className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 dark:bg-gray-700 rounded-lg"
                     >
                       <div 
                         className="w-3 h-3 rounded-full"
                         style={{ backgroundColor: COLORS[index % COLORS.length] }}
                       />
-                      <span className="text-sm font-medium text-gray-700">{item.country}</span>
-                      <span className="text-sm text-gray-500">({item.count})</span>
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-200">{item.country}</span>
+                      <span className="text-sm text-gray-500 dark:text-gray-300">({item.count})</span>
                     </div>
                   ))}
                 </div>
@@ -1015,10 +1015,10 @@ const ClientReportVisualizationPage = () => {
             <div ref={chartsRef}>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Bar Chart - Top Countries */}
-                <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 chart-export-container">
+                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 border border-gray-100 dark:border-gray-700 chart-export-container">
                   <div className="flex items-center gap-2 mb-4">
                     <Globe className="w-5 h-5 text-blue-600" />
-                    <h3 className="text-lg font-bold text-gray-900">Top Countries</h3>
+                    <h3 className="text-lg font-bold text-gray-900 dark:text-white">Top Countries</h3>
                   </div>
                   <ResponsiveContainer width="100%" height={300}>
                     <BarChart data={countryChartData}>
@@ -1032,10 +1032,10 @@ const ClientReportVisualizationPage = () => {
                 </div>
 
                 {/* Donut Chart - Categories */}
-                <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 chart-export-container">
+                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 border border-gray-100 dark:border-gray-700 chart-export-container">
                   <div className="flex items-center gap-2 mb-4">
                     <PieChart className="w-5 h-5 text-purple-600" />
-                    <h3 className="text-lg font-bold text-gray-900">Category Distribution (Donut)</h3>
+                    <h3 className="text-lg font-bold text-gray-900 dark:text-white">Category Distribution (Donut)</h3>
                   </div>
                   <ResponsiveContainer width="100%" height={300}>
                     <RechartsPie>
@@ -1059,10 +1059,10 @@ const ClientReportVisualizationPage = () => {
                 </div>
 
                 {/* Treemap - Categories */}
-                <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 chart-export-container">
+                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 border border-gray-100 dark:border-gray-700 chart-export-container">
                   <div className="flex items-center gap-2 mb-4">
                     <BarChart3 className="w-5 h-5 text-green-600" />
-                    <h3 className="text-lg font-bold text-gray-900">Treemap - Categories</h3>
+                    <h3 className="text-lg font-bold text-gray-900 dark:text-white">Treemap - Categories</h3>
                   </div>
                   <ResponsiveContainer width="100%" height={300}>
                     <Treemap
@@ -1077,16 +1077,16 @@ const ClientReportVisualizationPage = () => {
                 </div>
 
                 {/* Heat Map - Regional Distribution */}
-                <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 chart-export-container">
+                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 border border-gray-100 dark:border-gray-700 chart-export-container">
                   <div className="flex items-center gap-2 mb-4">
                     <MapIcon className="w-5 h-5 text-red-600" />
-                    <h3 className="text-lg font-bold text-gray-900">Heat Map - Regions</h3>
+                    <h3 className="text-lg font-bold text-gray-900 dark:text-white">Heat Map - Regions</h3>
                   </div>
                   <div className="space-y-3">
                     {heatMapData.map((region, idx) => (
                       <div key={`region-${idx}-${region.name}`} className="flex items-center gap-3">
-                        <div className="w-32 text-sm font-medium text-gray-700">{region.name}</div>
-                        <div className="flex-1 h-8 bg-gray-100 rounded-lg overflow-hidden relative">
+                        <div className="w-32 text-sm font-medium text-gray-700 dark:text-gray-300">{region.name}</div>
+                        <div className="flex-1 h-8 bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden relative">
                           <div
                             className="h-full transition-all"
                             style={{
@@ -1094,7 +1094,7 @@ const ClientReportVisualizationPage = () => {
                               background: `linear-gradient(to right, ${HEAT_COLORS[Math.min(idx, 3)]})`
                             }}
                           />
-                          <span className="absolute inset-0 flex items-center justify-center text-sm font-semibold text-gray-900">
+                          <span className="absolute inset-0 flex items-center justify-center text-sm font-semibold text-gray-900 dark:text-white">
                             {region.value}
                           </span>
                         </div>
@@ -1112,10 +1112,10 @@ const ClientReportVisualizationPage = () => {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
                 {/* Material Bar Chart */}
-                <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 chart-export-container">
+                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 border border-gray-100 dark:border-gray-700 chart-export-container">
                   <div className="flex items-center gap-2 mb-4">
                     <TrendingUp className="w-5 h-5 text-purple-600" />
-                    <h3 className="text-lg font-bold text-gray-900">Material Distribution (Top 10 Materials)</h3>
+                    <h3 className="text-lg font-bold text-gray-900 dark:text-white">Material Distribution (Top 10 Materials)</h3>
                   </div>
                   <ResponsiveContainer width="100%" height={300}>
                     <BarChart data={materialData} layout="vertical">
@@ -1137,10 +1137,10 @@ const ClientReportVisualizationPage = () => {
             <>
               <div className="grid grid-cols-1 gap-6">
                 {/* Geographic Overview List */}
-                <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 chart-export-container">
+                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 border border-gray-100 dark:border-gray-700 chart-export-container">
                   <div className="flex items-center gap-2 mb-4">
                     <Globe className="w-5 h-5 text-orange-600" />
-                    <h3 className="text-lg font-bold text-gray-900">Geographic Overview</h3>
+                    <h3 className="text-lg font-bold text-gray-900 dark:text-white">Geographic Overview</h3>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {countryChartData.slice(0, 10).map((country, index) => (
@@ -1150,17 +1150,17 @@ const ClientReportVisualizationPage = () => {
                         </div>
                         <div className="flex-1">
                           <div className="flex items-center justify-between mb-1">
-                            <span className="font-medium text-gray-900">{country.name}</span>
-                            <span className="text-sm text-gray-600">{country.value}</span>
+                            <span className="font-medium text-gray-900 dark:text-white">{country.name}</span>
+                            <span className="text-sm text-gray-600 dark:text-gray-300">{country.value}</span>
                           </div>
-                          <div className="w-full bg-gray-200 rounded-full h-2">
+                          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                             <div
                               className="bg-gradient-to-r from-blue-500 to-purple-500 h-2 rounded-full"
                               style={{ width: `${country.percentage}%` }}
                             />
                           </div>
                         </div>
-                        <span className="text-sm font-semibold text-gray-900">{country.percentage}%</span>
+                        <span className="text-sm font-semibold text-gray-900 dark:text-white">{country.percentage}%</span>
                       </div>
                     ))}
                   </div>

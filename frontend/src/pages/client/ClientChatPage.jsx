@@ -417,9 +417,9 @@ const ClientChatPage = () => {
     <ClientDashboardLayout
     breadcrumbs={breadcrumbs}
     >
-      <div className="flex h-[calc(100vh-4rem)] bg-gray-100">
+      <div className="flex h-[calc(100vh-4rem)] bg-gray-100 dark:bg-gray-900">
         {/* Sidebar */}
-        <div className={`${showSidebar ? 'w-full md:w-96' : 'hidden md:block md:w-96'} bg-white border-r flex flex-col`}>
+        <div className={`${showSidebar ? 'w-full md:w-96' : 'hidden md:block md:w-96'} bg-white dark:bg-gray-800 border-r dark:border-gray-700 flex flex-col`}>
           {/* Sidebar Header */}
           <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-4">
             <div className="flex items-center justify-between mb-3">
@@ -459,7 +459,7 @@ const ClientChatPage = () => {
                 {room && (
                   <button
                     onClick={() => setShowSidebar(false)}
-                    className="w-full text-left p-4 border-b border-gray-100 bg-indigo-50"
+                    className="w-full text-left p-4 border-b border-gray-100 dark:border-gray-700 bg-indigo-50 dark:bg-indigo-900/30"
                   >
                     <div className="flex items-start gap-3">
                       <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-blue-600 flex items-center justify-center text-white font-bold">
@@ -467,17 +467,17 @@ const ClientChatPage = () => {
                       </div>
 
                       <div className="flex-1 min-w-0">
-                        <h4 className="font-semibold text-sm text-gray-900">
+                        <h4 className="font-semibold text-sm text-gray-900 dark:text-white">
                           {room.assigned_staff?.full_name || room.assigned_staff?.username || 'Support Team'}
                         </h4>
                         {typingUsers.length > 0 ? (
-                          <p className="text-sm text-green-600 italic">typing...</p>
+                          <p className="text-sm text-green-600 dark:text-green-400 italic">typing...</p>
                         ) : (
-                          <p className="text-sm text-gray-600">Support Chat</p>
+                          <p className="text-sm text-gray-600 dark:text-gray-400">Support Chat</p>
                         )}
 
                         <div className="flex items-center gap-2 mt-1">
-                          <span className={`text-xs ${isConnected ? 'text-green-600' : 'text-gray-400'}`}>
+                          <span className={`text-xs ${isConnected ? 'text-green-600 dark:text-green-400' : 'text-gray-400 dark:text-gray-500'}`}>
                             {isConnected ? '● Connected' : '○ Disconnected'}
                           </span>
                         </div>
@@ -488,10 +488,10 @@ const ClientChatPage = () => {
 
                 {/* 2. If NO room, show "no chat" message */}
                 {!room && (
-                  <div className="text-center text-gray-500 py-8 px-4">
-                    <MessageSquare className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                  <div className="text-center text-gray-500 dark:text-gray-400 py-8 px-4">
+                    <MessageSquare className="w-12 h-12 mx-auto mb-3 text-gray-300 dark:text-gray-600" />
                     <p className="font-medium">No active chat</p>
-                    <p className="mt-2 text-sm text-gray-500">
+                    <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
                       Click "Contact Admin" above to start a new conversation.
                     </p>
                   </div>
@@ -503,7 +503,7 @@ const ClientChatPage = () => {
         </div>
 
         {/* Chat Area */}
-        <div className={`${!showSidebar || room ? 'flex-1' : 'hidden md:flex-1'} flex flex-col bg-gray-50`}>
+        <div className={`${!showSidebar || room ? 'flex-1' : 'hidden md:flex-1'} flex flex-col bg-gray-50 dark:bg-gray-900`}>
           {room ? (
             <>
               {/* Chat Header */}
@@ -530,12 +530,12 @@ const ClientChatPage = () => {
               </div>
 
               {/* Messages Area */}
-              <div className="flex-1 overflow-y-auto p-6 bg-gray-50 space-y-4" style={{
+              <div className="flex-1 overflow-y-auto p-6 bg-gray-50 dark:bg-gray-900 space-y-4" style={{
                 backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cg fill=\'none\' fill-rule=\'evenodd\'%3E%3Cg fill=\'%239C92AC\' fill-opacity=\'0.05\'%3E%3Cpath d=\'M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z\'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")'
               }}>
                 {messages.length === 0 && (
-                  <div className="text-center py-12 text-gray-500">
-                    <MessageSquare className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+                  <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+                    <MessageSquare className="w-16 h-16 mx-auto mb-4 text-gray-300 dark:text-gray-600" />
                     <p className="text-lg font-semibold mb-2">Start a conversation</p>
                     <p className="text-sm">Send a message to our support team</p>
                   </div>
@@ -553,7 +553,7 @@ const ClientChatPage = () => {
                     <Fragment key={message.message_id}>
                       {showDateDivider && (
                         <div className="flex justify-center my-4">
-                          <span className="bg-gray-200 text-gray-700 text-xs font-medium px-3 py-1 rounded-full">
+                          <span className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs font-medium px-3 py-1 rounded-full">
                             {formatDateDivider(message.created_at)}
                           </span>
                         </div>
@@ -566,17 +566,17 @@ const ClientChatPage = () => {
                         <div className={`max-w-lg ${isOwn ? 'order-2' : 'order-1'}`}>
                           {!isOwn && (
                             <div className="flex items-center gap-2 mb-1">
-                              <span className="text-xs font-medium text-gray-700">
+                              <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
                                 {message.sender.full_name || message.sender.username}
                               </span>
-                              <span className="text-xs text-gray-500">Support</span>
+                              <span className="text-xs text-gray-500 dark:text-gray-400">Support</span>
                             </div>
                           )}
 
                           <div
                             className={`rounded-2xl px-4 py-3 ${isOwn
                                 ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white'
-                                : 'bg-white text-gray-900 border border-gray-200'
+                                : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700'
                               }`}
                           >
                             {/* File Attachment */}
@@ -650,22 +650,22 @@ const ClientChatPage = () => {
               </div>
 
               {/* Message Input */}
-              <div className="bg-white border-t border-gray-200 p-4">
+              <div className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-4">
                 {/* File Preview */}
                 {selectedFile && (
-                  <div className="mb-3 p-3 bg-gray-100 rounded-lg flex items-center gap-3">
+                  <div className="mb-3 p-3 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center gap-3">
                     {filePreview ? (
                       <img src={filePreview} alt="Preview" className="w-16 h-16 object-cover rounded" />
                     ) : (
-                      <div className="w-16 h-16 bg-indigo-100 rounded flex items-center justify-center">
-                        <File className="w-8 h-8 text-indigo-600" />
+                      <div className="w-16 h-16 bg-indigo-100 dark:bg-indigo-900/30 rounded flex items-center justify-center">
+                        <File className="w-8 h-8 text-indigo-600 dark:text-indigo-400" />
                       </div>
                     )}
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-700 truncate">{selectedFile.name}</p>
-                      <p className="text-xs text-gray-500">{formatFileSize(selectedFile.size)}</p>
+                      <p className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">{selectedFile.name}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">{formatFileSize(selectedFile.size)}</p>
                     </div>
-                    <button onClick={clearFile} className="text-gray-600 hover:text-red-600">
+                    <button onClick={clearFile} className="text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400">
                       <X className="w-5 h-5" />
                     </button>
                   </div>
@@ -674,7 +674,7 @@ const ClientChatPage = () => {
                 <div className="flex items-end gap-2">
                   <button
                     onClick={() => fileInputRef.current?.click()}
-                    className="p-3 text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+                    className="p-3 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
                   >
                     <Paperclip className="w-5 h-5" />
                   </button>
@@ -697,7 +697,7 @@ const ClientChatPage = () => {
                     }}
                     placeholder="Type a message..."
                     rows={1}
-                    className="flex-1 px-4 py-3 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+                    className="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 rounded-full focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
                     style={{ minHeight: '48px', maxHeight: '120px' }}
                   />
 
@@ -717,13 +717,13 @@ const ClientChatPage = () => {
             </>
           ) : (
             // *** MODIFIED SECTION - Welcome Message ***
-            <div className="flex-1 flex items-center justify-center text-gray-500">
+            <div className="flex-1 flex items-center justify-center text-gray-500 dark:text-gray-400">
               <div className="text-center">
-                <div className="w-24 h-24 mx-auto mb-4 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-full flex items-center justify-center">
-                  <MessageSquare className="w-12 h-12 text-indigo-600" />
+                <div className="w-24 h-24 mx-auto mb-4 bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900/30 dark:to-purple-900/30 rounded-full flex items-center justify-center">
+                  <MessageSquare className="w-12 h-12 text-indigo-600 dark:text-indigo-400" />
                 </div>
-                <h3 className="text-xl font-semibold mb-2 text-gray-900">Welcome to Support</h3>
-                <p className="text-gray-500 mb-4">
+                <h3 className="text-xl font-semibold mb-2 text-gray-900 dark:text-white">Welcome to Support</h3>
+                <p className="text-gray-500 dark:text-gray-400 mb-4">
                   Click "Contact Admin" in the sidebar to start a conversation.
                 </p>
               </div>

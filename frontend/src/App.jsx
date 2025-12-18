@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from './contexts/AuthContext';
 import { AnnouncementProvider } from './contexts/AnnouncementContext';
 import { TourProvider } from './contexts/TourContext';
+import { ThemeProvider } from './contexts/ThemeContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import { ToastProvider, useToast } from './contexts/ToastContext';
 import { ToastContainer } from './components/Toast';
@@ -120,11 +121,12 @@ const ToastRenderer = () => {
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}> 
-      <AuthProvider>
-        <ToastProvider>
-          <TourProvider>
-          <ToastRenderer />
+    <ThemeProvider>
+      <QueryClientProvider client={queryClient}> 
+        <AuthProvider>
+          <ToastProvider>
+            <TourProvider>
+            <ToastRenderer />
             <Routes>
             {/* Public routes */}
             <Route path="/" element={<HomePage />} />
@@ -235,11 +237,12 @@ function App() {
             {/* Catch all */}
             <Route path="*" element={<Navigate to="/" replace />} />
 
-          </Routes>
-          </TourProvider>
-        </ToastProvider>
-      </AuthProvider>
-    </QueryClientProvider>
+            </Routes>
+            </TourProvider>
+          </ToastProvider>
+        </AuthProvider>
+      </QueryClientProvider>
+    </ThemeProvider>
   );
 }
 

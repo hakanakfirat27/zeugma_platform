@@ -174,7 +174,7 @@ const ClientReportViewPage = () => {
       header: 'COMPANY NAME',
       minSize: 250,
       cell: ({ row }) => (
-        <div className="font-medium text-gray-900 truncate text-sm">
+        <div className="font-medium text-gray-900 dark:text-white truncate text-sm">
           {row.original.company_name || '-'}
         </div>
       ),
@@ -185,7 +185,7 @@ const ClientReportViewPage = () => {
       header: 'COUNTRY',
       size: 120,
       cell: ({ row }) => (
-        <div className="text-gray-700 text-sm">
+        <div className="text-gray-700 dark:text-gray-300 text-sm">
           {row.original.country || '-'}
         </div>
       ),
@@ -199,7 +199,7 @@ const ClientReportViewPage = () => {
         const categories = row.original.categories || [];
         
         if (!categories || categories.length === 0) {
-          return <span className="text-gray-400 text-sm">-</span>;
+          return <span className="text-gray-400 dark:text-gray-500 text-sm">-</span>;
         }
 
         const CATEGORY_LABELS = {
@@ -232,7 +232,7 @@ const ClientReportViewPage = () => {
               {label}
             </span>
             {categories.length > 1 && (
-              <span className="text-xs text-gray-500">+{categories.length - 1}</span>
+              <span className="text-xs text-gray-500 dark:text-gray-400">+{categories.length - 1}</span>
             )}
           </div>
         );
@@ -300,8 +300,8 @@ const ClientReportViewPage = () => {
               }}
               className={`p-1.5 rounded-lg transition-all ${
                 isRecordFavorited
-                  ? 'text-yellow-500 bg-yellow-50 hover:bg-yellow-100'
-                  : 'text-gray-400 hover:text-yellow-500 hover:bg-yellow-50'
+                  ? 'text-yellow-500 bg-yellow-50 dark:bg-yellow-900/30 hover:bg-yellow-100 dark:hover:bg-yellow-900/50'
+                  : 'text-gray-400 hover:text-yellow-500 hover:bg-yellow-50 dark:hover:bg-yellow-900/30'
               }`}
               title={isRecordFavorited ? 'Remove from favorites' : 'Add to favorites'}
             >
@@ -322,8 +322,8 @@ const ClientReportViewPage = () => {
               }}
               className={`relative p-1.5 rounded-lg transition-all ${
                 inCollection
-                  ? 'text-blue-600 bg-blue-50 hover:bg-blue-100'
-                  : 'text-gray-400 hover:text-blue-600 hover:bg-blue-50'
+                  ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50'
+                  : 'text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30'
               }`}
               title={inCollection ? `In ${collectionCount} collection(s)` : 'Add to collection'}
             >
@@ -1039,10 +1039,10 @@ const ClientReportViewPage = () => {
         </div>
 
         {/* SEARCH & FILTERS */}
-        <div className="bg-white rounded-2xl shadow-sm p-6 mb-6 border border-gray-100">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-6 mb-6 border border-gray-100 dark:border-gray-700">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold text-gray-900 flex items-center gap-3">
-              <Database className="w-6 h-6 text-purple-600" />
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
+              <Database className="w-6 h-6 text-purple-600 dark:text-purple-400" />
               Search & Filter Companies
             </h2>
           </div>
@@ -1056,14 +1056,14 @@ const ClientReportViewPage = () => {
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={handleSearchKeyDown}
                 placeholder="Search companies..."
-                className="w-full pl-12 pr-10 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                className="w-full pl-12 pr-10 py-3 border-2 border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
               />
               {searchQuery && (
                 <button
                   onClick={handleClearSearch}
                   className="absolute right-3 top-1/2 transform -translate-y-1/2"
                 >
-                  <X className="w-5 h-5 text-gray-400 hover:text-gray-600" />
+                  <X className="w-5 h-5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" />
                 </button>
               )}
             </div>
@@ -1123,12 +1123,12 @@ const ClientReportViewPage = () => {
 
           {/* Active Filters Display */}
           {activeFiltersCount > 0 && (
-            <div className="mt-4 pt-4 border-t">
+            <div className="mt-4 pt-4 border-t dark:border-gray-700">
               <div className="flex items-center gap-2 mb-2">
-                <span className="text-sm font-medium text-gray-700">Active filters:</span>
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Active filters:</span>
                 <button
                   onClick={clearAllFilters}
-                  className="text-sm text-indigo-600 hover:text-indigo-700 font-medium"
+                  className="text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 font-medium"
                 >
                   Clear all
                 </button>
@@ -1279,7 +1279,7 @@ const ClientReportViewPage = () => {
               </div>
 
               {/* Active Results Summary */}
-              <div className="mt-4 bg-gradient-to-r from-indigo-50 to-purple-50 border-2 border-indigo-200 rounded-lg p-4 shadow-sm">
+              <div className="mt-4 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 border-2 border-indigo-200 dark:border-indigo-700 rounded-lg p-4 shadow-sm">
                 <div className="flex items-start gap-3">
                   <div className="flex-shrink-0 mt-0.5">
                     <div className="w-8 h-8 bg-indigo-600 rounded-full flex items-center justify-center shadow-md">
@@ -1287,15 +1287,15 @@ const ClientReportViewPage = () => {
                     </div>
                   </div>
                   <div className="flex-1">
-                    <h4 className="text-sm font-bold text-indigo-900 mb-2 flex items-center gap-2">
+                    <h4 className="text-sm font-bold text-indigo-900 dark:text-indigo-200 mb-2 flex items-center gap-2">
                       <span>Active Results Summary</span>
-                      <span className="text-xs bg-indigo-200 text-indigo-800 px-2 py-0.5 rounded-full font-normal">
+                      <span className="text-xs bg-indigo-200 dark:bg-indigo-800 text-indigo-800 dark:text-indigo-200 px-2 py-0.5 rounded-full font-normal">
                         Live
                       </span>
                     </h4>
 
                     {/* Summary Text */}
-                    <div className="text-sm text-indigo-800 leading-relaxed space-y-1">
+                    <div className="text-sm text-indigo-800 dark:text-indigo-300 leading-relaxed space-y-1">
                       {(() => {
                         const sections = [];
 
@@ -1433,9 +1433,9 @@ if (filterGroups.length > 0) {
         </div>
         {/* RESULTS COUNT */}
         <div className="mb-6">
-          <div className="inline-flex items-center gap-3 px-5 py-3 bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200 rounded-xl">
+          <div className="inline-flex items-center gap-3 px-5 py-3 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border-2 border-green-200 dark:border-green-700 rounded-xl">
             <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-            <span className="text-sm font-bold text-green-900">
+            <span className="text-sm font-bold text-green-900 dark:text-green-300">
               {totalCount.toLocaleString()} companies found
             </span>
           </div>
@@ -1447,16 +1447,16 @@ if (filterGroups.length > 0) {
             <LoadingSpinner />
           </div>
         ) : records.length === 0 ? (
-          <div className="bg-white rounded-2xl shadow-sm p-16 text-center border border-gray-100">
-            <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Search className="w-10 h-10 text-gray-400" />
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-16 text-center border border-gray-100 dark:border-gray-700">
+            <div className="w-20 h-20 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Search className="w-10 h-10 text-gray-400 dark:text-gray-500" />
             </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">No results found</h3>
-            <p className="text-gray-600">Try adjusting your filters or search terms</p>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">No results found</h3>
+            <p className="text-gray-600 dark:text-gray-400">Try adjusting your filters or search terms</p>
           </div>
         ) : (
           <>
-            <div className="bg-white rounded-2xl shadow-lg overflow-hidden mb-6 border border-gray-100">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg overflow-hidden mb-6 border border-gray-100 dark:border-gray-700">
               <DataTable
                 data={records}
                 onRowClick={(record) => setSelectedRecord(record)}

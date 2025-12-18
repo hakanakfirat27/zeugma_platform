@@ -872,7 +872,7 @@ const ClientReportFocusViewPage = () => {
           </div>
         );
       }
-      return <span className="text-gray-300">-</span>;
+      return <span className="text-gray-400 dark:text-gray-500">-</span>;
     }
 
     if (column.key === 'categories' && Array.isArray(value)) {
@@ -885,7 +885,7 @@ const ClientReportFocusViewPage = () => {
           href={value.startsWith('http') ? value : `https://${value}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-blue-600 hover:text-blue-800 hover:underline truncate block max-w-[200px]"
+          className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline truncate block max-w-[200px]"
           onClick={(e) => e.stopPropagation()}
         >
           {value}
@@ -897,7 +897,7 @@ const ClientReportFocusViewPage = () => {
       return (
         <a
           href={`mailto:${value}`}
-          className="text-blue-600 hover:text-blue-800 hover:underline truncate block max-w-[200px]"
+          className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline truncate block max-w-[200px]"
           onClick={(e) => e.stopPropagation()}
         >
           {value}
@@ -906,7 +906,7 @@ const ClientReportFocusViewPage = () => {
     }
 
     if (value === null || value === undefined || value === '') {
-      return <span className="text-gray-300">-</span>;
+      return <span className="text-gray-400 dark:text-gray-500">-</span>;
     }
 
     return <span className="truncate block max-w-[200px]">{String(value)}</span>;
@@ -915,24 +915,24 @@ const ClientReportFocusViewPage = () => {
   // Get background color for group header
   const getGroupColor = (group) => {
     const colors = {
-      'Company': 'bg-blue-100 text-blue-800 border-blue-200',
-      'Contact 1': 'bg-green-100 text-green-800 border-green-200',
-      'Contact 2': 'bg-green-100 text-green-800 border-green-200',
-      'Contact 3': 'bg-green-100 text-green-800 border-green-200',
-      'Contact 4': 'bg-green-100 text-green-800 border-green-200',
-      'Injection Moulders': 'bg-purple-100 text-purple-800 border-purple-200',
-      'Blow Moulders': 'bg-pink-100 text-pink-800 border-pink-200',
-      'Rotational Moulders': 'bg-indigo-100 text-indigo-800 border-indigo-200',
-      'PE Film Producers': 'bg-yellow-100 text-yellow-800 border-yellow-200',
-      'Sheet Producers': 'bg-orange-100 text-orange-800 border-orange-200',
-      'Pipe Producers': 'bg-teal-100 text-teal-800 border-teal-200',
-      'Tube & Hose Producers': 'bg-cyan-100 text-cyan-800 border-cyan-200',
-      'Profile Producers': 'bg-rose-100 text-rose-800 border-rose-200',
-      'Cable Producers': 'bg-lime-100 text-lime-800 border-lime-200',
-      'Compounders': 'bg-amber-100 text-amber-800 border-amber-200',
-      'Technical': 'bg-gray-100 text-gray-800 border-gray-200',
+      'Company': 'bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-200 border-blue-200 dark:border-blue-700',
+      'Contact 1': 'bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-200 border-green-200 dark:border-green-700',
+      'Contact 2': 'bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-200 border-green-200 dark:border-green-700',
+      'Contact 3': 'bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-200 border-green-200 dark:border-green-700',
+      'Contact 4': 'bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-200 border-green-200 dark:border-green-700',
+      'Injection Moulders': 'bg-purple-100 dark:bg-purple-900/40 text-purple-800 dark:text-purple-200 border-purple-200 dark:border-purple-700',
+      'Blow Moulders': 'bg-pink-100 dark:bg-pink-900/40 text-pink-800 dark:text-pink-200 border-pink-200 dark:border-pink-700',
+      'Rotational Moulders': 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-800 dark:text-indigo-200 border-indigo-200 dark:border-indigo-700',
+      'PE Film Producers': 'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-800 dark:text-yellow-200 border-yellow-200 dark:border-yellow-700',
+      'Sheet Producers': 'bg-orange-100 dark:bg-orange-900/40 text-orange-800 dark:text-orange-200 border-orange-200 dark:border-orange-700',
+      'Pipe Producers': 'bg-teal-100 dark:bg-teal-900/40 text-teal-800 dark:text-teal-200 border-teal-200 dark:border-teal-700',
+      'Tube & Hose Producers': 'bg-cyan-100 dark:bg-cyan-900/40 text-cyan-800 dark:text-cyan-200 border-cyan-200 dark:border-cyan-700',
+      'Profile Producers': 'bg-rose-100 dark:bg-rose-900/40 text-rose-800 dark:text-rose-200 border-rose-200 dark:border-rose-700',
+      'Cable Producers': 'bg-lime-100 dark:bg-lime-900/40 text-lime-800 dark:text-lime-200 border-lime-200 dark:border-lime-700',
+      'Compounders': 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200 border-amber-200 dark:border-amber-700',
+      'Technical': 'bg-gray-100 dark:bg-gray-600 text-gray-800 dark:text-gray-200 border-gray-200 dark:border-gray-500',
     };
-    return colors[group] || 'bg-gray-100 text-gray-800 border-gray-200';
+    return colors[group] || 'bg-gray-100 dark:bg-gray-600 text-gray-800 dark:text-gray-200 border-gray-200 dark:border-gray-500';
   };
 
   const totalPages = Math.ceil(totalCount / pageSize);
@@ -953,7 +953,7 @@ const ClientReportFocusViewPage = () => {
       pageSubtitleBottom={reportAccess?.report_description || 'All Fields View'}
       breadcrumbs={customBreadcrumbs}
     >
-      <div className={`p-6 ${isFullscreen ? 'fixed inset-0 z-50 bg-white overflow-auto' : ''}`}>
+      <div className={`p-6 ${isFullscreen ? 'fixed inset-0 z-50 bg-white dark:bg-gray-900 overflow-auto' : ''}`}>
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <button
@@ -967,12 +967,12 @@ const ClientReportFocusViewPage = () => {
 
         {/* Active Filters Display */}
         {(debouncedSearch || activeFiltersCount > 0) && (
-          <div className="mb-4 p-4 bg-gray-50 rounded-xl border border-gray-200">
+          <div className="mb-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-gray-700">Active filters:</span>
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Active filters:</span>
               <button
                 onClick={clearAllFilters}
-                className="text-sm text-red-600 hover:text-red-700 font-medium"
+                className="text-sm text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 font-medium"
               >
                 Clear all
               </button>
@@ -980,9 +980,9 @@ const ClientReportFocusViewPage = () => {
             <div className="flex flex-wrap gap-2">
               {/* Search Badge */}
               {debouncedSearch && (
-                <span className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-100 text-blue-800 rounded-full text-sm">
+                <span className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-200 rounded-full text-sm">
                   Search: "{debouncedSearch}"
-                  <button onClick={clearSearch} className="hover:bg-blue-200 rounded-full p-0.5">
+                  <button onClick={clearSearch} className="hover:bg-blue-200 dark:hover:bg-blue-800 rounded-full p-0.5">
                     <X className="w-3.5 h-3.5" />
                   </button>
                 </span>
@@ -992,7 +992,7 @@ const ClientReportFocusViewPage = () => {
               {!isCategoriesAtDefault && categoryFilters.length > 0 && categoryFilters.map(cat => (
                 <span
                   key={cat}
-                  className="inline-flex items-center gap-2 px-3 py-1.5 bg-purple-100 text-purple-800 border border-purple-300 rounded-full text-sm font-medium"
+                  className="inline-flex items-center gap-2 px-3 py-1.5 bg-purple-100 dark:bg-purple-900/40 text-purple-800 dark:text-purple-200 border border-purple-300 dark:border-purple-700 rounded-full text-sm font-medium"
                 >
                   {CATEGORY_SHORT_LABELS[cat] || cat}
                   <button onClick={() => removeCategoryFilter(cat)} className="hover:opacity-70">
@@ -1007,7 +1007,7 @@ const ClientReportFocusViewPage = () => {
                   countryFilters.map(country => (
                     <span
                       key={country}
-                      className="inline-flex items-center gap-2 px-3 py-1.5 bg-green-100 text-green-800 border border-green-300 rounded-full text-sm font-medium"
+                      className="inline-flex items-center gap-2 px-3 py-1.5 bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-200 border border-green-300 dark:border-green-700 rounded-full text-sm font-medium"
                     >
                       {country}
                       <button onClick={() => removeCountryFilter(country)} className="hover:opacity-70">
@@ -1016,7 +1016,7 @@ const ClientReportFocusViewPage = () => {
                     </span>
                   ))
                 ) : (
-                  <span className="inline-flex items-center gap-2 px-3 py-1.5 bg-green-100 text-green-800 border border-green-300 rounded-full text-sm font-medium">
+                  <span className="inline-flex items-center gap-2 px-3 py-1.5 bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-200 border border-green-300 dark:border-green-700 rounded-full text-sm font-medium">
                     {countryFilters.length} countries selected
                   </span>
                 )
@@ -1024,7 +1024,7 @@ const ClientReportFocusViewPage = () => {
               
               {/* Filter Groups */}
               {!isFilterGroupsAtDefault && filterGroups.length > 0 && (
-                <span className="inline-flex items-center gap-2 px-3 py-1.5 bg-indigo-100 text-indigo-800 border border-indigo-300 rounded-full text-sm font-medium">
+                <span className="inline-flex items-center gap-2 px-3 py-1.5 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-800 dark:text-indigo-200 border border-indigo-300 dark:border-indigo-700 rounded-full text-sm font-medium">
                   {groupFilterCount} material/technical filters
                 </span>
               )}
@@ -1033,23 +1033,23 @@ const ClientReportFocusViewPage = () => {
         )}
 
         {/* Toolbar - Search, Filters, Export, Columns, etc. */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 mb-4">
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-4 mb-4">
           <div className="flex items-center justify-between gap-4 flex-wrap">
             {/* Left side - Stats */}
             <div className="flex items-center gap-3">
-              <div className="inline-flex items-center gap-2 px-4 py-2 bg-green-50 border border-green-200 rounded-lg">
-                <span className="text-sm font-medium text-green-800">
+              <div className="inline-flex items-center gap-2 px-4 py-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg">
+                <span className="text-sm font-medium text-green-800 dark:text-green-300">
                   {totalCount.toLocaleString()} companies
                 </span>
               </div>
               {selectedCount > 0 && (
-                <div className="inline-flex items-center gap-3 px-4 py-2 bg-blue-50 border border-blue-200 rounded-lg">
-                  <span className="text-sm font-medium text-blue-800">
+                <div className="inline-flex items-center gap-3 px-4 py-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg">
+                  <span className="text-sm font-medium text-blue-800 dark:text-blue-300">
                     {selectedCount} selected
                   </span>
                   <button
                     onClick={clearSelection}
-                    className="text-sm text-red-600 hover:text-red-700 font-medium"
+                    className="text-sm text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 font-medium"
                   >
                     Clear
                   </button>
@@ -1067,14 +1067,14 @@ const ClientReportFocusViewPage = () => {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search companies..."
-                  className="pl-10 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-64"
+                  className="pl-10 pr-8 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-64"
                 />
                 {searchQuery && (
                   <button
                     onClick={() => setSearchQuery('')}
                     className="absolute right-3 top-1/2 transform -translate-y-1/2"
                   >
-                    <X className="w-4 h-4 text-gray-400 hover:text-gray-600" />
+                    <X className="w-4 h-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" />
                   </button>
                 )}
               </div>
@@ -1126,17 +1126,17 @@ const ClientReportFocusViewPage = () => {
               <div className="relative">
                 <button
                   onClick={() => setShowColumnSelector(!showColumnSelector)}
-                  className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+                  className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600"
                 >
                   <Columns className="w-4 h-4" />
                   Columns ({displayColumns.length}/{allColumns.length})
                 </button>
                 
                 {showColumnSelector && (
-                  <div className="absolute right-0 top-full mt-2 w-96 bg-white border border-gray-200 rounded-xl shadow-xl z-50 max-h-[600px] overflow-hidden flex flex-col">
-                    <div className="p-4 border-b border-gray-200 flex-shrink-0">
-                      <h3 className="font-semibold text-gray-900">Toggle Columns</h3>
-                      <p className="text-sm text-gray-500 mt-1">
+                  <div className="absolute right-0 top-full mt-2 w-96 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl z-50 max-h-[600px] overflow-hidden flex flex-col">
+                    <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
+                      <h3 className="font-semibold text-gray-900 dark:text-white">Toggle Columns</h3>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                         {Object.values(visibleColumns).filter(Boolean).length} of {allColumns.length} columns visible
                       </p>
                     </div>
@@ -1181,9 +1181,9 @@ const ClientReportFocusViewPage = () => {
                                       ...prev,
                                       [col.key]: e.target.checked
                                     }))}
-                                    className="w-3 h-3 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                                    className="w-3 h-3 rounded border-gray-300 dark:border-gray-600 text-purple-600 focus:ring-purple-500"
                                   />
-                                  <span className="text-gray-700 truncate" title={col.label}>{col.label}</span>
+                                  <span className="text-gray-700 dark:text-gray-300 truncate" title={col.label}>{col.label}</span>
                                 </label>
                               ))}
                             </div>
@@ -1192,7 +1192,7 @@ const ClientReportFocusViewPage = () => {
                       })}
                     </div>
                     
-                    <div className="p-4 border-t border-gray-200 flex gap-2 flex-shrink-0">
+                    <div className="p-4 border-t border-gray-200 dark:border-gray-700 flex gap-2 flex-shrink-0">
                       <button
                         onClick={() => {
                           const all = {};
@@ -1211,7 +1211,7 @@ const ClientReportFocusViewPage = () => {
                           minimal['country'] = true;
                           setVisibleColumns(minimal);
                         }}
-                        className="flex-1 px-3 py-2 text-sm bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+                        className="flex-1 px-3 py-2 text-sm bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600"
                       >
                         Minimal
                       </button>
@@ -1223,7 +1223,7 @@ const ClientReportFocusViewPage = () => {
               {/* Refresh */}
               <button
                 onClick={fetchData}
-                className="p-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+                className="p-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600"
                 title="Refresh data"
               >
                 <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
@@ -1232,7 +1232,7 @@ const ClientReportFocusViewPage = () => {
               {/* Fullscreen toggle */}
               <button
                 onClick={toggleFullscreen}
-                className="p-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+                className="p-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600"
                 title={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
               >
                 {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
@@ -1247,13 +1247,13 @@ const ClientReportFocusViewPage = () => {
             <LoadingSpinner />
           </div>
         ) : data.length === 0 ? (
-          <div className="bg-white rounded-xl border border-gray-200 p-16 text-center">
-            <Search className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">No results found</h3>
-            <p className="text-gray-600">Try adjusting your filters or search terms</p>
+          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-16 text-center">
+            <Search className="w-12 h-12 mx-auto mb-4 text-gray-300 dark:text-gray-600" />
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">No results found</h3>
+            <p className="text-gray-600 dark:text-gray-400">Try adjusting your filters or search terms</p>
           </div>
         ) : (
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
             <div 
               ref={tableRef}
               className={`overflow-auto focus:outline-none select-none ${isDragging ? 'cursor-grabbing' : ''}`}
@@ -1349,8 +1349,8 @@ const ClientReportFocusViewPage = () => {
               <table className="w-full border-collapse min-w-max">
                 {/* Column Header Row */}
                 <thead className="sticky top-0 z-20">
-                  <tr className="bg-gray-100">
-                    <th className="sticky left-0 z-30 bg-gray-100 px-3 py-3 text-sm font-semibold text-gray-600 border-b border-r border-gray-200 w-12">
+                  <tr className="bg-gray-100 dark:bg-gray-700">
+                    <th className="sticky left-0 z-30 bg-gray-100 dark:bg-gray-700 px-3 py-3 text-sm font-semibold text-gray-600 dark:text-gray-300 border-b border-r border-gray-200 dark:border-gray-600 w-12">
                       <div className="flex items-center justify-center">
                         <input
                           type="checkbox"
@@ -1366,7 +1366,7 @@ const ClientReportFocusViewPage = () => {
                     {displayColumns.map((col) => (
                       <th
                         key={col.key}
-                        className={`px-3 py-3 text-sm font-semibold text-gray-700 border-b border-r border-gray-200 whitespace-nowrap ${getGroupColor(col.group)} ${
+                        className={`px-3 py-3 text-sm font-semibold text-gray-700 dark:text-gray-300 border-b border-r border-gray-200 dark:border-gray-600 whitespace-nowrap ${getGroupColor(col.group)} ${
                           col.key === 'company_name' ? 'sticky left-12 z-20 text-left' : ''
                         } ${col.type === 'checkbox' ? 'text-center' : 'text-left'}`}
                         style={{ minWidth: col.key === 'company_name' ? '250px' : col.type === 'checkbox' ? '100px' : '120px' }}
@@ -1381,11 +1381,11 @@ const ClientReportFocusViewPage = () => {
                 <tbody>
                   {data.map((record, rowIndex) => {
                     const isSelected = selectedIds.has(record.id);
-                    const rowBg = rowIndex % 2 === 0 ? 'bg-white' : 'bg-slate-50';
+                    const rowBg = rowIndex % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-slate-50 dark:bg-gray-900/50';
                     return (
                       <tr
                         key={record.id || rowIndex}
-                        className={`hover:bg-blue-50 transition-colors border-b border-gray-100 cursor-pointer ${isSelected ? 'bg-blue-50' : rowBg}`}
+                        className={`hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors border-b border-gray-100 dark:border-gray-700 cursor-pointer ${isSelected ? 'bg-blue-50 dark:bg-blue-900/20' : rowBg}`}
                         onClick={() => {
                           // Only open modal if it wasn't a drag
                           if (!hasDraggedRef.current) {
@@ -1395,7 +1395,7 @@ const ClientReportFocusViewPage = () => {
                         }}
                       >
                         <td 
-                          className={`sticky left-0 z-10 ${isSelected ? 'bg-blue-50' : rowBg} px-3 py-2.5 border-r border-gray-200`}
+                          className={`sticky left-0 z-10 ${isSelected ? 'bg-blue-50 dark:bg-blue-900/20' : rowBg} px-3 py-2.5 border-r border-gray-200 dark:border-gray-700`}
                           onClick={(e) => e.stopPropagation()}
                         >
                           <div className="flex items-center justify-center">
@@ -1410,11 +1410,11 @@ const ClientReportFocusViewPage = () => {
                         {displayColumns.map((col) => (
                           <td
                             key={col.key}
-                            className={`px-3 py-2.5 text-sm text-gray-900 border-r border-gray-100 ${
+                            className={`px-3 py-2.5 text-sm text-gray-900 dark:text-gray-100 border-r border-gray-100 dark:border-gray-700 ${
                               col.key === 'company_name' 
-                                ? `sticky left-12 z-10 ${isSelected ? 'bg-blue-50' : rowBg} font-medium` 
+                                ? `sticky left-12 z-10 ${isSelected ? 'bg-blue-50 dark:bg-blue-900/20' : rowBg} font-medium` 
                                 : ''
-                            } ${isSelected ? 'bg-blue-50' : ''}`}
+                            } ${isSelected ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}
                           >
                             {renderCellValue(record, col)}
                           </td>
@@ -1504,7 +1504,7 @@ const ClientReportFocusViewPage = () => {
             onClick={() => !exporting && setShowExportModal(false)}
           />
           
-          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden">
+          <div className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden border border-gray-200 dark:border-gray-700">
             <div className="bg-gradient-to-r from-emerald-500 to-emerald-600 px-6 py-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -1531,8 +1531,8 @@ const ClientReportFocusViewPage = () => {
                 <label 
                   className={`flex items-center gap-4 p-4 border-2 rounded-xl cursor-pointer transition-all ${
                     exportType === 'selected' 
-                      ? 'border-emerald-500 bg-emerald-50' 
-                      : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                      ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20' 
+                      : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600'
                   } ${selectedCount === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
                   <input
@@ -1547,9 +1547,9 @@ const ClientReportFocusViewPage = () => {
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
                       <CheckSquare className="w-5 h-5 text-blue-600" />
-                      <span className="font-semibold text-gray-900">Export Selected</span>
+                      <span className="font-semibold text-gray-900 dark:text-white">Export Selected</span>
                     </div>
-                    <p className="text-sm text-gray-500 mt-1">
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                       {selectedCount > 0 
                         ? `Export ${selectedCount} selected compan${selectedCount === 1 ? 'y' : 'ies'}`
                         : 'No companies selected'
@@ -1557,7 +1557,7 @@ const ClientReportFocusViewPage = () => {
                     </p>
                   </div>
                   {selectedCount > 0 && (
-                    <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium">
+                    <span className="px-3 py-1 bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 rounded-full text-sm font-medium">
                       {selectedCount}
                     </span>
                   )}
@@ -1566,8 +1566,8 @@ const ClientReportFocusViewPage = () => {
                 <label 
                   className={`flex items-center gap-4 p-4 border-2 rounded-xl cursor-pointer transition-all ${
                     exportType === 'page' 
-                      ? 'border-emerald-500 bg-emerald-50' 
-                      : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                      ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20' 
+                      : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600'
                   }`}
                 >
                   <input
@@ -1581,13 +1581,13 @@ const ClientReportFocusViewPage = () => {
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
                       <Table className="w-5 h-5 text-purple-600" />
-                      <span className="font-semibold text-gray-900">Export Current Page</span>
+                      <span className="font-semibold text-gray-900 dark:text-white">Export Current Page</span>
                     </div>
-                    <p className="text-sm text-gray-500 mt-1">
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                       Export all {data.length} companies on this page
                     </p>
                   </div>
-                  <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm font-medium">
+                  <span className="px-3 py-1 bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 rounded-full text-sm font-medium">
                     {data.length}
                   </span>
                 </label>
@@ -1595,8 +1595,8 @@ const ClientReportFocusViewPage = () => {
                 <label 
                   className={`flex items-center gap-4 p-4 border-2 rounded-xl cursor-pointer transition-all ${
                     exportType === 'all' 
-                      ? 'border-emerald-500 bg-emerald-50' 
-                      : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                      ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20' 
+                      : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600'
                   }`}
                 >
                   <input
@@ -1610,24 +1610,24 @@ const ClientReportFocusViewPage = () => {
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
                       <Users className="w-5 h-5 text-emerald-600" />
-                      <span className="font-semibold text-gray-900">Export All Companies</span>
+                      <span className="font-semibold text-gray-900 dark:text-white">Export All Companies</span>
                     </div>
-                    <p className="text-sm text-gray-500 mt-1">
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                       Export all {totalCount.toLocaleString()} companies matching current filters
                     </p>
                   </div>
-                  <span className="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-sm font-medium">
+                  <span className="px-3 py-1 bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 rounded-full text-sm font-medium">
                     {totalCount.toLocaleString()}
                   </span>
                 </label>
               </div>
             </div>
 
-            <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex items-center justify-end gap-3">
+            <div className="px-6 py-4 bg-gray-50 dark:bg-gray-700 border-t border-gray-200 dark:border-gray-600 flex items-center justify-end gap-3">
               <button
                 onClick={() => setShowExportModal(false)}
                 disabled={exporting}
-                className="px-4 py-2 text-gray-700 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50"
+                className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors disabled:opacity-50"
               >
                 Cancel
               </button>

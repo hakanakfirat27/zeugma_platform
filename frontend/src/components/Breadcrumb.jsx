@@ -9,14 +9,6 @@ import { Link } from 'react-router-dom';
  * @param {boolean} showHome - Whether to show home icon
  */
 const Breadcrumb = ({ items, showHome = true }) => {
-  // Styling for content area (below header)
-  const styles = {
-    home: 'text-indigo-500 hover:text-indigo-700',
-    link: 'text-indigo-600 hover:text-indigo-900',
-    current: 'text-indigo-900 font-semibold',
-    separator: 'text-indigo-400'
-  };
-
   if (!items || items.length === 0) {
     return null;
   }
@@ -27,12 +19,12 @@ const Breadcrumb = ({ items, showHome = true }) => {
         <>
           <Link
             to="/"
-            className={`flex items-center transition-colors ${styles.home}`}
+            className="flex items-center transition-colors text-indigo-500 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300"
             aria-label="Home"
           >
             <Home className="w-4 h-4" />
           </Link>
-          <ChevronRight className={`w-4 h-4 ${styles.separator}`} />
+          <ChevronRight className="w-4 h-4 text-indigo-400 dark:text-gray-500" />
         </>
       )}
       
@@ -44,13 +36,16 @@ const Breadcrumb = ({ items, showHome = true }) => {
             {item.path && !isLast ? (
               <Link
                 to={item.path}
-                className={`transition-colors font-medium  ${styles.link}`}
+                className="transition-colors font-medium text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300"
               >
                 {item.label}
               </Link>
             ) : (
               <span 
-                className={isLast ? styles.current : styles.link}
+                className={isLast 
+                  ? 'text-indigo-900 dark:text-white font-semibold' 
+                  : 'text-indigo-600 dark:text-indigo-400'
+                }
                 aria-current={isLast ? 'page' : undefined}
               >
                 {item.label}
@@ -58,7 +53,7 @@ const Breadcrumb = ({ items, showHome = true }) => {
             )}
             
             {!isLast && (
-              <ChevronRight className={`w-4 h-4 ${styles.separator}`} />
+              <ChevronRight className="w-4 h-4 text-indigo-400 dark:text-gray-500" />
             )}
           </div>
         );

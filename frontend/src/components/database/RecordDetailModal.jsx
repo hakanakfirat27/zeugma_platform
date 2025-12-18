@@ -273,15 +273,15 @@ const RecordDetailModal = ({ record, onClose, isGuest = false, reportId = null, 
     if (field.key === 'website') {
       return (
         <div key={field.key} className="flex items-center gap-4">
-          <label className="text-sm font-medium text-gray-700 w-48 flex-shrink-0">
+          <label className="text-sm font-medium text-gray-700 dark:text-gray-300 w-48 flex-shrink-0">
             {field.label}:
           </label>
-          <div className="flex-1 bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5">
+          <div className="flex-1 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-4 py-2.5">
             <a
               href={String(value).startsWith('http') ? value : `https://${value}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
+              className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium flex items-center gap-1"
             >
               {value}
               <ExternalLink className="w-4 h-4 flex-shrink-0" />
@@ -293,11 +293,11 @@ const RecordDetailModal = ({ record, onClose, isGuest = false, reportId = null, 
 
     return (
       <div key={field.key} className="flex items-center gap-4">
-        <label className="text-sm font-medium text-gray-700 w-48 flex-shrink-0">
+        <label className="text-sm font-medium text-gray-700 dark:text-gray-300 w-48 flex-shrink-0">
           {field.label}:
         </label>
-        <div className="flex-1 bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5">
-          <span className="text-sm text-gray-900">{value}</span>
+        <div className="flex-1 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-4 py-2.5">
+          <span className="text-sm text-gray-900 dark:text-gray-100">{value}</span>
         </div>
       </div>
     );
@@ -307,14 +307,14 @@ const RecordDetailModal = ({ record, onClose, isGuest = false, reportId = null, 
     if (field.isBoolean) {
       return (
         <div key={field.key} className="flex items-center gap-4">
-          <label className="text-sm font-medium text-gray-700 w-48 flex-shrink-0">
+          <label className="text-sm font-medium text-gray-700 dark:text-gray-300 w-48 flex-shrink-0">
             {field.label}:
           </label>
-          <div className="flex-1 bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 flex items-center">
+          <div className="flex-1 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-4 py-2.5 flex items-center">
             {field.value === true ? (
-              <CheckCircle className="w-5 h-5 text-emerald-600" />
+              <CheckCircle className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
             ) : (
-              <MinusCircle className="w-5 h-5 text-red-500" />
+              <MinusCircle className="w-5 h-5 text-red-500 dark:text-red-400" />
             )}
           </div>
         </div>
@@ -323,11 +323,11 @@ const RecordDetailModal = ({ record, onClose, isGuest = false, reportId = null, 
 
     return (
       <div key={field.key} className="flex items-center gap-4">
-        <label className="text-sm font-medium text-gray-700 w-48 flex-shrink-0">
+        <label className="text-sm font-medium text-gray-700 dark:text-gray-300 w-48 flex-shrink-0">
           {field.label}:
         </label>
-        <div className="flex-1 bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5">
-          <span className="text-sm text-gray-900">{field.value}</span>
+        <div className="flex-1 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-4 py-2.5">
+          <span className="text-sm text-gray-900 dark:text-gray-100">{field.value}</span>
         </div>
       </div>
     );
@@ -338,15 +338,15 @@ const RecordDetailModal = ({ record, onClose, isGuest = false, reportId = null, 
       onClick={() => setActiveTab(id)}
       className={`flex items-center gap-2 px-6 py-3 font-semibold text-sm transition-all border-b-2 ${
         activeTab === id
-          ? 'text-purple-600 border-purple-600 bg-purple-50'
-          : 'text-gray-600 border-transparent hover:text-gray-900 hover:border-gray-300'
+          ? 'text-purple-600 dark:text-purple-400 border-purple-600 dark:border-purple-400 bg-purple-50 dark:bg-purple-900/20'
+          : 'text-gray-600 dark:text-gray-400 border-transparent hover:text-gray-900 dark:hover:text-gray-200 hover:border-gray-300 dark:hover:border-gray-600'
       }`}
     >
       <Icon className="w-5 h-5" />
       {label}
       {count !== undefined && count > 0 && (
         <span className={`ml-1 px-2 py-0.5 rounded-full text-xs font-bold ${
-          activeTab === id ? 'bg-purple-600 text-white' : 'bg-gray-300 text-gray-700'
+          activeTab === id ? 'bg-purple-600 text-white' : 'bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-200'
         }`}>
           {count}
         </span>
@@ -366,7 +366,7 @@ const RecordDetailModal = ({ record, onClose, isGuest = false, reportId = null, 
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-6xl w-full max-h-[95vh] overflow-hidden flex flex-col">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-6xl w-full max-h-[95vh] overflow-hidden flex flex-col">
         {/* Header */}
         <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white px-8 py-6 flex-shrink-0">
           <div className="flex items-start justify-between">
@@ -405,7 +405,7 @@ const RecordDetailModal = ({ record, onClose, isGuest = false, reportId = null, 
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-gray-200 bg-gray-50 px-8 flex-shrink-0 overflow-x-auto">
+        <div className="flex border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 px-8 flex-shrink-0 overflow-x-auto">
           <TabButton 
             id="company" 
             label="Company Information" 
@@ -435,7 +435,7 @@ const RecordDetailModal = ({ record, onClose, isGuest = false, reportId = null, 
         </div>
 
         {/* Content */}
-        <div className="overflow-y-auto flex-1 min-h-[500px] max-h-[600px]">
+        <div className="overflow-y-auto flex-1 min-h-[500px] max-h-[600px] bg-white dark:bg-gray-800">
           {isLoading && activeTab === 'technical' ? (
             <div className="flex items-center justify-center py-16">
               <LoadingSpinner />
@@ -443,14 +443,14 @@ const RecordDetailModal = ({ record, onClose, isGuest = false, reportId = null, 
           ) : (
             <div className="p-8">
               {isGuest && (
-                <div className="bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-xl p-5 mb-6">
+                <div className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 border-2 border-amber-300 dark:border-amber-700 rounded-xl p-5 mb-6">
                   <div className="flex items-start gap-3">
-                    <div className="flex-shrink-0 w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center">
-                      <Award className="w-5 h-5 text-amber-600" />
+                    <div className="flex-shrink-0 w-10 h-10 bg-amber-100 dark:bg-amber-900/40 rounded-lg flex items-center justify-center">
+                      <Award className="w-5 h-5 text-amber-600 dark:text-amber-400" />
                     </div>
                     <div>
-                      <h4 className="font-semibold text-amber-900 mb-1">Limited Preview Access</h4>
-                      <p className="text-sm text-amber-800">
+                      <h4 className="font-semibold text-amber-900 dark:text-amber-200 mb-1">Limited Preview Access</h4>
+                      <p className="text-sm text-amber-800 dark:text-amber-300">
                         Contact information is hidden. Upgrade to view full details.
                       </p>
                     </div>
@@ -463,7 +463,7 @@ const RecordDetailModal = ({ record, onClose, isGuest = false, reportId = null, 
                 <div className="space-y-3">
                   {COMPANY_INFO_FIELDS.map(field => renderCompanyField(field))}
                   {filledCompanyFields === 0 && (
-                    <p className="text-gray-500 text-center py-8">No company information available</p>
+                    <p className="text-gray-500 dark:text-gray-400 text-center py-8">No company information available</p>
                   )}
                 </div>
               )}
@@ -472,10 +472,10 @@ const RecordDetailModal = ({ record, onClose, isGuest = false, reportId = null, 
               {activeTab === 'contact' && (
                 <div>
                   {isGuest ? (
-                    <div className="text-center py-12 bg-amber-50 rounded-lg border-2 border-dashed border-amber-300">
+                    <div className="text-center py-12 bg-amber-50 dark:bg-amber-900/20 rounded-lg border-2 border-dashed border-amber-300 dark:border-amber-700">
                       <div className="text-5xl mb-4">🔒</div>
-                      <h4 className="text-lg font-semibold text-amber-800 mb-2">Contact Information Hidden</h4>
-                      <p className="text-sm text-amber-700 max-w-md mx-auto">
+                      <h4 className="text-lg font-semibold text-amber-800 dark:text-amber-300 mb-2">Contact Information Hidden</h4>
+                      <p className="text-sm text-amber-700 dark:text-amber-400 max-w-md mx-auto">
                         Contact person details are not displayed for guest users.
                       </p>
                     </div>
@@ -490,66 +490,66 @@ const RecordDetailModal = ({ record, onClose, isGuest = false, reportId = null, 
 
                         return (
                           <div key={n} className="space-y-3">
-                            <h4 className="text-base font-bold text-purple-700 flex items-center gap-2">
+                            <h4 className="text-base font-bold text-purple-700 dark:text-purple-400 flex items-center gap-2">
                               <User className="w-5 h-5" />
                               Contact Person {n}
                             </h4>
                             
                             {record[`title_${n}`] && (
                               <div className="flex items-center gap-4">
-                                <label className="text-sm font-medium text-gray-700 w-48 flex-shrink-0">
+                                <label className="text-sm font-medium text-gray-700 dark:text-gray-300 w-48 flex-shrink-0">
                                   Title:
                                 </label>
-                                <div className="flex-1 bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5">
-                                  <span className="text-sm text-gray-900">{record[`title_${n}`]}</span>
+                                <div className="flex-1 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-4 py-2.5">
+                                  <span className="text-sm text-gray-900 dark:text-gray-100">{record[`title_${n}`]}</span>
                                 </div>
                               </div>
                             )}
                             
                             {record[`initials_${n}`] && (
                               <div className="flex items-center gap-4">
-                                <label className="text-sm font-medium text-gray-700 w-48 flex-shrink-0">
+                                <label className="text-sm font-medium text-gray-700 dark:text-gray-300 w-48 flex-shrink-0">
                                   Initials:
                                 </label>
-                                <div className="flex-1 bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5">
-                                  <span className="text-sm text-gray-900">{record[`initials_${n}`]}</span>
+                                <div className="flex-1 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-4 py-2.5">
+                                  <span className="text-sm text-gray-900 dark:text-gray-100">{record[`initials_${n}`]}</span>
                                 </div>
                               </div>
                             )}
                             
                             {record[`surname_${n}`] && (
                               <div className="flex items-center gap-4">
-                                <label className="text-sm font-medium text-gray-700 w-48 flex-shrink-0">
+                                <label className="text-sm font-medium text-gray-700 dark:text-gray-300 w-48 flex-shrink-0">
                                   Surname:
                                 </label>
-                                <div className="flex-1 bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5">
-                                  <span className="text-sm text-gray-900">{record[`surname_${n}`]}</span>
+                                <div className="flex-1 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-4 py-2.5">
+                                  <span className="text-sm text-gray-900 dark:text-gray-100">{record[`surname_${n}`]}</span>
                                 </div>
                               </div>
                             )}
                             
                             {record[`position_${n}`] && (
                               <div className="flex items-center gap-4">
-                                <label className="text-sm font-medium text-gray-700 w-48 flex-shrink-0">
+                                <label className="text-sm font-medium text-gray-700 dark:text-gray-300 w-48 flex-shrink-0">
                                   Position:
                                 </label>
-                                <div className="flex-1 bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5">
-                                  <span className="text-sm text-gray-900">{record[`position_${n}`]}</span>
+                                <div className="flex-1 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-4 py-2.5">
+                                  <span className="text-sm text-gray-900 dark:text-gray-100">{record[`position_${n}`]}</span>
                                 </div>
                               </div>
                             )}
                             
                             {n < 4 && hasData && (
-                              <div className="border-b-2 border-gray-200 mt-4"></div>
+                              <div className="border-b-2 border-gray-200 dark:border-gray-600 mt-4"></div>
                             )}
                           </div>
                         );
                       })}
                     </div>
                   ) : (
-                    <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-                      <User className="w-12 h-12 mx-auto mb-3 text-gray-400" />
-                      <p className="text-gray-500">No contact persons available</p>
+                    <div className="text-center py-12 bg-gray-50 dark:bg-gray-700 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600">
+                      <User className="w-12 h-12 mx-auto mb-3 text-gray-400 dark:text-gray-500" />
+                      <p className="text-gray-500 dark:text-gray-400">No contact persons available</p>
                     </div>
                   )}
                 </div>
@@ -560,18 +560,18 @@ const RecordDetailModal = ({ record, onClose, isGuest = false, reportId = null, 
                 <div className="space-y-3">
                   {technicalFields.length > 0 ? (
                     <>
-                      <h3 className="text-lg font-bold text-gray-900 mb-4 pb-3 border-b-2 border-blue-300 flex items-center gap-2">
-                        <Wrench className="w-5 h-5 text-blue-600" />
+                      <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 pb-3 border-b-2 border-blue-300 dark:border-blue-600 flex items-center gap-2">
+                        <Wrench className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                         Technical Details
                       </h3>
                       {technicalFields.map(field => renderTechnicalField(field))}
                     </>
                   ) : (
-                    <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-                      <Wrench className="w-12 h-12 mx-auto mb-3 text-gray-400" />
-                      <p className="text-gray-500">No technical details available</p>
+                    <div className="text-center py-12 bg-gray-50 dark:bg-gray-700 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600">
+                      <Wrench className="w-12 h-12 mx-auto mb-3 text-gray-400 dark:text-gray-500" />
+                      <p className="text-gray-500 dark:text-gray-400">No technical details available</p>
                       {!primaryCategory && (
-                        <p className="text-sm text-gray-400 mt-2">No category detected for this company</p>
+                        <p className="text-sm text-gray-400 dark:text-gray-500 mt-2">No category detected for this company</p>
                       )}
                     </div>
                   )}
@@ -582,8 +582,8 @@ const RecordDetailModal = ({ record, onClose, isGuest = false, reportId = null, 
               {activeTab === 'notes' && !isGuest && (
                 <div className="space-y-4">
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                      <StickyNote className="w-5 h-5 text-amber-600" />
+                    <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                      <StickyNote className="w-5 h-5 text-amber-600 dark:text-amber-400" />
                       Company Notes
                     </h3>
                     {!showAddNote && (
@@ -599,12 +599,12 @@ const RecordDetailModal = ({ record, onClose, isGuest = false, reportId = null, 
 
                   {/* Add Note Form */}
                   {showAddNote && (
-                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4">
+                    <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-xl p-4 mb-4">
                       <textarea
                         value={newNoteContent}
                         onChange={(e) => setNewNoteContent(e.target.value)}
                         placeholder="Write your note here..."
-                        className="w-full px-4 py-3 border border-amber-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent resize-none"
+                        className="w-full px-4 py-3 border border-amber-300 dark:border-amber-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent resize-none"
                         rows={3}
                         autoFocus
                       />
@@ -614,7 +614,7 @@ const RecordDetailModal = ({ record, onClose, isGuest = false, reportId = null, 
                             setShowAddNote(false);
                             setNewNoteContent('');
                           }}
-                          className="px-4 py-2 text-gray-600 hover:text-gray-800 text-sm font-medium"
+                          className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 text-sm font-medium"
                         >
                           Cancel
                         </button>
@@ -642,14 +642,14 @@ const RecordDetailModal = ({ record, onClose, isGuest = false, reportId = null, 
                   ) : notes.length > 0 ? (
                     <div className="space-y-3">
                       {notes.map(note => (
-                        <div key={note.id} className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow">
+                        <div key={note.id} className="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow">
                           {editingNoteId === note.id ? (
                             /* Edit Mode */
                             <div>
                               <textarea
                                 value={editContent}
                                 onChange={(e) => setEditContent(e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent resize-none"
+                                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent resize-none"
                                 rows={3}
                                 autoFocus
                               />
@@ -659,7 +659,7 @@ const RecordDetailModal = ({ record, onClose, isGuest = false, reportId = null, 
                                     setEditingNoteId(null);
                                     setEditContent('');
                                   }}
-                                  className="px-3 py-1.5 text-gray-600 hover:text-gray-800 text-sm"
+                                  className="px-3 py-1.5 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 text-sm"
                                 >
                                   Cancel
                                 </button>
@@ -675,12 +675,12 @@ const RecordDetailModal = ({ record, onClose, isGuest = false, reportId = null, 
                           ) : (
                             /* View Mode */
                             <>
-                              <p className="text-gray-800 whitespace-pre-wrap">{note.content}</p>
-                              <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
-                                <span className="text-xs text-gray-500">
+                              <p className="text-gray-800 dark:text-gray-200 whitespace-pre-wrap">{note.content}</p>
+                              <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100 dark:border-gray-600">
+                                <span className="text-xs text-gray-500 dark:text-gray-400">
                                   {new Date(note.created_at).toLocaleString()}
                                   {note.updated_at !== note.created_at && (
-                                    <span className="ml-2 text-gray-400">(edited)</span>
+                                    <span className="ml-2 text-gray-400 dark:text-gray-500">(edited)</span>
                                   )}
                                 </span>
                                 <div className="flex items-center gap-1">
@@ -689,7 +689,7 @@ const RecordDetailModal = ({ record, onClose, isGuest = false, reportId = null, 
                                       setEditingNoteId(note.id);
                                       setEditContent(note.content);
                                     }}
-                                    className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
+                                    className="p-1.5 text-gray-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-colors"
                                     title="Edit note"
                                   >
                                     <Edit2 className="w-4 h-4" />
@@ -699,7 +699,7 @@ const RecordDetailModal = ({ record, onClose, isGuest = false, reportId = null, 
                                       setNoteToDelete(note);
                                       setShowDeleteConfirm(true);
                                     }}
-                                    className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                    className="p-1.5 text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                                     title="Delete note"
                                   >
                                     <Trash2 className="w-4 h-4" />
@@ -712,19 +712,19 @@ const RecordDetailModal = ({ record, onClose, isGuest = false, reportId = null, 
                       ))}
                     </div>
                   ) : (
-                    <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-                      <StickyNote className="w-12 h-12 mx-auto mb-3 text-gray-400" />
-                      <p className="text-gray-500 mb-2">No notes for this company</p>
-                      <p className="text-sm text-gray-400">Click "Add Note" to create your first note</p>
+                    <div className="text-center py-12 bg-gray-50 dark:bg-gray-700 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600">
+                      <StickyNote className="w-12 h-12 mx-auto mb-3 text-gray-400 dark:text-gray-500" />
+                      <p className="text-gray-500 dark:text-gray-400 mb-2">No notes for this company</p>
+                      <p className="text-sm text-gray-400 dark:text-gray-500">Click "Add Note" to create your first note</p>
                     </div>
                   )}
                 </div>
               )}
 
               {record?.last_updated && (
-                <div className="text-center pt-6 mt-6 border-t-2 border-gray-300">
-                  <p className="text-sm text-gray-500">
-                    Last updated: <span className="font-semibold text-gray-700">
+                <div className="text-center pt-6 mt-6 border-t-2 border-gray-300 dark:border-gray-600">
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Last updated: <span className="font-semibold text-gray-700 dark:text-gray-300">
                       {new Date(record.last_updated).toLocaleString()}
                     </span>
                   </p>
@@ -735,8 +735,8 @@ const RecordDetailModal = ({ record, onClose, isGuest = false, reportId = null, 
         </div>
 
         {/* Footer */}
-        <div className="bg-gray-100 px-8 py-5 border-t-2 border-gray-300 flex items-center justify-between flex-shrink-0">
-          <div className="text-sm text-gray-600 flex items-center gap-2">
+        <div className="bg-gray-100 dark:bg-gray-900 px-8 py-5 border-t-2 border-gray-300 dark:border-gray-700 flex items-center justify-between flex-shrink-0">
+          <div className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-2">
             <Factory className="w-4 h-4" />
             {isGuest ? 'Limited preview - upgrade for full access' : 'Complete company details'}
           </div>
@@ -748,7 +748,7 @@ const RecordDetailModal = ({ record, onClose, isGuest = false, reportId = null, 
             )}
             <button
               onClick={onClose}
-              className="px-6 py-2.5 bg-white border-2 border-gray-400 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 hover:border-gray-500 transition-all"
+              className="px-6 py-2.5 bg-white dark:bg-gray-700 border-2 border-gray-400 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl font-semibold hover:bg-gray-50 dark:hover:bg-gray-600 hover:border-gray-500 dark:hover:border-gray-500 transition-all"
             >
               Close
             </button>
@@ -764,36 +764,36 @@ const RecordDetailModal = ({ record, onClose, isGuest = false, reportId = null, 
             setNoteToDelete(null);
           }} />
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
-              <div className="bg-red-50 px-6 py-5">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+              <div className="bg-red-50 dark:bg-red-900/20 px-6 py-5">
                 <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
-                    <AlertTriangle className="w-6 h-6 text-red-600" />
+                  <div className="w-12 h-12 bg-red-100 dark:bg-red-900/40 rounded-full flex items-center justify-center">
+                    <AlertTriangle className="w-6 h-6 text-red-600 dark:text-red-400" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-bold text-gray-900">Delete Note</h3>
-                    <p className="text-sm text-gray-600">This action cannot be undone</p>
+                    <h3 className="text-lg font-bold text-gray-900 dark:text-white">Delete Note</h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">This action cannot be undone</p>
                   </div>
                 </div>
               </div>
               <div className="px-6 py-4">
-                <p className="text-gray-700">
+                <p className="text-gray-700 dark:text-gray-300">
                   Are you sure you want to delete this note?
                 </p>
                 {noteToDelete && (
-                  <div className="mt-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
-                    <p className="text-sm text-gray-600 line-clamp-2">{noteToDelete.content}</p>
+                  <div className="mt-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+                    <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">{noteToDelete.content}</p>
                   </div>
                 )}
               </div>
-              <div className="px-6 py-4 bg-gray-50 flex justify-end gap-3">
+              <div className="px-6 py-4 bg-gray-50 dark:bg-gray-700/50 flex justify-end gap-3">
                 <button
                   onClick={() => {
                     setShowDeleteConfirm(false);
                     setNoteToDelete(null);
                   }}
                   disabled={deletingNote}
-                  className="px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 font-medium text-sm"
+                  className="px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 font-medium text-sm"
                 >
                   Cancel
                 </button>

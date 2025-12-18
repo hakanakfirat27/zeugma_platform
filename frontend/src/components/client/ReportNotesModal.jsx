@@ -17,23 +17,23 @@ const DeleteConfirmModal = ({ isOpen, onClose, onConfirm, isDeleting }) => {
     <div onClick={(e) => e.stopPropagation()}>
       <div className="fixed inset-0 bg-black/50 z-[110]" onClick={onClose} />
       <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
-          <div className="bg-red-50 px-5 py-4">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+          <div className="bg-red-50 dark:bg-red-900/30 px-5 py-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
-                <AlertTriangle className="w-5 h-5 text-red-600" />
+              <div className="w-10 h-10 bg-red-100 dark:bg-red-900/50 rounded-full flex items-center justify-center">
+                <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400" />
               </div>
               <div>
-                <h3 className="font-bold text-gray-900">Delete Note</h3>
-                <p className="text-sm text-gray-600">This cannot be undone</p>
+                <h3 className="font-bold text-gray-900 dark:text-white">Delete Note</h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400">This cannot be undone</p>
               </div>
             </div>
           </div>
           <div className="px-5 py-4">
-            <p className="text-gray-700 text-sm">Are you sure you want to delete this note?</p>
+            <p className="text-gray-700 dark:text-gray-300 text-sm">Are you sure you want to delete this note?</p>
           </div>
-          <div className="px-5 py-3 bg-gray-50 flex justify-end gap-2">
-            <button onClick={onClose} disabled={isDeleting} className="px-3 py-2 text-gray-600 hover:text-gray-800 text-sm font-medium">
+          <div className="px-5 py-3 bg-gray-50 dark:bg-gray-700 flex justify-end gap-2">
+            <button onClick={onClose} disabled={isDeleting} className="px-3 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 text-sm font-medium">
               Cancel
             </button>
             <button onClick={onConfirm} disabled={isDeleting} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-medium flex items-center gap-2">
@@ -70,16 +70,16 @@ const NoteCard = ({ note, onEdit, onDelete, onTogglePin, isEditing, editContent,
 
   if (isEditing) {
     return (
-      <div className="bg-purple-50 rounded-xl p-4 border-2 border-purple-300">
+      <div className="bg-purple-50 dark:bg-purple-900/20 rounded-xl p-4 border-2 border-purple-300 dark:border-purple-700">
         <textarea
           value={editContent}
           onChange={(e) => onEditChange(e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm resize-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm resize-none focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white dark:bg-gray-700 dark:text-white"
           rows={4}
           autoFocus
         />
         <div className="flex justify-end gap-2 mt-3">
-          <button onClick={onCancelEdit} className="px-4 py-2 text-gray-600 hover:text-gray-800 text-sm font-medium">
+          <button onClick={onCancelEdit} className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 text-sm font-medium">
             Cancel
           </button>
           <button 
@@ -96,8 +96,8 @@ const NoteCard = ({ note, onEdit, onDelete, onTogglePin, isEditing, editContent,
   }
 
   return (
-    <div className={`group bg-white rounded-xl p-4 border-2 transition-all hover:shadow-md ${
-      note.is_pinned ? 'border-purple-300 bg-purple-50/50' : 'border-gray-200'
+    <div className={`group bg-white dark:bg-gray-800 rounded-xl p-4 border-2 transition-all hover:shadow-md ${
+      note.is_pinned ? 'border-purple-300 dark:border-purple-700 bg-purple-50/50 dark:bg-purple-900/20' : 'border-gray-200 dark:border-gray-700'
     }`}>
       {/* Header */}
       <div className="flex items-start justify-between gap-2 mb-2">
@@ -109,7 +109,7 @@ const NoteCard = ({ note, onEdit, onDelete, onTogglePin, isEditing, editContent,
             </div>
           )}
           {note.title && (
-            <h4 className="font-semibold text-gray-900">{note.title}</h4>
+            <h4 className="font-semibold text-gray-900 dark:text-white">{note.title}</h4>
           )}
         </div>
         
@@ -117,7 +117,7 @@ const NoteCard = ({ note, onEdit, onDelete, onTogglePin, isEditing, editContent,
         <div className="relative flex-shrink-0">
           <button
             onClick={() => setShowMenu(!showMenu)}
-            className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg opacity-0 group-hover:opacity-100 transition-all"
+            className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg opacity-0 group-hover:opacity-100 transition-all"
           >
             <MoreVertical className="w-4 h-4" />
           </button>
@@ -125,23 +125,23 @@ const NoteCard = ({ note, onEdit, onDelete, onTogglePin, isEditing, editContent,
           {showMenu && (
             <>
               <div className="fixed inset-0 z-10" onClick={() => setShowMenu(false)} />
-              <div className="absolute right-0 top-8 z-20 bg-white rounded-xl shadow-lg border py-1 w-36">
+              <div className="absolute right-0 top-8 z-20 bg-white dark:bg-gray-700 rounded-xl shadow-lg border dark:border-gray-600 py-1 w-36">
                 <button
                   onClick={() => { onEdit(); setShowMenu(false); }}
-                  className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                  className="w-full px-3 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 flex items-center gap-2"
                 >
                   <Edit2 className="w-4 h-4" /> Edit
                 </button>
                 <button
                   onClick={() => { onTogglePin(); setShowMenu(false); }}
-                  className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                  className="w-full px-3 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 flex items-center gap-2"
                 >
                   {note.is_pinned ? <PinOff className="w-4 h-4" /> : <Pin className="w-4 h-4" />}
                   {note.is_pinned ? 'Unpin' : 'Pin'}
                 </button>
                 <button
                   onClick={() => { onDelete(); setShowMenu(false); }}
-                  className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                  className="w-full px-3 py-2 text-left text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 flex items-center gap-2"
                 >
                   <Trash2 className="w-4 h-4" /> Delete
                 </button>
@@ -152,12 +152,12 @@ const NoteCard = ({ note, onEdit, onDelete, onTogglePin, isEditing, editContent,
       </div>
 
       {/* Content */}
-      <p className="text-gray-700 whitespace-pre-wrap">{note.content}</p>
+      <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{note.content}</p>
       
       {/* Footer */}
-      <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-100">
+      <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
         <Clock className="w-3.5 h-3.5 text-gray-400" />
-        <span className="text-xs text-gray-500">
+        <span className="text-xs text-gray-500 dark:text-gray-400">
           {formatTime(note.updated_at || note.created_at)}
           {note.updated_at !== note.created_at && ' (edited)'}
         </span>
@@ -330,7 +330,7 @@ const ReportNotesModal = ({
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
       
       {/* Modal */}
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden">
+      <div className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden">
         {/* Header */}
         <div className="flex-shrink-0 bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 py-5">
           <div className="flex items-center justify-between">
@@ -353,7 +353,7 @@ const ReportNotesModal = ({
         </div>
 
         {/* Toolbar */}
-        <div className="flex-shrink-0 px-6 py-4 border-b bg-gray-50 flex items-center gap-4">
+        <div className="flex-shrink-0 px-6 py-4 border-b dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 flex items-center gap-4">
           {/* Search */}
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -362,7 +362,7 @@ const ReportNotesModal = ({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search notes..."
-              className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              className="w-full pl-10 pr-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white dark:bg-gray-700 dark:text-white dark:placeholder-gray-400"
             />
           </div>
           
@@ -380,26 +380,26 @@ const ReportNotesModal = ({
         <div className="flex-1 overflow-y-auto p-6">
           {/* Add Note Form */}
           {showAddForm && (
-            <div className="bg-purple-50 rounded-xl p-4 border-2 border-purple-200 mb-4">
+            <div className="bg-purple-50 dark:bg-purple-900/20 rounded-xl p-4 border-2 border-purple-200 dark:border-purple-700 mb-4">
               <input
                 type="text"
                 value={newNoteTitle}
                 onChange={(e) => setNewNoteTitle(e.target.value)}
                 placeholder="Title (optional)"
-                className="w-full px-4 py-2.5 border border-purple-200 rounded-lg text-sm mb-3 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                className="w-full px-4 py-2.5 border border-purple-200 dark:border-purple-700 rounded-lg text-sm mb-3 focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white dark:bg-gray-700 dark:text-white dark:placeholder-gray-400"
               />
               <textarea
                 value={newNoteContent}
                 onChange={(e) => setNewNoteContent(e.target.value)}
                 placeholder="Write your note about this report..."
-                className="w-full px-4 py-3 border border-purple-200 rounded-lg text-sm resize-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                className="w-full px-4 py-3 border border-purple-200 dark:border-purple-700 rounded-lg text-sm resize-none focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white dark:bg-gray-700 dark:text-white dark:placeholder-gray-400"
                 rows={4}
                 autoFocus
               />
               <div className="flex justify-end gap-3 mt-3">
                 <button 
                   onClick={() => { setShowAddForm(false); setNewNoteContent(''); setNewNoteTitle(''); }}
-                  className="px-4 py-2 text-gray-600 hover:text-gray-800 text-sm font-medium"
+                  className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 text-sm font-medium"
                 >
                   Cancel
                 </button>
@@ -423,13 +423,13 @@ const ReportNotesModal = ({
           ) : filteredNotes.length === 0 ? (
             /* Empty State */
             <div className="text-center py-12">
-              <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <div className="w-16 h-16 bg-purple-100 dark:bg-purple-900/50 rounded-full flex items-center justify-center mx-auto mb-4">
                 <StickyNote className="w-8 h-8 text-purple-400" />
               </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
                 {searchQuery ? 'No notes found' : 'No report notes yet'}
               </h3>
-              <p className="text-gray-500 mb-4">
+              <p className="text-gray-500 dark:text-gray-400 mb-4">
                 {searchQuery 
                   ? 'Try a different search term' 
                   : 'Add notes to capture insights about this report'}
@@ -476,13 +476,13 @@ const ReportNotesModal = ({
         </div>
 
         {/* Footer */}
-        <div className="flex-shrink-0 px-6 py-4 border-t bg-gray-50 flex items-center justify-between">
-          <p className="text-sm text-gray-500">
+        <div className="flex-shrink-0 px-6 py-4 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 flex items-center justify-between">
+          <p className="text-sm text-gray-500 dark:text-gray-400">
             {notes.length} {notes.length === 1 ? 'note' : 'notes'} total
           </p>
           <button
             onClick={onClose}
-            className="px-5 py-2.5 bg-gray-200 text-gray-700 rounded-xl font-medium hover:bg-gray-300 transition-colors"
+            className="px-5 py-2.5 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl font-medium hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
           >
             Close
           </button>

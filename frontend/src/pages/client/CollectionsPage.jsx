@@ -86,12 +86,12 @@ const AnimatedTabs = ({ activeTab, setActiveTab, favoritesCount, collectionsCoun
                 className={`relative overflow-hidden rounded-2xl transition-all duration-500 ease-out ${
                   isActive 
                     ? 'shadow-2xl scale-[1.02]' 
-                    : 'shadow-lg hover:shadow-xl hover:scale-[1.01]'
+                    : 'shadow-lg hover:shadow-xl hover:scale-[1.01] bg-white dark:bg-gray-800'
                 }`}
                 style={{
                   background: isActive 
                     ? `linear-gradient(135deg, ${tab.gradientFrom}, ${tab.gradientTo})`
-                    : 'white',
+                    : undefined,
                   transform: isHovered && !isActive ? 'translateY(-2px)' : 'translateY(0)',
                 }}
               >
@@ -166,19 +166,19 @@ const AnimatedTabs = ({ activeTab, setActiveTab, favoritesCount, collectionsCoun
                   {/* Title & Description */}
                   <div className="space-y-1">
                     <h3 className={`text-xl font-bold transition-colors duration-300 ${
-                      isActive ? 'text-white' : 'text-gray-900'
+                      isActive ? 'text-white' : 'text-gray-900 dark:text-white'
                     }`}>
                       {tab.label}
                     </h3>
                     <p className={`text-sm transition-colors duration-300 ${
-                      isActive ? 'text-white/80' : 'text-gray-500'
+                      isActive ? 'text-white/80' : 'text-gray-500 dark:text-gray-400'
                     }`}>
                       {tab.description}
                     </p>
                   </div>
 
                   {/* Bottom Indicator Bar */}
-                  <div className="mt-5 h-1.5 rounded-full overflow-hidden bg-gray-100" style={isActive ? { background: 'rgba(255,255,255,0.2)' } : {}}>
+                  <div className={`mt-5 h-1.5 rounded-full overflow-hidden ${isActive ? '' : 'bg-gray-100 dark:bg-gray-700'}`} style={isActive ? { background: 'rgba(255,255,255,0.2)' } : {}}>
                     <div 
                       className="h-full rounded-full transition-all duration-500 ease-out"
                       style={{
@@ -237,7 +237,7 @@ const DeleteConfirmModal = ({ isOpen, onClose, onConfirm, title, message, itemNa
     <div onClick={(e) => e.stopPropagation()}>
       <div className="fixed inset-0 bg-black/50 z-[70]" onClick={onClose} />
       <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-scale-in">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-scale-in">
           <div className="bg-gradient-to-r from-red-500 to-rose-500 px-6 py-5">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 bg-white/20 backdrop-blur rounded-full flex items-center justify-center">
@@ -250,7 +250,7 @@ const DeleteConfirmModal = ({ isOpen, onClose, onConfirm, title, message, itemNa
             </div>
           </div>
           <div className="px-6 py-4">
-            <p className="text-gray-700">
+            <p className="text-gray-700 dark:text-gray-300">
               {message || (
                 <>
                   Are you sure you want to delete <span className="font-semibold">"{itemName}"</span>?
@@ -258,11 +258,11 @@ const DeleteConfirmModal = ({ isOpen, onClose, onConfirm, title, message, itemNa
               )}
             </p>
           </div>
-          <div className="px-6 py-4 bg-gray-50 flex justify-end gap-3">
+          <div className="px-6 py-4 bg-gray-50 dark:bg-gray-700/50 flex justify-end gap-3">
             <button
               onClick={onClose}
               disabled={isDeleting}
-              className="px-4 py-2.5 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-100 font-medium text-sm transition-colors"
+              className="px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 font-medium text-sm transition-colors"
             >
               Cancel
             </button>
@@ -289,7 +289,7 @@ const CollectionCard = ({ collection, onEdit, onDelete, onView }) => {
   const colors = COLLECTION_COLORS[collection.color] || COLLECTION_COLORS.blue;
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden hover:shadow-xl transition-all duration-300 group hover:-translate-y-1">
+    <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden hover:shadow-xl transition-all duration-300 group hover:-translate-y-1">
       <div className={`bg-gradient-to-r ${colors.gradient} p-4`}>
         <div className="flex items-center justify-between">
           <div className="w-12 h-12 bg-white/20 backdrop-blur rounded-xl flex items-center justify-center">
@@ -309,13 +309,13 @@ const CollectionCard = ({ collection, onEdit, onDelete, onView }) => {
             {showMenu && (
               <>
                 <div className="fixed inset-0 z-10" onClick={() => setShowMenu(false)} />
-                <div className="absolute right-0 top-10 z-20 bg-white rounded-xl shadow-xl border py-1 w-36 animate-scale-in">
+                <div className="absolute right-0 top-10 z-20 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 py-1 w-36 animate-scale-in">
                   <button
                     onClick={() => {
                       onEdit(collection);
                       setShowMenu(false);
                     }}
-                    className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                    className="w-full px-3 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2"
                   >
                     <Edit2 className="w-4 h-4" />
                     Edit
@@ -325,7 +325,7 @@ const CollectionCard = ({ collection, onEdit, onDelete, onView }) => {
                       onDelete(collection);
                       setShowMenu(false);
                     }}
-                    className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                    className="w-full px-3 py-2 text-left text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2"
                   >
                     <Trash2 className="w-4 h-4" />
                     Delete
@@ -338,12 +338,12 @@ const CollectionCard = ({ collection, onEdit, onDelete, onView }) => {
       </div>
 
       <div className="p-4">
-        <h3 className="font-bold text-gray-900 text-lg mb-1">{collection.name}</h3>
-        <p className="text-gray-500 text-sm mb-3 line-clamp-2 min-h-[40px]">
-          {collection.description || <span className="text-gray-300 italic">No description</span>}
+        <h3 className="font-bold text-gray-900 dark:text-white text-lg mb-1">{collection.name}</h3>
+        <p className="text-gray-500 dark:text-gray-400 text-sm mb-3 line-clamp-2 min-h-[40px]">
+          {collection.description || <span className="text-gray-300 dark:text-gray-600 italic">No description</span>}
         </p>
         <div className="flex items-center justify-between">
-          <span className="text-sm text-gray-500">
+          <span className="text-sm text-gray-500 dark:text-gray-400">
             <Building2 className="w-4 h-4 inline mr-1" />
             {collection.item_count} {collection.item_count === 1 ? 'company' : 'companies'}
           </span>
@@ -397,7 +397,7 @@ const CollectionModal = ({ isOpen, onClose, onSave, collection = null, isSaving 
     <div onClick={(e) => e.stopPropagation()}>
       <div className="fixed inset-0 bg-black/50 z-[70]" onClick={onClose} />
       <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-scale-in">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-scale-in">
           <div className="bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 px-6 py-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -419,29 +419,29 @@ const CollectionModal = ({ isOpen, onClose, onSave, collection = null, isSaving 
 
           <div className="p-6 space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Name *</label>
               <input
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Collection name..."
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description</label>
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Optional description..."
                 rows={2}
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none transition-all"
+                className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none transition-all"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Color</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Color</label>
               <div className="flex gap-2">
                 {Object.keys(COLLECTION_COLORS).map(c => (
                   <button
@@ -456,7 +456,7 @@ const CollectionModal = ({ isOpen, onClose, onSave, collection = null, isSaving 
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Icon</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Icon</label>
               <div className="flex gap-2 flex-wrap">
                 {Object.entries(COLLECTION_ICONS).map(([iconName, IconComp]) => (
                   <button
@@ -465,7 +465,7 @@ const CollectionModal = ({ isOpen, onClose, onSave, collection = null, isSaving 
                     className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all hover:scale-110 ${
                       icon === iconName
                         ? `${COLLECTION_COLORS[color].bg} ${COLLECTION_COLORS[color].text} scale-110`
-                        : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                        : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
                     }`}
                   >
                     <IconComp className="w-5 h-5" />
@@ -475,10 +475,10 @@ const CollectionModal = ({ isOpen, onClose, onSave, collection = null, isSaving 
             </div>
           </div>
 
-          <div className="px-6 py-4 border-t bg-gray-50 flex justify-end gap-3">
+          <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 flex justify-end gap-3">
             <button
               onClick={onClose}
-              className="px-4 py-2.5 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-100 font-medium text-sm transition-colors"
+              className="px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 font-medium text-sm transition-colors"
             >
               Cancel
             </button>
@@ -540,16 +540,16 @@ const FavoritesDataTable = ({
     const endItem = Math.min(currentPage * pageSize, totalCount);
 
     return (
-      <div className="flex items-center justify-between py-4 px-6 border-t border-gray-200 bg-white">
+      <div className="flex items-center justify-between py-4 px-6 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
         {/* Left side - showing count and page size */}
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-1.5 text-sm text-gray-600">
+          <div className="flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-400">
             <span>Showing</span>
-            <span className="font-semibold text-gray-900">{startItem}</span>
+            <span className="font-semibold text-gray-900 dark:text-white">{startItem}</span>
             <span>to</span>
-            <span className="font-semibold text-gray-900">{endItem}</span>
+            <span className="font-semibold text-gray-900 dark:text-white">{endItem}</span>
             <span>of</span>
-            <span className="font-semibold text-gray-900">{totalCount}</span>
+            <span className="font-semibold text-gray-900 dark:text-white">{totalCount}</span>
             <span>results</span>
           </div>
           
@@ -557,7 +557,7 @@ const FavoritesDataTable = ({
           <select
             value={pageSize}
             onChange={(e) => onPageSizeChange(Number(e.target.value))}
-            className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-700 bg-white hover:border-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer"
+            className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:border-gray-400 dark:hover:border-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer"
           >
             <option value={5}>5 per page</option>
             <option value={10}>10 per page</option>
@@ -572,20 +572,20 @@ const FavoritesDataTable = ({
           <button
             onClick={() => onPageChange(1)}
             disabled={currentPage === 1}
-            className="w-9 h-9 flex items-center justify-center rounded-lg border border-gray-300 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white transition-colors"
+            className="w-9 h-9 flex items-center justify-center rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white dark:disabled:hover:bg-gray-700 transition-colors"
             title="First page"
           >
-            <ChevronsLeft className="w-4 h-4 text-gray-500" />
+            <ChevronsLeft className="w-4 h-4 text-gray-500 dark:text-gray-400" />
           </button>
 
           {/* Previous page */}
           <button
             onClick={() => onPageChange(currentPage - 1)}
             disabled={currentPage === 1}
-            className="w-9 h-9 flex items-center justify-center rounded-lg border border-gray-300 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white transition-colors"
+            className="w-9 h-9 flex items-center justify-center rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white dark:disabled:hover:bg-gray-700 transition-colors"
             title="Previous page"
           >
-            <ChevronLeft className="w-4 h-4 text-gray-500" />
+            <ChevronLeft className="w-4 h-4 text-gray-500 dark:text-gray-400" />
           </button>
 
           {/* Current page indicator */}
@@ -597,20 +597,20 @@ const FavoritesDataTable = ({
           <button
             onClick={() => onPageChange(currentPage + 1)}
             disabled={currentPage === totalPages || totalPages === 0}
-            className="w-9 h-9 flex items-center justify-center rounded-lg border border-gray-300 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white transition-colors"
+            className="w-9 h-9 flex items-center justify-center rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white dark:disabled:hover:bg-gray-700 transition-colors"
             title="Next page"
           >
-            <ChevronRight className="w-4 h-4 text-gray-500" />
+            <ChevronRight className="w-4 h-4 text-gray-500 dark:text-gray-400" />
           </button>
 
           {/* Last page */}
           <button
             onClick={() => onPageChange(totalPages)}
             disabled={currentPage === totalPages || totalPages === 0}
-            className="w-9 h-9 flex items-center justify-center rounded-lg border border-gray-300 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white transition-colors"
+            className="w-9 h-9 flex items-center justify-center rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white dark:disabled:hover:bg-gray-700 transition-colors"
             title="Last page"
           >
-            <ChevronsRight className="w-4 h-4 text-gray-500" />
+            <ChevronsRight className="w-4 h-4 text-gray-500 dark:text-gray-400" />
           </button>
         </div>
       </div>
@@ -622,10 +622,10 @@ const FavoritesDataTable = ({
       <div className="flex items-center justify-center py-20">
         <div className="text-center">
           <div className="relative">
-            <div className="w-16 h-16 border-4 border-yellow-200 border-t-yellow-500 rounded-full animate-spin" />
+            <div className="w-16 h-16 border-4 border-yellow-200 dark:border-yellow-900 border-t-yellow-500 rounded-full animate-spin" />
             <Star className="w-6 h-6 text-yellow-500 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2" />
           </div>
-          <p className="mt-4 text-gray-500 font-medium">Loading favorites...</p>
+          <p className="mt-4 text-gray-500 dark:text-gray-400 font-medium">Loading favorites...</p>
         </div>
       </div>
     );
@@ -635,15 +635,15 @@ const FavoritesDataTable = ({
     return (
       <div className="text-center py-20">
         <div className="relative inline-block">
-          <div className="w-24 h-24 bg-gradient-to-br from-yellow-100 to-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
+          <div className="w-24 h-24 bg-gradient-to-br from-yellow-100 to-amber-100 dark:from-yellow-900/30 dark:to-amber-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
             <Star className="w-12 h-12 text-yellow-400" />
           </div>
           <Sparkles className="w-6 h-6 text-yellow-500 absolute -top-1 -right-1 animate-pulse" />
         </div>
-        <h3 className="text-xl font-bold text-gray-900 mb-2">
+        <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
           {searchQuery ? 'No favorites found' : 'No favorites yet'}
         </h3>
-        <p className="text-gray-500 mb-4 max-w-md mx-auto">
+        <p className="text-gray-500 dark:text-gray-400 mb-4 max-w-md mx-auto">
           {searchQuery 
             ? 'Try a different search term' 
             : 'Star companies from your reports to save them here for quick access'}
@@ -653,76 +653,76 @@ const FavoritesDataTable = ({
   }
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
+    <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm">
       {/* Table */}
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
-            <tr className="bg-gradient-to-r from-yellow-50 to-amber-50 border-b border-gray-200">
-              <th className="text-left px-4 py-3 text-xs font-bold text-gray-600 uppercase tracking-wider">
+            <tr className="bg-gradient-to-r from-yellow-50 to-amber-50 dark:from-yellow-900/20 dark:to-amber-900/20 border-b border-gray-200 dark:border-gray-700">
+              <th className="text-left px-4 py-3 text-xs font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
                 <button 
                   onClick={() => handleSort('company_name')}
-                  className="flex items-center gap-1.5 hover:text-yellow-700 transition-colors"
+                  className="flex items-center gap-1.5 hover:text-yellow-700 dark:hover:text-yellow-400 transition-colors"
                 >
                   Company
                   <SortIcon field="company_name" />
                 </button>
               </th>
-              <th className="text-left px-4 py-3 text-xs font-bold text-gray-600 uppercase tracking-wider">
+              <th className="text-left px-4 py-3 text-xs font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
                 <button 
                   onClick={() => handleSort('country')}
-                  className="flex items-center gap-1.5 hover:text-yellow-700 transition-colors"
+                  className="flex items-center gap-1.5 hover:text-yellow-700 dark:hover:text-yellow-400 transition-colors"
                 >
                   Country
                   <SortIcon field="country" />
                 </button>
               </th>
-              <th className="text-left px-4 py-3 text-xs font-bold text-gray-600 uppercase tracking-wider">
+              <th className="text-left px-4 py-3 text-xs font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
                 Report
               </th>
-              <th className="text-left px-4 py-3 text-xs font-bold text-gray-600 uppercase tracking-wider">
+              <th className="text-left px-4 py-3 text-xs font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
                 <button 
                   onClick={() => handleSort('created_at')}
-                  className="flex items-center gap-1.5 hover:text-yellow-700 transition-colors"
+                  className="flex items-center gap-1.5 hover:text-yellow-700 dark:hover:text-yellow-400 transition-colors"
                 >
                   Added
                   <SortIcon field="created_at" />
                 </button>
               </th>
-              <th className="text-right px-4 py-3 text-xs font-bold text-gray-600 uppercase tracking-wider">
+              <th className="text-right px-4 py-3 text-xs font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
                 Actions
               </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100">
+          <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
             {favorites.map((favorite, index) => (
               <tr 
                 key={favorite.id} 
                 onClick={() => onView(favorite)}
-                className="hover:bg-yellow-50/50 transition-colors group cursor-pointer even:bg-gray-50/50"
+                className="hover:bg-yellow-50/50 dark:hover:bg-yellow-900/10 transition-colors group cursor-pointer even:bg-gray-50/50 dark:even:bg-gray-700/30"
                 style={{ animationDelay: `${index * 50}ms` }}
               >
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 bg-gradient-to-br from-yellow-100 to-amber-100 rounded-lg flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
+                    <div className="w-8 h-8 bg-gradient-to-br from-yellow-100 to-amber-100 dark:from-yellow-900/30 dark:to-amber-900/30 rounded-lg flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
                       <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
                     </div>
-                    <p className="font-medium text-gray-900 text-sm">{favorite.company_name}</p>
+                    <p className="font-medium text-gray-900 dark:text-white text-sm">{favorite.company_name}</p>
                   </div>
                 </td>
                 <td className="px-4 py-3">
-                  <div className="flex items-center gap-1.5 text-gray-600 text-sm">
-                    <MapPin className="w-3.5 h-3.5 text-gray-400" />
+                  <div className="flex items-center gap-1.5 text-gray-600 dark:text-gray-400 text-sm">
+                    <MapPin className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500" />
                     {favorite.country || '-'}
                   </div>
                 </td>
                 <td className="px-4 py-3">
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-gray-100 text-gray-700 text-xs">
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs">
                     {favorite.report_title}
                   </span>
                 </td>
                 <td className="px-4 py-3">
-                  <div className="flex items-center gap-1.5 text-gray-500 text-xs">
+                  <div className="flex items-center gap-1.5 text-gray-500 dark:text-gray-400 text-xs">
                     <Calendar className="w-3.5 h-3.5" />
                     {new Date(favorite.created_at).toLocaleDateString('en-US', {
                       month: 'short',
@@ -735,14 +735,14 @@ const FavoritesDataTable = ({
                   <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
                     <button
                       onClick={() => onView(favorite)}
-                      className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                      className="p-1.5 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-all"
                       title="View details"
                     >
                       <Eye className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => onRemove(favorite)}
-                      className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                      className="p-1.5 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all"
                       title="Remove from favorites"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -1085,12 +1085,12 @@ const CollectionsPage = () => {
                   value={favoriteSearchQuery}
                   onChange={(e) => setFavoriteSearchQuery(e.target.value)}
                   placeholder="Search favorites by company or country..."
-                  className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-yellow-500 focus:border-transparent transition-all"
+                  className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 rounded-xl focus:ring-2 focus:ring-yellow-500 focus:border-transparent transition-all"
                 />
                 {favoriteSearchQuery && (
                   <button
                     onClick={() => setFavoriteSearchQuery('')}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-100 rounded-full transition-colors"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-full transition-colors"
                   >
                     <X className="w-4 h-4 text-gray-400" />
                   </button>
@@ -1134,12 +1134,12 @@ const CollectionsPage = () => {
                   value={collectionSearchQuery}
                   onChange={(e) => setCollectionSearchQuery(e.target.value)}
                   placeholder="Search collections..."
-                  className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                  className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                 />
                 {collectionSearchQuery && (
                   <button
                     onClick={() => setCollectionSearchQuery('')}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-100 rounded-full transition-colors"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-full transition-colors"
                   >
                     <X className="w-4 h-4 text-gray-400" />
                   </button>
@@ -1163,24 +1163,24 @@ const CollectionsPage = () => {
               <div className="flex items-center justify-center py-20">
                 <div className="text-center">
                   <div className="relative">
-                    <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-500 rounded-full animate-spin" />
+                    <div className="w-16 h-16 border-4 border-blue-200 dark:border-blue-900 border-t-blue-500 rounded-full animate-spin" />
                     <Folder className="w-6 h-6 text-blue-500 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2" />
                   </div>
-                  <p className="mt-4 text-gray-500 font-medium">Loading collections...</p>
+                  <p className="mt-4 text-gray-500 dark:text-gray-400 font-medium">Loading collections...</p>
                 </div>
               </div>
             ) : filteredCollections.length === 0 ? (
               <div className="text-center py-20">
                 <div className="relative inline-block">
-                  <div className="w-24 h-24 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <div className="w-24 h-24 bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
                     <Folder className="w-12 h-12 text-blue-400" />
                   </div>
                   <Zap className="w-6 h-6 text-blue-500 absolute -top-1 -right-1 animate-pulse" />
                 </div>
-                <h3 className="text-xl font-bold text-gray-900 mb-2">
+                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
                   {collectionSearchQuery ? 'No collections found' : 'No collections yet'}
                 </h3>
-                <p className="text-gray-500 mb-6 max-w-md mx-auto">
+                <p className="text-gray-500 dark:text-gray-400 mb-6 max-w-md mx-auto">
                   {collectionSearchQuery 
                     ? 'Try a different search term' 
                     : 'Create your first collection to organize companies into custom lists'}

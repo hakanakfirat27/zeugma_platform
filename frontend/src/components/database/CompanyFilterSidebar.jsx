@@ -689,36 +689,36 @@ const CompanyFilterSidebar = ({
         return (
           <div>
             <div className="flex items-center gap-2 mb-2">
-              <h3 className="text-lg font-bold text-gray-900">Company Status</h3>
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white">Company Status</h3>
               {/* Info tooltip */}
               <div className="relative group">
                 <HelpCircle className="w-4 h-4 text-gray-400 hover:text-indigo-600 cursor-help" />
-                <div className="absolute left-0 top-6 z-50 w-64 p-3 bg-white rounded-lg shadow-xl border border-gray-200 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
-                  <h4 className="text-sm font-bold text-gray-900 mb-2">Status Definitions</h4>
+                <div className="absolute left-0 top-6 z-50 w-64 p-3 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
+                  <h4 className="text-sm font-bold text-gray-900 dark:text-white mb-2">Status Definitions</h4>
                   <div className="space-y-2 text-xs">
                     <div className="flex items-start gap-2">
                       <span className="w-2 h-2 mt-1 rounded-full bg-green-500 flex-shrink-0"></span>
-                      <p className="text-gray-700"><strong>Complete:</strong> All required fields filled</p>
+                      <p className="text-gray-700 dark:text-gray-300"><strong>Complete:</strong> All required fields filled</p>
                     </div>
                     <div className="flex items-start gap-2">
                       <span className="w-2 h-2 mt-1 rounded-full bg-yellow-500 flex-shrink-0"></span>
-                      <p className="text-gray-700"><strong>Incomplete:</strong> Missing some data</p>
+                      <p className="text-gray-700 dark:text-gray-300"><strong>Incomplete:</strong> Missing some data</p>
                     </div>
                     <div className="flex items-start gap-2">
                       <span className="w-2 h-2 mt-1 rounded-full bg-gray-400 flex-shrink-0"></span>
-                      <p className="text-gray-700"><strong>Deleted:</strong> Marked for removal</p>
+                      <p className="text-gray-700 dark:text-gray-300"><strong>Deleted:</strong> Marked for removal</p>
                     </div>
                     <div className="flex items-start gap-2">
                       <span className="w-2 h-2 mt-1 rounded-full bg-gray-300 flex-shrink-0"></span>
-                      <p className="text-gray-700"><strong>None:</strong> No status assigned</p>
+                      <p className="text-gray-700 dark:text-gray-300"><strong>None:</strong> No status assigned</p>
                     </div>
                     <p className="text-red-600 mt-2">⚠️ Unchecking all statuses will show 0 results</p>
                   </div>
-                  <div className="absolute -top-2 left-2 w-3 h-3 bg-white border-l border-t border-gray-200 transform rotate-45"></div>
+                  <div className="absolute -top-2 left-2 w-3 h-3 bg-white dark:bg-gray-800 border-l border-t border-gray-200 dark:border-gray-700 transform rotate-45"></div>
                 </div>
               </div>
             </div>
-            <p className="text-sm text-gray-500 mb-4">
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
               {isReportContext 
                 ? `This report includes ${availableStatusOptions.length} status type${availableStatusOptions.length !== 1 ? 's' : ''}. ${statusFilters.length === 0 ? '(None selected - showing 0 results)' : ''}`
                 : 'Select one or more statuses to filter companies'
@@ -770,13 +770,13 @@ const CompanyFilterSidebar = ({
         return (
           <div>
             <div className="flex items-center gap-2 mb-2">
-              <h3 className="text-lg font-bold text-gray-900">Categories</h3>
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white">Categories</h3>
               {/* Info tooltip */}
               <div className="relative group">
                 <HelpCircle className="w-4 h-4 text-gray-400 hover:text-indigo-600 cursor-help" />
-                <div className="absolute left-0 top-6 z-50 w-72 p-3 bg-white rounded-lg shadow-xl border border-gray-200 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
-                  <h4 className="text-sm font-bold text-gray-900 mb-2">Production Categories</h4>
-                  <div className="space-y-2 text-xs text-gray-700">
+                <div className="absolute left-0 top-6 z-50 w-72 p-3 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
+                  <h4 className="text-sm font-bold text-gray-900 dark:text-white mb-2">Production Categories</h4>
+                  <div className="space-y-2 text-xs text-gray-700 dark:text-gray-300">
                     <p>Categories represent the types of production processes a company has.</p>
                     <p><strong>Multi-select:</strong> Choose multiple categories to see companies with any of those processes.</p>
                     <p className="text-indigo-600">💡 Selecting categories updates available Countries and Technical Filters</p>
@@ -786,7 +786,7 @@ const CompanyFilterSidebar = ({
                 </div>
               </div>
             </div>
-            <p className="text-sm text-gray-500 mb-4">
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
               {isReportContext 
                 ? `${availableCategories.length} categor${availableCategories.length !== 1 ? 'ies' : 'y'} in this report's scope. ${categoryFilters.length} selected`
                 : 'Select categories to filter companies by production type'
@@ -801,7 +801,7 @@ const CompanyFilterSidebar = ({
                 value={categorySearchQuery}
                 onChange={(e) => setCategorySearchQuery(e.target.value)}
                 placeholder="Search categories..."
-                className="w-full pl-10 pr-10 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
+                className="w-full pl-10 pr-10 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-700 dark:text-white dark:placeholder-gray-400"
               />
               {categorySearchQuery && (
                 <button onClick={() => setCategorySearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
@@ -845,7 +845,7 @@ const CompanyFilterSidebar = ({
                     }}
                     className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
                   />
-                  <span className={`text-sm font-bold ${isAllCategoriesSelectedForDisplay ? 'text-purple-800' : 'text-gray-900'}`}>
+                  <span className={`text-sm font-bold ${isAllCategoriesSelectedForDisplay ? 'text-purple-800 dark:text-purple-300' : 'text-gray-900 dark:text-gray-100'}`}>
                     All Categories ({availableCategories.length})
                   </span>
                 </label>
@@ -878,7 +878,7 @@ const CompanyFilterSidebar = ({
                       }}
                       className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
                     />
-                    <span className={`text-sm ${isChecked ? 'font-medium text-purple-800' : 'text-gray-700'}`}>
+                    <span className={`text-sm ${isChecked ? 'font-medium text-purple-800 dark:text-purple-300' : 'text-gray-700 dark:text-gray-300'}`}>
                       {categoryLabel}
                     </span>
                   </label>
@@ -898,13 +898,13 @@ const CompanyFilterSidebar = ({
         return (
           <div>
             <div className="flex items-center gap-2 mb-2">
-              <h3 className="text-lg font-bold text-gray-900">Countries</h3>
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white">Countries</h3>
               {/* Info tooltip */}
               <div className="relative group">
                 <HelpCircle className="w-4 h-4 text-gray-400 hover:text-indigo-600 cursor-help" />
-                <div className="absolute left-0 top-6 z-50 w-64 p-3 bg-white rounded-lg shadow-xl border border-gray-200 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
-                  <h4 className="text-sm font-bold text-gray-900 mb-2">Country Filter</h4>
-                  <div className="space-y-2 text-xs text-gray-700">
+                <div className="absolute left-0 top-6 z-50 w-64 p-3 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
+                  <h4 className="text-sm font-bold text-gray-900 dark:text-white mb-2">Country Filter</h4>
+                  <div className="space-y-2 text-xs text-gray-700 dark:text-gray-300">
                     <p>Filter companies by their registered country location.</p>
                     <p><strong>Multi-select:</strong> Choose multiple countries to see companies from any of them.</p>
                     <p className="text-indigo-600">💡 List updates based on selected categories</p>
@@ -914,7 +914,7 @@ const CompanyFilterSidebar = ({
                 </div>
               </div>
             </div>
-            <p className="text-sm text-gray-500 mb-4">
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
               {isReportContext 
                 ? `${allCountries.length} countries in this report's scope. ${countryFilters.length === 0 ? '(None selected - showing 0 results)' : `${countryFilters.length} selected`}`
                 : `${allCountries.length} countries available`
@@ -935,7 +935,7 @@ const CompanyFilterSidebar = ({
                 value={countrySearch}
                 onChange={(e) => setCountrySearch(e.target.value)}
                 placeholder="Search countries..."
-                className="w-full pl-10 pr-10 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
+                className="w-full pl-10 pr-10 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-700 dark:text-white dark:placeholder-gray-400"
               />
               {countrySearch && (
                 <button onClick={() => setCountrySearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
@@ -946,7 +946,7 @@ const CompanyFilterSidebar = ({
 
             <div className="max-h-80 overflow-y-auto space-y-1">
               {filteredCountries.length === 0 ? (
-                <p className="text-sm text-gray-500 text-center py-8">No countries found</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-8">No countries found</p>
               ) : (
                 <>
                   {/* All Countries checkbox - only show when not searching */}
@@ -977,7 +977,7 @@ const CompanyFilterSidebar = ({
                         }}
                         className="w-4 h-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500"
                       />
-                      <span className={`text-sm font-bold ${isAllCountriesSelectedForDisplay ? 'text-teal-800' : 'text-gray-900'}`}>
+                      <span className={`text-sm font-bold ${isAllCountriesSelectedForDisplay ? 'text-teal-800 dark:text-teal-300' : 'text-gray-900 dark:text-gray-100'}`}>
                         All Countries ({allCountries.length})
                       </span>
                     </label>
@@ -1008,7 +1008,7 @@ const CompanyFilterSidebar = ({
                           }}
                           className="w-4 h-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500"
                         />
-                        <span className={`text-sm ${isChecked ? 'font-medium text-teal-800' : 'text-gray-700'}`}>
+                        <span className={`text-sm ${isChecked ? 'font-medium text-teal-800 dark:text-teal-300' : 'text-gray-700 dark:text-gray-300'}`}>
                           {country}
                         </span>
                       </label>
@@ -1024,13 +1024,13 @@ const CompanyFilterSidebar = ({
         return (
           <div>
             <div className="flex items-center gap-2 mb-2">
-              <h3 className="text-lg font-bold text-gray-900">Business Type</h3>
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white">Business Type</h3>
               {/* Info tooltip */}
               <div className="relative group">
                 <HelpCircle className="w-4 h-4 text-gray-400 hover:text-indigo-600 cursor-help" />
-                <div className="absolute left-0 top-6 z-50 w-72 p-3 bg-white rounded-lg shadow-xl border border-gray-200 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
-                  <h4 className="text-sm font-bold text-gray-900 mb-2">Business Type Definitions</h4>
-                  <div className="space-y-2 text-xs text-gray-700">
+                <div className="absolute left-0 top-6 z-50 w-72 p-3 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
+                  <h4 className="text-sm font-bold text-gray-900 dark:text-white mb-2">Business Type Definitions</h4>
+                  <div className="space-y-2 text-xs text-gray-700 dark:text-gray-300">
                     <div className="flex items-start gap-2">
                       <span className="flex-shrink-0 px-1.5 py-0.5 bg-amber-100 rounded text-xs font-medium">Custom</span>
                       <p>Company does custom manufacturing for clients</p>
@@ -1048,11 +1048,11 @@ const CompanyFilterSidebar = ({
                 </div>
               </div>
             </div>
-            <p className="text-sm text-gray-500 mb-4">Filter companies by their business model</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Filter companies by their business model</p>
 
             {filteredBusinessTypeOptions.length === 0 ? (
               <div className="text-center py-8 text-gray-500">
-                <p className="text-sm">No business type filters available for selected categories</p>
+                <p className="text-sm dark:text-gray-400">No business type filters available for selected categories</p>
               </div>
             ) : (
               <div className="space-y-3">
@@ -1061,15 +1061,15 @@ const CompanyFilterSidebar = ({
                   const isActive = currentValue !== undefined;
 
                   return (
-                    <div key={option.field} className={`bg-white border rounded-lg p-4 transition-all ${isActive ? 'border-amber-400 shadow-sm' : 'border-gray-200 hover:border-gray-300'}`}>
+                    <div key={option.field} className={`bg-white dark:bg-gray-800 border rounded-lg p-4 transition-all ${isActive ? 'border-amber-400 dark:border-amber-500 shadow-sm' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'}`}>
                       <div className="flex items-center justify-between mb-3">
-                        <h4 className="font-semibold text-gray-900 text-sm">{option.label}</h4>
-                        <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded">{option.count}</span>
+                        <h4 className="font-semibold text-gray-900 dark:text-white text-sm">{option.label}</h4>
+                        <span className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded">{option.count}</span>
                       </div>
                       <div className="flex gap-4">
                         <label className="flex items-center gap-2 cursor-pointer">
                           <input type="radio" name={`${activeGroupId}-${option.field}`} checked={currentValue === undefined} onChange={() => updateGroupFilter(activeGroupId, option.field, undefined)} className="w-4 h-4 text-gray-400" />
-                          <span className="text-sm text-gray-600">Any</span>
+                          <span className="text-sm text-gray-600 dark:text-gray-400">Any</span>
                         </label>
                         <label className="flex items-center gap-2 cursor-pointer">
                           <input type="radio" name={`${activeGroupId}-${option.field}`} checked={currentValue === true} onChange={() => updateGroupFilter(activeGroupId, option.field, true)} className="w-4 h-4 text-green-600" />
@@ -1092,24 +1092,24 @@ const CompanyFilterSidebar = ({
         return (
           <div>
             <div className="flex items-center gap-2 mb-2">
-              <h3 className="text-lg font-bold text-gray-900">Material Filters</h3>
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white">Material Filters</h3>
               {/* Info tooltip for OR/AND logic */}
               <div className="relative group">
                 <HelpCircle className="w-4 h-4 text-gray-400 hover:text-indigo-600 cursor-help" />
-                <div className="absolute left-0 top-6 z-50 w-72 p-4 bg-white rounded-lg shadow-xl border border-gray-200 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
-                  <h4 className="text-sm font-bold text-gray-900 mb-3">How Filter Groups Work</h4>
+                <div className="absolute left-0 top-6 z-50 w-72 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
+                  <h4 className="text-sm font-bold text-gray-900 dark:text-white mb-3">How Filter Groups Work</h4>
                   <div className="space-y-3">
                     <div className="flex items-start gap-2">
                       <span className="flex-shrink-0 px-2 py-0.5 bg-orange-100 border border-orange-300 rounded text-xs font-bold text-orange-700">OR</span>
                       <div>
-                        <p className="text-xs text-gray-700"><strong>Same group:</strong> Filters combine with OR</p>
+                        <p className="text-xs text-gray-700 dark:text-gray-300"><strong>Same group:</strong> Filters combine with OR</p>
                         <p className="text-xs text-gray-500">PVC <em>or</em> PP → Either material</p>
                       </div>
                     </div>
                     <div className="flex items-start gap-2">
                       <span className="flex-shrink-0 px-2 py-0.5 bg-blue-100 border border-blue-300 rounded text-xs font-bold text-blue-700">AND</span>
                       <div>
-                        <p className="text-xs text-gray-700"><strong>Different groups:</strong> Combine with AND</p>
+                        <p className="text-xs text-gray-700 dark:text-gray-300"><strong>Different groups:</strong> Combine with AND</p>
                         <p className="text-xs text-gray-500">Group 1 + Group 2 → Both required</p>
                       </div>
                     </div>
@@ -1122,7 +1122,7 @@ const CompanyFilterSidebar = ({
                 </div>
               </div>
             </div>
-            <p className="text-sm text-gray-500 mb-4">
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
               {isReportContext 
                 ? `${filteredOptions.length} material filters for this report's categories`
                 : `${filteredOptions.length} material filters available`
@@ -1136,7 +1136,7 @@ const CompanyFilterSidebar = ({
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search material filters..."
-                className="w-full pl-10 pr-10 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
+                className="w-full pl-10 pr-10 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-700 dark:text-white dark:placeholder-gray-400"
               />
               {searchQuery && (
                 <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
@@ -1148,7 +1148,7 @@ const CompanyFilterSidebar = ({
             <div className="max-h-72 overflow-y-auto space-y-3">
               {filteredOptions.length === 0 ? (
                 <div className="text-center py-8 text-gray-500">
-                  <p className="text-sm">No filters found</p>
+                  <p className="text-sm dark:text-gray-400">No filters found</p>
                 </div>
               ) : (
                 filteredOptions.map(option => {
@@ -1156,23 +1156,23 @@ const CompanyFilterSidebar = ({
                   const isActive = currentValue !== undefined;
 
                   return (
-                    <div key={option.field} className={`bg-white border rounded-lg p-4 transition-all ${isActive ? 'border-indigo-400 shadow-sm' : 'border-gray-200 hover:border-gray-300'}`}>
+                    <div key={option.field} className={`bg-white dark:bg-gray-800 border rounded-lg p-4 transition-all ${isActive ? 'border-indigo-400 dark:border-indigo-500 shadow-sm' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'}`}>
                       <div className="flex items-center justify-between mb-3">
-                        <h4 className="font-semibold text-gray-900 text-sm">{option.label}</h4>
-                        <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded">{option.count}</span>
+                        <h4 className="font-semibold text-gray-900 dark:text-white text-sm">{option.label}</h4>
+                        <span className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded">{option.count}</span>
                       </div>
                       <div className="flex gap-4">
                         <label className="flex items-center gap-2 cursor-pointer">
                           <input type="radio" name={`${activeGroupId}-${option.field}`} checked={currentValue === undefined} onChange={() => updateGroupFilter(activeGroupId, option.field, undefined)} className="w-4 h-4 text-gray-400" />
-                          <span className="text-sm text-gray-600">Any</span>
+                          <span className="text-sm text-gray-600 dark:text-gray-400">Any</span>
                         </label>
                         <label className="flex items-center gap-2 cursor-pointer">
                           <input type="radio" name={`${activeGroupId}-${option.field}`} checked={currentValue === true} onChange={() => updateGroupFilter(activeGroupId, option.field, true)} className="w-4 h-4 text-green-600" />
-                          <span className="text-sm font-medium text-green-700">Include</span>
+                          <span className="text-sm font-medium text-green-700 dark:text-green-400">Include</span>
                         </label>
                         <label className="flex items-center gap-2 cursor-pointer">
                           <input type="radio" name={`${activeGroupId}-${option.field}`} checked={currentValue === false} onChange={() => updateGroupFilter(activeGroupId, option.field, false)} className="w-4 h-4 text-red-600" />
-                          <span className="text-sm font-medium text-red-700">Exclude</span>
+                          <span className="text-sm font-medium text-red-700 dark:text-red-400">Exclude</span>
                         </label>
                       </div>
                     </div>
@@ -1187,13 +1187,13 @@ const CompanyFilterSidebar = ({
         return (
           <div>
             <div className="flex items-center gap-2 mb-2">
-              <h3 className="text-lg font-bold text-gray-900">Technical Filters</h3>
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white">Technical Filters</h3>
               {/* Info tooltip */}
               <div className="relative group">
                 <HelpCircle className="w-4 h-4 text-gray-400 hover:text-indigo-600 cursor-help" />
-                <div className="absolute left-0 top-6 z-50 w-72 p-3 bg-white rounded-lg shadow-xl border border-gray-200 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
-                  <h4 className="text-sm font-bold text-gray-900 mb-2">Technical Specifications</h4>
-                  <div className="space-y-2 text-xs text-gray-700">
+                <div className="absolute left-0 top-6 z-50 w-72 p-3 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
+                  <h4 className="text-sm font-bold text-gray-900 dark:text-white mb-2">Technical Specifications</h4>
+                  <div className="space-y-2 text-xs text-gray-700 dark:text-gray-300">
                     <p>Filter by machine specifications and capacities.</p>
                     <div className="flex items-start gap-2">
                       <span className="flex-shrink-0 px-1.5 py-0.5 bg-gray-100 rounded text-xs font-medium">Equals</span>
@@ -1209,7 +1209,7 @@ const CompanyFilterSidebar = ({
                 </div>
               </div>
             </div>
-            <p className="text-sm text-gray-500 mb-4">
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
               {isReportContext 
                 ? `${filteredTechnicalOptions.length} technical filters for this report's categories`
                 : `${filteredTechnicalOptions.length} technical filters available`
@@ -1223,7 +1223,7 @@ const CompanyFilterSidebar = ({
                 value={technicalSearchQuery}
                 onChange={(e) => setTechnicalSearchQuery(e.target.value)}
                 placeholder="Search technical filters..."
-                className="w-full pl-10 pr-10 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
+                className="w-full pl-10 pr-10 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-700 dark:text-white dark:placeholder-gray-400"
               />
               {technicalSearchQuery && (
                 <button onClick={() => setTechnicalSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
@@ -1235,7 +1235,7 @@ const CompanyFilterSidebar = ({
             <div className="max-h-72 overflow-y-auto space-y-3">
               {filteredTechnicalOptions.length === 0 ? (
                 <div className="text-center py-8 text-gray-500">
-                  <p className="text-sm">No technical filters found</p>
+                  <p className="text-sm dark:text-gray-400">No technical filters found</p>
                 </div>
               ) : (
                 filteredTechnicalOptions.map(option => {
@@ -1243,10 +1243,10 @@ const CompanyFilterSidebar = ({
                   const mode = currentFilter.mode || 'range';
 
                   return (
-                    <div key={option.field} className="bg-white border border-gray-200 rounded-lg p-4 hover:border-gray-300 transition-all">
+                    <div key={option.field} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:border-gray-300 dark:hover:border-gray-600 transition-all">
                       <div className="flex items-center justify-between mb-3">
-                        <h4 className="font-semibold text-gray-900 text-sm">{option.label}</h4>
-                        <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
+                        <h4 className="font-semibold text-gray-900 dark:text-white text-sm">{option.label}</h4>
+                        <span className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded">
                           {option.min !== null && option.max !== null ? `${option.min} - ${option.max}` : 'Range'}
                         </span>
                       </div>
@@ -1263,7 +1263,7 @@ const CompanyFilterSidebar = ({
                             }}
                             className="w-4 h-4 text-indigo-600"
                           />
-                          <span className="text-sm font-medium">Equals</span>
+                          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Equals</span>
                         </label>
                         <label className="flex items-center gap-2 cursor-pointer">
                           <input
@@ -1276,7 +1276,7 @@ const CompanyFilterSidebar = ({
                             }}
                             className="w-4 h-4 text-indigo-600"
                           />
-                          <span className="text-sm font-medium">Range</span>
+                          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Range</span>
                         </label>
                       </div>
 
@@ -1287,30 +1287,30 @@ const CompanyFilterSidebar = ({
                           onChange={(e) => updateGroupTechnicalFilter(activeGroupId, option.field, 'equals', e.target.value, '', '')}
                           placeholder="Enter exact value"
                           step={option.type === 'FloatField' ? '0.1' : '1'}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-700 dark:text-white"
                         />
                       ) : (
                         <div className="grid grid-cols-2 gap-3">
                           <div>
-                            <label className="block text-xs text-gray-600 mb-1">Min</label>
+                            <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Min</label>
                             <input
                               type="number"
                               value={currentFilter.min || ''}
                               onChange={(e) => updateGroupTechnicalFilter(activeGroupId, option.field, 'range', '', e.target.value, currentFilter.max)}
                               placeholder={option.min !== null ? String(option.min) : "Min"}
                               step={option.type === 'FloatField' ? '0.1' : '1'}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
+                              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-700 dark:text-white"
                             />
                           </div>
                           <div>
-                            <label className="block text-xs text-gray-600 mb-1">Max</label>
+                            <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Max</label>
                             <input
                               type="number"
                               value={currentFilter.max || ''}
                               onChange={(e) => updateGroupTechnicalFilter(activeGroupId, option.field, 'range', '', currentFilter.min, e.target.value)}
                               placeholder={option.max !== null ? String(option.max) : "Max"}
                               step={option.type === 'FloatField' ? '0.1' : '1'}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
+                              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-700 dark:text-white"
                             />
                           </div>
                         </div>
@@ -1334,7 +1334,7 @@ const CompanyFilterSidebar = ({
       <div className="fixed inset-0 bg-black bg-opacity-50 z-40" onClick={onClose} />
 
       {/* Sidebar */}
-      <div className="fixed right-0 top-0 h-full w-full md:w-[750px] bg-white shadow-2xl z-50 flex flex-col animate-slide-in">
+      <div className="fixed right-0 top-0 h-full w-full md:w-[750px] bg-white dark:bg-gray-900 shadow-2xl z-50 flex flex-col animate-slide-in">
         
         {/* Header */}
         <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-6 text-white flex-shrink-0">
@@ -1358,7 +1358,7 @@ const CompanyFilterSidebar = ({
         <div className="flex flex-1 overflow-hidden">
           
           {/* Left Vertical Tabs */}
-          <div className="w-56 bg-gray-50 border-r border-gray-200 flex flex-col flex-shrink-0">
+          <div className="w-56 bg-gray-50 dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col flex-shrink-0">
             <div className="p-3 flex-1 overflow-y-auto">
               <nav className="space-y-1">
                 {visibleTabs.map(tab => {
@@ -1373,7 +1373,7 @@ const CompanyFilterSidebar = ({
                       className={`w-full flex items-center justify-between px-3 py-3 rounded-lg text-left transition-all ${
                         isActive 
                           ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-md' 
-                          : 'text-gray-700 hover:bg-gray-100'
+                          : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
                       }`}
                     >
                       <div className="flex items-center gap-2">
@@ -1382,7 +1382,7 @@ const CompanyFilterSidebar = ({
                       </div>
                       {count > 0 && (
                         <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${
-                          isActive ? 'bg-white/30 text-white' : 'bg-indigo-100 text-indigo-700'
+                          isActive ? 'bg-white/30 text-white' : 'bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300'
                         }`}>
                           {count}
                         </span>
@@ -1394,21 +1394,21 @@ const CompanyFilterSidebar = ({
             </div>
 
             {/* Filter Groups Section */}
-            <div className="p-3 border-t border-gray-200 bg-gray-100">
+            <div className="p-3 border-t border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800/50">
               <div className="flex items-center gap-1 mb-2 px-1">
-                <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Filter Groups</p>
+                <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Filter Groups</p>
                 {/* Info tooltip */}
                 <div className="relative group">
                   <HelpCircle className="w-3.5 h-3.5 text-gray-400 hover:text-indigo-600 cursor-help" />
-                  <div className="absolute left-0 bottom-6 z-50 w-56 p-3 bg-white rounded-lg shadow-xl border border-gray-200 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
-                    <h4 className="text-xs font-bold text-gray-900 mb-2">Filter Groups</h4>
-                    <div className="space-y-1.5 text-xs text-gray-700">
+                  <div className="absolute left-0 bottom-6 z-50 w-56 p-3 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
+                    <h4 className="text-xs font-bold text-gray-900 dark:text-white mb-2">Filter Groups</h4>
+                    <div className="space-y-1.5 text-xs text-gray-700 dark:text-gray-300">
                       <p>Groups let you build complex filter logic.</p>
                       <p><span className="px-1 py-0.5 bg-orange-100 text-orange-700 rounded font-medium">OR</span> within same group</p>
                       <p><span className="px-1 py-0.5 bg-blue-100 text-blue-700 rounded font-medium">AND</span> between groups</p>
                     </div>
                     {/* Arrow pointing down */}
-                    <div className="absolute -bottom-2 left-2 w-3 h-3 bg-white border-r border-b border-gray-200 transform rotate-45"></div>
+                    <div className="absolute -bottom-2 left-2 w-3 h-3 bg-white dark:bg-gray-800 border-r border-b border-gray-200 dark:border-gray-700 transform rotate-45"></div>
                   </div>
                 </div>
               </div>
@@ -1418,8 +1418,8 @@ const CompanyFilterSidebar = ({
                     key={group.id}
                     className={`flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition-all ${
                       activeGroupId === group.id 
-                        ? 'bg-indigo-100 border-2 border-indigo-400' 
-                        : 'bg-white border-2 border-transparent hover:border-gray-200'
+                        ? 'bg-indigo-100 dark:bg-indigo-900/40 border-2 border-indigo-400 dark:border-indigo-500' 
+                        : 'bg-white dark:bg-gray-700 border-2 border-transparent hover:border-gray-200 dark:hover:border-gray-600'
                     }`}
                     onClick={() => setActiveGroupId(group.id)}
                   >
@@ -1428,10 +1428,10 @@ const CompanyFilterSidebar = ({
                       value={group.name}
                       onChange={(e) => renameGroup(group.id, e.target.value)}
                       onClick={(e) => e.stopPropagation()}
-                      className="bg-transparent border-none outline-none text-xs font-medium w-20 cursor-pointer"
+                      className="bg-transparent border-none outline-none text-xs font-medium w-20 cursor-pointer dark:text-gray-200"
                     />
                     <div className="flex items-center gap-1">
-                      <button onClick={(e) => { e.stopPropagation(); duplicateGroup(group.id); }} className="p-1 hover:bg-gray-200 rounded" title="Duplicate">
+                      <button onClick={(e) => { e.stopPropagation(); duplicateGroup(group.id); }} className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded" title="Duplicate">
                         <Copy className="w-3 h-3 text-gray-500" />
                       </button>
                       {groups.length > 1 && (
@@ -1445,7 +1445,7 @@ const CompanyFilterSidebar = ({
               </div>
               <button
                 onClick={addGroup}
-                className="w-full mt-2 flex items-center justify-center gap-1 px-3 py-2 text-xs text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors font-medium"
+                className="w-full mt-2 flex items-center justify-center gap-1 px-3 py-2 text-xs text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-colors font-medium"
               >
                 <Plus className="w-3 h-3" />
                 Add Group
@@ -1458,9 +1458,9 @@ const CompanyFilterSidebar = ({
             
             {/* Active Filters Bar - Only show when user has applied filters different from report defaults */}
             {hasUserAppliedFilters && (
-              <div className="p-4 bg-gray-50 border-b border-gray-200 flex-shrink-0">
+              <div className="p-4 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Active Filters</span>
+                  <span className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Active Filters</span>
                   <button
                     onClick={handleResetToReportValues}
                     className="text-xs text-red-500 hover:text-red-600 font-semibold"
@@ -1532,16 +1532,16 @@ const CompanyFilterSidebar = ({
         </div>
 
         {/* Footer */}
-        <div className="border-t border-gray-200 p-4 bg-gray-50 flex-shrink-0">
+        <div className="border-t border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-800 flex-shrink-0">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-sm text-green-600">
+            <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
               <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
               <span className="font-medium">Live: Filters auto-applied</span>
             </div>
             <div className="flex gap-3">
               <button
                 onClick={handleResetToReportValues}
-                className="px-6 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-100 font-medium text-gray-700 transition-colors"
+                className="px-6 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 font-medium text-gray-700 dark:text-gray-300 transition-colors"
               >
                 Reset
               </button>

@@ -12,6 +12,7 @@ import {
   Database, ArrowRight, Check, X, Trash2, CheckCheck,
   User, Shield, ChevronDown, Megaphone, FolderHeart
 } from 'lucide-react';
+import ThemeToggle from '../common/ThemeToggle';
 import useChatUnreadCount from '../../hooks/useChatUnreadCount';
 import useAnnouncementBadge from '../../hooks/useAnnouncementBadge';
 import FloatingHelpButton from '../help/FloatingHelpButton';
@@ -512,7 +513,7 @@ const ClientDashboardLayout = ({ children, pageTitle, pageSubtitleTop, pageSubti
   };
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
+    <div className="flex h-screen bg-gray-50 dark:bg-gray-900 overflow-hidden transition-colors duration-300">
       {/* Add bell ring animation */}
       <style>{`
         @keyframes ring {
@@ -651,7 +652,7 @@ const ClientDashboardLayout = ({ children, pageTitle, pageSubtitleTop, pageSubti
       {/* MAIN CONTENT */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* TOP HEADER */}
-        <header className="bg-white border-b border-gray-200 shadow-sm z-40">
+        <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm z-40 transition-colors duration-300">
           <div className="flex items-center justify-between px-6 py-4">
             {/* Left Section */}
             <div className="flex items-center gap-4">
@@ -667,13 +668,13 @@ const ClientDashboardLayout = ({ children, pageTitle, pageSubtitleTop, pageSubti
                     setIsSidebarLocked(false);
                   }
                 }}
-                className="p-2 hover:bg-gray-100 rounded-xl transition-colors"
+                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors"
                 title={isSidebarOpen ? "Close and lock sidebar" : "Open sidebar"}
               >
                 {isSidebarOpen ? (
-                  <Menu className="w-5 h-5 text-gray-600" />
+                  <Menu className="w-5 h-5 text-gray-600 dark:text-gray-300" />
                 ) : (
-                  <ArrowRight className="w-5 h-5 text-gray-600" />
+                  <ArrowRight className="w-5 h-5 text-gray-600 dark:text-gray-300" />
                 )}
               </button>
 
@@ -682,23 +683,23 @@ const ClientDashboardLayout = ({ children, pageTitle, pageSubtitleTop, pageSubti
                   <div className="flex-1 min-w-0">
                     {/* --- MODIFIED: Top subtitle color --- */}
                     {pageSubtitleTop && (
-                      <div className="mb-1 text-gray-300">
+                      <div className="mb-1 text-gray-400 dark:text-gray-500">
                         {pageSubtitleTop}
                       </div>
                     )}
                     {/* --- MODIFIED: Page title color --- */}
-                    <h1 className="text-xl font-bold text-gray truncate">
+                    <h1 className="text-xl font-bold text-gray-900 dark:text-white truncate">
                       {pageTitle || navLinks.find(link => isActive(link.path))?.name || 'Dashboard'}
                     </h1>
                     {/* --- MODIFIED: Bottom subtitle color --- */}
                     {pageSubtitleBottom && (
-                      <p className="mt-1 text-sm text-gray-600 line-clamp-2">
+                      <p className="mt-1 text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
                         {pageSubtitleBottom}
                       </p>
                     )}
                     {/* ============= NEW: Show lock status ============= */}
                     {isSidebarLocked && !pageSubtitleBottom && (
-                      <p className="text-xs text-gray-500 mt-0.5">
+                      <p className="text-xs text-gray-500 dark:text-gray-500 mt-0.5">
                         Sidebar locked - Click arrow to open
                       </p>
                     )}
@@ -709,13 +710,16 @@ const ClientDashboardLayout = ({ children, pageTitle, pageSubtitleTop, pageSubti
 
             {/* Right Section */}
             <div className="flex items-center gap-3 flex-shrink-0">
+              {/* Theme Toggle */}
+              <ThemeToggle size="md" />
+
               {/* Fullscreen Toggle */}
               <button
                 onClick={toggleFullscreen}
-                className="p-2 hover:bg-gray-100 rounded-xl transition-colors"
+                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors"
                 title="Toggle Fullscreen"
               >
-                <Maximize className="w-5 h-5 text-gray-600" />
+                <Maximize className="w-5 h-5 text-gray-600 dark:text-gray-300" />
               </button>
 
               {/* Notifications */}
@@ -725,10 +729,10 @@ const ClientDashboardLayout = ({ children, pageTitle, pageSubtitleTop, pageSubti
                     setShowNotifications(!showNotifications);
                     if (!showNotifications) fetchNotifications();
                   }}
-                  className="relative p-2 hover:bg-gray-100 rounded-xl transition-colors"
+                  className="relative p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors"
                   title="Notifications"
                 >
-                  <Bell className={`w-5 h-5 text-gray-600 ${unreadCount > 0 ? 'bell-ring' : ''}`} />
+                  <Bell className={`w-5 h-5 text-gray-600 dark:text-gray-300 ${unreadCount > 0 ? 'bell-ring' : ''}`} />
                   {unreadCount > 0 && (
                     <span className="absolute -top-1 -right-1 min-w-[20px] h-5 bg-red-500 rounded-full flex items-center justify-center text-white text-xs font-bold px-1 shadow-md">
                       {unreadCount > 9 ? '9+' : unreadCount}
@@ -738,19 +742,19 @@ const ClientDashboardLayout = ({ children, pageTitle, pageSubtitleTop, pageSubti
 
                 {/* Notification Dropdown */}
                 {showNotifications && (
-                  <div className="absolute right-0 mt-2 w-96 bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden z-50">
+                  <div className="absolute right-0 mt-2 w-96 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden z-50">
                     {/* Header */}
-                    <div className="p-4 border-b border-gray-200 bg-gradient-to-r from-purple-50 to-blue-50">
+                    <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/30 dark:to-blue-900/30">
                       <div className="flex items-center justify-between">
                         <div>
-                          <h3 className="font-bold text-gray-900">Notifications</h3>
-                          <p className="text-xs text-gray-600">{unreadCount} unread messages</p>
+                          <h3 className="font-bold text-gray-900 dark:text-white">Notifications</h3>
+                          <p className="text-xs text-gray-600 dark:text-gray-400">{unreadCount} unread messages</p>
                         </div>
                         <div className="flex gap-2">
                           {unreadCount > 0 && (
                             <button
                               onClick={markAllAsRead}
-                              className="text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
+                              className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium flex items-center gap-1"
                               title="Mark all as read"
                             >
                               <CheckCheck className="w-4 h-4" />
@@ -760,7 +764,7 @@ const ClientDashboardLayout = ({ children, pageTitle, pageSubtitleTop, pageSubti
                           {notifications.length > 0 && (
                             <button
                               onClick={clearAll}
-                              className="text-xs text-red-600 hover:text-red-700 font-medium flex items-center gap-1"
+                              className="text-xs text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 font-medium flex items-center gap-1"
                               title="Clear all"
                             >
                               <Trash2 className="w-4 h-4" />
@@ -776,13 +780,13 @@ const ClientDashboardLayout = ({ children, pageTitle, pageSubtitleTop, pageSubti
                       {loading ? (
                         <div className="p-8 text-center">
                           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mx-auto"></div>
-                          <p className="text-gray-500 mt-2">Loading...</p>
+                          <p className="text-gray-500 dark:text-gray-400 mt-2">Loading...</p>
                         </div>
                       ) : error ? (
                         <div className="p-8 text-center">
-                          <Bell className="w-12 h-12 text-red-300 mx-auto mb-3" />
-                          <p className="text-red-500 font-medium">Error loading notifications</p>
-                          <p className="text-xs text-gray-500 mt-1">{error}</p>
+                          <Bell className="w-12 h-12 text-red-300 dark:text-red-400 mx-auto mb-3" />
+                          <p className="text-red-500 dark:text-red-400 font-medium">Error loading notifications</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{error}</p>
                           <button
                             onClick={fetchNotifications}
                             className="mt-3 px-4 py-2 bg-purple-600 text-white rounded-lg text-sm hover:bg-purple-700"
@@ -792,17 +796,17 @@ const ClientDashboardLayout = ({ children, pageTitle, pageSubtitleTop, pageSubti
                         </div>
                       ) : notifications.length === 0 ? (
                         <div className="p-8 text-center">
-                          <Bell className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                          <p className="text-gray-500 font-medium">No notifications</p>
-                          <p className="text-xs text-gray-400 mt-1">You're all caught up!</p>
+                          <Bell className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+                          <p className="text-gray-500 dark:text-gray-400 font-medium">No notifications</p>
+                          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">You're all caught up!</p>
                         </div>
                       ) : (
                         notifications.map((notification) => (
                           <div
                             key={notification.id}
                             onClick={() => handleNotificationClick(notification)}
-                            className={`p-4 border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer ${
-                              !notification.is_read ? 'bg-blue-50/50' : ''
+                            className={`p-4 border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer ${
+                              !notification.is_read ? 'bg-blue-50/50 dark:bg-blue-900/20' : ''
                             }`}
                           >
                             <div className="flex gap-3">
@@ -812,7 +816,7 @@ const ClientDashboardLayout = ({ children, pageTitle, pageSubtitleTop, pageSubti
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-start justify-between gap-2">
                                   <h4 className={`font-semibold text-sm ${
-                                    !notification.is_read ? 'text-gray-900' : 'text-gray-700'
+                                    !notification.is_read ? 'text-gray-900 dark:text-white' : 'text-gray-700 dark:text-gray-300'
                                   }`}>
                                     {notification.title}
                                   </h4>
@@ -820,9 +824,9 @@ const ClientDashboardLayout = ({ children, pageTitle, pageSubtitleTop, pageSubti
                                     <span className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0 mt-1"></span>
                                   )}
                                 </div>
-                                <p className="text-sm text-gray-600 mt-1">{notification.message}</p>
+                                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{notification.message}</p>
                                 <div className="flex items-center justify-between mt-2">
-                                  <span className="text-xs text-gray-500">{notification.time}</span>
+                                  <span className="text-xs text-gray-500 dark:text-gray-500">{notification.time}</span>
                                   <div className="flex gap-2">
                                     {!notification.is_read && (
                                       <button
@@ -830,7 +834,7 @@ const ClientDashboardLayout = ({ children, pageTitle, pageSubtitleTop, pageSubti
                                           e.stopPropagation();
                                           markAsRead(notification.id);
                                         }}
-                                        className="text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
+                                        className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium flex items-center gap-1"
                                         title="Mark as read"
                                       >
                                         <Check className="w-3 h-3" />
@@ -839,7 +843,7 @@ const ClientDashboardLayout = ({ children, pageTitle, pageSubtitleTop, pageSubti
                                     )}
                                     <button
                                       onClick={(e) => deleteNotification(notification.id, e)}
-                                      className="text-xs text-red-600 hover:text-red-700 font-medium flex items-center gap-1"
+                                      className="text-xs text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 font-medium flex items-center gap-1"
                                       title="Delete"
                                     >
                                       <X className="w-3 h-3" />
@@ -856,13 +860,13 @@ const ClientDashboardLayout = ({ children, pageTitle, pageSubtitleTop, pageSubti
 
                     {/* Footer */}
                     {notifications.length > 0 && (
-                      <div className="p-3 border-t border-gray-200 bg-gray-50">
+                      <div className="p-3 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
                         <button
                           onClick={() => {
                             navigate('/client/notifications');
                             setShowNotifications(false);
                           }}
-                          className="w-full text-center text-sm text-blue-600 hover:text-blue-700 font-medium"
+                          className="w-full text-center text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium"
                         >
                           View All Notifications
                         </button>
@@ -876,23 +880,23 @@ const ClientDashboardLayout = ({ children, pageTitle, pageSubtitleTop, pageSubti
                 <div className="relative" ref={avatarMenuRef} data-tour="profile-menu">
                   <button
                     onClick={() => setShowAvatarMenu(!showAvatarMenu)}
-                    className="flex items-center gap-2 p-1 pr-3 hover:bg-gray-100 rounded-xl transition-colors"
+                    className="flex items-center gap-2 p-1 pr-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors"
                   >
-                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-purple-500 to-blue-600 flex items-center justify-center text-sm font-bold text-white shadow-md ring-2 ring-white">
+                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-purple-500 to-blue-600 flex items-center justify-center text-sm font-bold text-white shadow-md ring-2 ring-white dark:ring-gray-700">
                       {getUserInitials()}
                     </div>
                     <div className="hidden md:block text-left">
-                      <p className="text-sm font-semibold text-gray-900 leading-none">
+                      <p className="text-sm font-semibold text-gray-900 dark:text-white leading-none">
                         {user?.full_name || user?.username}
                       </p>
-                      <p className="text-xs text-gray-500">Premium Account</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Premium Account</p>
                     </div>
-                    <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${showAvatarMenu ? 'rotate-180' : ''}`} />
+                    <ChevronDown className={`w-4 h-4 text-gray-400 dark:text-gray-500 transition-transform ${showAvatarMenu ? 'rotate-180' : ''}`} />
                   </button>
 
                   {/* Dropdown Menu */}
                   {showAvatarMenu && (
-                    <div className="absolute right-0 mt-2 w-72 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200 text-gray-900">
+                    <div className="absolute right-0 mt-2 w-72 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-700 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
                       {/* User Info Header */}
                       <div className="bg-gradient-to-br from-purple-500 to-blue-600 p-4">
                         <div className="flex items-center gap-3">
@@ -903,17 +907,8 @@ const ClientDashboardLayout = ({ children, pageTitle, pageSubtitleTop, pageSubti
                             <p className="text-sm font-bold text-white">
                               {user?.full_name || user?.username}
                             </p>
-                            {/*<p className="text-xs text-purple-100">
-                              {user?.email}
-                            </p>*/}
                           </div>
                         </div>
-
-                        {/* Premium Badge 
-                        <div className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 bg-white/10 backdrop-blur-xl rounded-full border border-white/20">
-                          <Shield className="w-3.5 h-3.5 text-white" />
-                          <span className="text-xs font-semibold text-white">Premium Member</span>
-                        </div>*/}
                       </div>
 
                       {/* Menu Items */}
@@ -924,14 +919,14 @@ const ClientDashboardLayout = ({ children, pageTitle, pageSubtitleTop, pageSubti
                             navigate('/client/reports');
                             setShowAvatarMenu(false);
                           }}
-                          className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 rounded-xl transition-colors text-left group"
+                          className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-xl transition-colors text-left group"
                         >
-                          <div className="w-9 h-9 rounded-lg bg-purple-50 flex items-center justify-center group-hover:bg-purple-100 transition-colors">
-                            <FileText className="w-4 h-4 text-purple-600" />
+                          <div className="w-9 h-9 rounded-lg bg-purple-50 dark:bg-purple-900/30 flex items-center justify-center group-hover:bg-purple-100 dark:group-hover:bg-purple-900/50 transition-colors">
+                            <FileText className="w-4 h-4 text-purple-600 dark:text-purple-400" />
                           </div>
                           <div className="flex-1">
-                            <p className="text-sm font-semibold text-gray-900">My Reports</p>
-                            <p className="text-xs text-gray-500">Access and manage your reports</p>
+                            <p className="text-sm font-semibold text-gray-900 dark:text-white">My Reports</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">Access and manage your reports</p>
                           </div>
                         </button>
 
@@ -941,14 +936,14 @@ const ClientDashboardLayout = ({ children, pageTitle, pageSubtitleTop, pageSubti
                             navigate('/client/subscriptions');
                             setShowAvatarMenu(false);
                           }}
-                          className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 rounded-xl transition-colors text-left group"
+                          className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-xl transition-colors text-left group"
                         >
-                          <div className="w-9 h-9 rounded-lg bg-green-50 flex items-center justify-center group-hover:bg-green-100 transition-colors">
-                            <CreditCard className="w-4 h-4 text-green-600" />
+                          <div className="w-9 h-9 rounded-lg bg-green-50 dark:bg-green-900/30 flex items-center justify-center group-hover:bg-green-100 dark:group-hover:bg-green-900/50 transition-colors">
+                            <CreditCard className="w-4 h-4 text-green-600 dark:text-green-400" />
                           </div>
                           <div className="flex-1">
-                            <p className="text-sm font-semibold text-gray-900">My Subscriptions</p>
-                            <p className="text-xs text-gray-500">Manage your subscriptions</p>
+                            <p className="text-sm font-semibold text-gray-900 dark:text-white">My Subscriptions</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">Manage your subscriptions</p>
                           </div>
                         </button>
 
@@ -958,14 +953,14 @@ const ClientDashboardLayout = ({ children, pageTitle, pageSubtitleTop, pageSubti
                             navigate('/my-profile');
                             setShowAvatarMenu(false);
                           }}
-                          className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 rounded-xl transition-colors text-left group"
+                          className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-xl transition-colors text-left group"
                         >
-                          <div className="w-9 h-9 rounded-lg bg-blue-50 flex items-center justify-center group-hover:bg-blue-100 transition-colors">
-                            <User className="w-4 h-4 text-blue-600" />
+                          <div className="w-9 h-9 rounded-lg bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center group-hover:bg-blue-100 dark:group-hover:bg-blue-900/50 transition-colors">
+                            <User className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                           </div>
                           <div className="flex-1">
-                            <p className="text-sm font-semibold text-gray-900">My Profile</p>
-                            <p className="text-xs text-gray-500">View and edit your profile</p>
+                            <p className="text-sm font-semibold text-gray-900 dark:text-white">My Profile</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">View and edit your profile</p>
                           </div>
                         </button>
 
@@ -975,20 +970,20 @@ const ClientDashboardLayout = ({ children, pageTitle, pageSubtitleTop, pageSubti
                             navigate('/profile-settings');
                             setShowAvatarMenu(false);
                           }}
-                          className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 rounded-xl transition-colors text-left group"
+                          className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-xl transition-colors text-left group"
                         >
-                          <div className="w-9 h-9 rounded-lg bg-purple-50 flex items-center justify-center group-hover:bg-purple-100 transition-colors">
-                            <Settings className="w-4 h-4 text-purple-600" />
+                          <div className="w-9 h-9 rounded-lg bg-purple-50 dark:bg-purple-900/30 flex items-center justify-center group-hover:bg-purple-100 dark:group-hover:bg-purple-900/50 transition-colors">
+                            <Settings className="w-4 h-4 text-purple-600 dark:text-purple-400" />
                           </div>
                           <div className="flex-1">
-                            <p className="text-sm font-semibold text-gray-900">Profile Settings</p>
-                            <p className="text-xs text-gray-500">Account preferences</p>
+                            <p className="text-sm font-semibold text-gray-900 dark:text-white">Profile Settings</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">Account preferences</p>
                           </div>
                         </button>
                       </div>
 
                       {/* Divider */}
-                      <div className="border-t border-gray-100 my-2"></div>
+                      <div className="border-t border-gray-100 dark:border-gray-700 my-2"></div>
 
                       {/* Logout */}
                       <div className="p-2">
@@ -997,14 +992,14 @@ const ClientDashboardLayout = ({ children, pageTitle, pageSubtitleTop, pageSubti
                             handleLogout();
                             setShowAvatarMenu(false);
                           }}
-                          className="w-full flex items-center gap-3 px-4 py-3 hover:bg-red-50 rounded-xl transition-colors text-left group"
+                          className="w-full flex items-center gap-3 px-4 py-3 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-colors text-left group"
                         >
-                          <div className="w-9 h-9 rounded-lg bg-red-50 flex items-center justify-center group-hover:bg-red-100 transition-colors">
-                            <LogOut className="w-4 h-4 text-red-600" />
+                          <div className="w-9 h-9 rounded-lg bg-red-50 dark:bg-red-900/30 flex items-center justify-center group-hover:bg-red-100 dark:group-hover:bg-red-900/50 transition-colors">
+                            <LogOut className="w-4 h-4 text-red-600 dark:text-red-400" />
                           </div>
                           <div className="flex-1">
-                            <p className="text-sm font-semibold text-red-600">Logout</p>
-                            <p className="text-xs text-red-400">Sign out of your account</p>
+                            <p className="text-sm font-semibold text-red-600 dark:text-red-400">Logout</p>
+                            <p className="text-xs text-red-400 dark:text-red-500">Sign out of your account</p>
                           </div>
                         </button>
                       </div>
@@ -1016,10 +1011,10 @@ const ClientDashboardLayout = ({ children, pageTitle, pageSubtitleTop, pageSubti
         </header>
 
         {/* MAIN CONTENT AREA */}
-        <main className="flex-1 overflow-y-auto bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50">
+        <main className="flex-1 overflow-y-auto bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800 transition-colors duration-300">
           {/* Breadcrumb Section - Just below header */}
           {breadcrumbs && breadcrumbs.length > 0 && (
-            <div className="bg-white border-b border-gray-200 px-6 py-3 shadow-sm">
+            <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-3 shadow-sm transition-colors duration-300">
               <Breadcrumb items={breadcrumbs} showHome={true} />
             </div>
           )}
@@ -1031,7 +1026,7 @@ const ClientDashboardLayout = ({ children, pageTitle, pageSubtitleTop, pageSubti
       {/* Announcement Popup Modal */}
       {showAnnouncementPopup && currentAnnouncement && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col animate-in fade-in slide-in-from-top-5 duration-300">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col animate-in fade-in slide-in-from-top-5 duration-300">
             {/* Modal Header */}
             <div className={`bg-gradient-to-r ${getAnnouncementTypeColor(currentAnnouncement.announcement_type)} text-white p-6`}>
               <div className="flex items-start justify-between mb-4">
@@ -1056,21 +1051,21 @@ const ClientDashboardLayout = ({ children, pageTitle, pageSubtitleTop, pageSubti
             {/* Modal Body */}
             <div className="flex-1 overflow-y-auto p-6">
               {currentAnnouncement.summary && (
-                <p className="text-gray-700 font-medium mb-4">{currentAnnouncement.summary}</p>
+                <p className="text-gray-700 dark:text-gray-300 font-medium mb-4">{currentAnnouncement.summary}</p>
               )}
-              <p className="text-gray-600 whitespace-pre-wrap leading-relaxed">
+              <p className="text-gray-600 dark:text-gray-400 whitespace-pre-wrap leading-relaxed">
                 {currentAnnouncement.content}
               </p>
             </div>
 
             {/* Modal Footer */}
-            <div className="border-t border-gray-200 p-6 bg-gray-50 flex items-center justify-between">
+            <div className="border-t border-gray-200 dark:border-gray-700 p-6 bg-gray-50 dark:bg-gray-800/50 flex items-center justify-between">
               <button
                 onClick={() => {
                   navigate('/client/announcements');
                   handleCloseAnnouncementPopup();
                 }}
-                className="px-6 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-semibold transition-colors"
+                className="px-6 py-2.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg font-semibold transition-colors"
               >
                 View All Announcements
               </button>

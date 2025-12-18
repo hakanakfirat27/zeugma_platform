@@ -81,7 +81,7 @@ const NoteModal = ({
       >
         <div className="flex min-h-full items-center justify-center p-4">
           <div 
-            className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg transform transition-all"
+            className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg transform transition-all"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -113,7 +113,7 @@ const NoteModal = ({
             <form onSubmit={handleSubmit} className="p-5 space-y-4">
               {/* Color Picker */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Note Color
                 </label>
                 <div className="flex gap-2">
@@ -132,8 +132,8 @@ const NoteModal = ({
 
               {/* Title */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Title <span className="text-gray-400 font-normal">(optional)</span>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Title <span className="text-gray-400 dark:text-gray-500 font-normal">(optional)</span>
                 </label>
                 <input
                   type="text"
@@ -141,13 +141,13 @@ const NoteModal = ({
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="Give your note a title..."
                   maxLength={200}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors"
+                  className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors bg-white dark:bg-gray-700 dark:text-white dark:placeholder-gray-400"
                 />
               </div>
 
               {/* Content */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Note <span className="text-red-500">*</span>
                 </label>
                 <textarea
@@ -156,22 +156,22 @@ const NoteModal = ({
                   placeholder="Write your note here..."
                   rows={5}
                   required
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors resize-none"
+                  className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors resize-none bg-white dark:bg-gray-700 dark:text-white dark:placeholder-gray-400"
                 />
-                <p className="text-xs text-gray-400 mt-1 text-right">
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1 text-right">
                   {content.length} characters
                 </p>
               </div>
 
               {/* Pin Toggle */}
-              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+              <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
                 <div className="flex items-center gap-2">
                   {isPinned ? (
-                    <Pin className="w-4 h-4 text-purple-600" />
+                    <Pin className="w-4 h-4 text-purple-600 dark:text-purple-400" />
                   ) : (
                     <PinOff className="w-4 h-4 text-gray-400" />
                   )}
-                  <span className="text-sm font-medium text-gray-700">Pin this note</span>
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Pin this note</span>
                 </div>
                 <button
                   type="button"
@@ -190,11 +190,11 @@ const NoteModal = ({
             </form>
 
             {/* Footer */}
-            <div className="p-5 border-t border-gray-200 bg-gray-50 rounded-b-2xl flex justify-end gap-3">
+            <div className="p-5 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 rounded-b-2xl flex justify-end gap-3">
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 font-medium text-sm transition-colors"
+                className="px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 font-medium text-sm transition-colors"
                 disabled={isLoading}
               >
                 Cancel

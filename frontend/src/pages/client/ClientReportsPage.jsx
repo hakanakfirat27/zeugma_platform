@@ -69,7 +69,7 @@ const ClientReportsPage = () => {
     >
       <div className="p-6" data-tour="my-reports">
         {/* Filters and Search */}
-        <div className="bg-white rounded-2xl shadow-sm p-5 mb-6 border border-gray-100">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-5 mb-6 border border-gray-100 dark:border-gray-700">
           <div className="flex items-center justify-between gap-4 flex-wrap">
             {/* Search */}
             <div className="relative flex-1 min-w-[300px]">
@@ -79,13 +79,13 @@ const ClientReportsPage = () => {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search reports..."
-                className="w-full pl-10 pr-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                className="w-full pl-10 pr-4 py-2.5 border-2 border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
               />
                 {searchQuery && (
                   <button
                   type="button"
                     onClick={() => setSearchQuery('')}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
                   >
                     <X className="w-5 h-5 text-red-400" />
                   </button>
@@ -100,7 +100,7 @@ const ClientReportsPage = () => {
                 <select
                   value={filterStatus}
                   onChange={(e) => setFilterStatus(e.target.value)}
-                  className="px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent font-medium"
+                  className="px-4 py-2.5 border-2 border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent font-medium"
                 >
                   <option value="all">All Reports</option>
                   <option value="active">Active</option>
@@ -109,13 +109,13 @@ const ClientReportsPage = () => {
               </div>
 
               {/* View Toggle Buttons */}
-              <div className="flex items-center bg-gray-100 rounded-xl p-1">
+              <div className="flex items-center bg-gray-100 dark:bg-gray-700 rounded-xl p-1">
                 <button
                   onClick={() => setViewMode('cards')}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${
                     viewMode === 'cards'
-                      ? 'bg-white text-purple-600 shadow-sm'
-                      : 'text-gray-600 hover:text-gray-900'
+                      ? 'bg-white dark:bg-gray-600 text-purple-600 dark:text-purple-400 shadow-sm'
+                      : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'
                   }`}
                 >
                   <LayoutGrid className="w-4 h-4" />
@@ -125,8 +125,8 @@ const ClientReportsPage = () => {
                   onClick={() => setViewMode('list')}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${
                     viewMode === 'list'
-                      ? 'bg-white text-purple-600 shadow-sm'
-                      : 'text-gray-600 hover:text-gray-900'
+                      ? 'bg-white dark:bg-gray-600 text-purple-600 dark:text-purple-400 shadow-sm'
+                      : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'
                   }`}
                 >
                   <List className="w-4 h-4" />
@@ -139,10 +139,10 @@ const ClientReportsPage = () => {
 
         {/* Reports Display */}
         {filteredReports.length === 0 ? (
-          <div className="bg-white rounded-2xl shadow-sm p-16 text-center">
-            <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">No Reports Found</h3>
-            <p className="text-gray-600">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-16 text-center">
+            <FileText className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">No Reports Found</h3>
+            <p className="text-gray-600 dark:text-gray-400">
               {searchQuery ? 'Try adjusting your search terms' : 'You don\'t have any reports yet'}
             </p>
           </div>
@@ -155,7 +155,7 @@ const ClientReportsPage = () => {
               return (
                 <div
                   key={report.id}
-                  className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 border-2 border-transparent hover:border-purple-200 flex flex-col h-[420px]"
+                  className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 border-2 border-transparent hover:border-purple-200 dark:hover:border-purple-800 flex flex-col h-[420px]"
                 >
                   {/* Card Header */}
                   <div className="bg-gradient-to-br from-purple-500 to-blue-600 p-6 text-white flex-shrink-0">
@@ -185,26 +185,26 @@ const ClientReportsPage = () => {
                   {/* Card Body */}
                   <div className="p-6 flex flex-col flex-1">
                     {/* Description - Limited to 3 lines */}
-                    <p className="text-gray-600 text-sm mb-6 line-clamp-3 h-[60px]">
+                    <p className="text-gray-600 dark:text-gray-400 text-sm mb-6 line-clamp-3 h-[60px]">
                       {report.report_description}
                     </p>
 
                     {/* Stats Grid */}
                     <div className="grid grid-cols-2 gap-4 mb-6">
-                      <div className="bg-gray-50 rounded-xl p-3">
+                      <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-3">
                         <div className="flex items-center gap-2 mb-1">
                           <Calendar className="w-4 h-4 text-gray-400" />
-                          <span className="text-xs text-gray-500 font-medium">Expires</span>
+                          <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">Expires</span>
                         </div>
-                        <p className="text-sm font-bold text-gray-900">
+                        <p className="text-sm font-bold text-gray-900 dark:text-white">
                           {new Date(report.end_date).toLocaleDateString()}
                         </p>
                       </div>
 
                       <div className={`rounded-xl p-3 ${
                         isExpiringSoon
-                          ? 'bg-orange-50 border border-orange-200'
-                          : 'bg-green-50 border border-green-200'
+                          ? 'bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800'
+                          : 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800'
                       }`}>
                         <div className="flex items-center gap-2 mb-1">
                           <TrendingUp className={`w-4 h-4 ${isExpiringSoon ? 'text-orange-400' : 'text-green-400'}`} />
@@ -236,42 +236,42 @@ const ClientReportsPage = () => {
           </div>
         ) : (
           /* LIST VIEW */
-          <div className="bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-100">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg overflow-hidden border border-gray-100 dark:border-gray-700">
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <thead className="bg-gray-50 dark:bg-gray-700">
                   <tr>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                       Report
                     </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                       Status
                     </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                       Expires
                     </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                       Days Left
                     </th>
-                    <th className="px-6 py-4 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-right text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                       Actions
                     </th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                   {filteredReports.map((report) => {
                     const isExpiringSoon = report.days_remaining <= 30;
 
                     return (
-                      <tr key={report.id} className="hover:bg-gray-50 transition-colors">
+                      <tr key={report.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
                             <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-blue-500 rounded-xl flex items-center justify-center flex-shrink-0">
                               <FileText className="w-5 h-5 text-white" />
                             </div>
                             <div>
-                              <p className="text-sm font-semibold text-gray-900">{report.report_title}</p>
-                              <p className="text-xs text-gray-500 line-clamp-1">{report.report_description}</p>
+                              <p className="text-sm font-semibold text-gray-900 dark:text-white">{report.report_title}</p>
+                              <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-1">{report.report_description}</p>
                             </div>
                           </div>
                         </td>
@@ -295,7 +295,7 @@ const ClientReportsPage = () => {
                             </span>
                           )}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
                           <div className="flex items-center gap-2">
                             <Calendar className="w-4 h-4 text-gray-400" />
                             {new Date(report.end_date).toLocaleDateString()}
@@ -303,7 +303,7 @@ const ClientReportsPage = () => {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`text-sm font-medium ${
-                            isExpiringSoon ? 'text-orange-600' : 'text-green-600'
+                            isExpiringSoon ? 'text-orange-600 dark:text-orange-400' : 'text-green-600 dark:text-green-400'
                           }`}>
                             {report.days_remaining} days
                           </span>
@@ -320,7 +320,7 @@ const ClientReportsPage = () => {
                           ) : (
                             <button
                               disabled
-                              className="px-4 py-2 bg-gray-100 text-gray-400 rounded-xl text-sm font-medium cursor-not-allowed"
+                              className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 rounded-xl text-sm font-medium cursor-not-allowed"
                             >
                               Expired
                             </button>

@@ -127,7 +127,7 @@ const ClientSubscriptionsPage = () => {
         </div>
 
         {/* Filters */}
-        <div className="bg-white rounded-2xl shadow-sm p-5 mb-6 border border-gray-100">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-5 mb-6 border border-gray-100 dark:border-gray-700">
           <div className="flex items-center justify-between gap-4 flex-wrap">
             <div className="relative flex-1 min-w-[300px]">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
@@ -136,13 +136,13 @@ const ClientSubscriptionsPage = () => {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search subscriptions..."
-                className="w-full pl-10 pr-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                className="w-full pl-10 pr-4 py-2.5 border-2 border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
               />
                 {searchQuery && (
                   <button
                   type="button"
                     onClick={() => setSearchQuery('')}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
                   >
                     <X className="w-5 h-5 text-red-400" />
                   </button>
@@ -154,7 +154,7 @@ const ClientSubscriptionsPage = () => {
               <select
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
-                className="px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent font-medium"
+                className="px-4 py-2.5 border-2 border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent font-medium"
               >
                 <option value="all">All Status</option>
                 <option value="active">Active</option>
@@ -167,51 +167,51 @@ const ClientSubscriptionsPage = () => {
 
         {/* Subscriptions List */}
         {filteredSubscriptions.length === 0 ? (
-          <div className="bg-white rounded-2xl shadow-sm p-16 text-center">
-            <CreditCard className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">No Subscriptions Found</h3>
-            <p className="text-gray-600">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-16 text-center">
+            <CreditCard className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">No Subscriptions Found</h3>
+            <p className="text-gray-600 dark:text-gray-400">
               {searchQuery ? 'Try adjusting your search terms' : 'You don\'t have any subscriptions yet'}
             </p>
           </div>
         ) : (
-          <div className="bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-100">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg overflow-hidden border border-gray-100 dark:border-gray-700">
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <thead className="bg-gray-50 dark:bg-gray-700">
                   <tr>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                       Report
                     </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                       Status
                     </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                       Period
                     </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                       Plan
                     </th>
-                    <th className="px-6 py-4 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-right text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                       Actions
                     </th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                   {filteredSubscriptions.map((sub) => {
                     const isExpiringSoon = sub.is_active && sub.days_remaining <= 30;
                     const actualPlan = getActualPlan(sub);
 
                     return (
-                      <tr key={sub.id} className="hover:bg-gray-50 transition-colors">
+                      <tr key={sub.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
                             <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-blue-500 rounded-xl flex items-center justify-center flex-shrink-0">
                               <FileText className="w-5 h-5 text-white" />
                             </div>
                             <div>
-                              <p className="text-sm font-semibold text-gray-900">{sub.report_title}</p>
-                              <p className="text-xs text-gray-500 line-clamp-1">{sub.report_description}</p>
+                              <p className="text-sm font-semibold text-gray-900 dark:text-white">{sub.report_title}</p>
+                              <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-1">{sub.report_description}</p>
                             </div>
                           </div>
                         </td>
@@ -235,12 +235,12 @@ const ClientSubscriptionsPage = () => {
                             </span>
                           )}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
                           <div className="flex items-center gap-2">
                             <Calendar className="w-4 h-4 text-gray-400" />
                             <div>
                               <p className="font-medium">{new Date(sub.start_date).toLocaleDateString()}</p>
-                              <p className="text-xs text-gray-400">to {new Date(sub.end_date).toLocaleDateString()}</p>
+                              <p className="text-xs text-gray-400 dark:text-gray-500">to {new Date(sub.end_date).toLocaleDateString()}</p>
                             </div>
                           </div>
                         </td>
@@ -264,7 +264,7 @@ const ClientSubscriptionsPage = () => {
                           ) : (
                             <button
                               disabled
-                              className="px-4 py-2 bg-gray-100 text-gray-400 rounded-xl text-sm font-medium cursor-not-allowed"
+                              className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 rounded-xl text-sm font-medium cursor-not-allowed"
                             >
                               Expired
                             </button>
