@@ -7,14 +7,16 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { getBreadcrumbs } from '../../utils/breadcrumbConfig';
 import {
   User, Mail, Phone, Building, Shield, Key, Save, ArrowLeft,
-  CheckCircle, AlertCircle, Eye, EyeOff, Download, Copy, Check,
-  Trash2, RefreshCw
+  CheckCircle, AlertCircle, Eye, EyeOff, Download, Copy, 
+  Trash2, RefreshCw, Bell, BellRing, BellOff, Smartphone, Laptop, Send
 } from 'lucide-react';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import ClientDashboardLayout from '../../components/layout/ClientDashboardLayout';
 import DataCollectorLayout from '../../components/layout/DataCollectorLayout';
 import EmailTwoFactorSetupModal from '../../components/auth/EmailTwoFactorSetupModal';
+import usePushNotifications from '../../hooks/usePushNotifications';
 import api from '../../utils/api';
+import { Check, X } from 'lucide-react';
 
 const ProfileSettingsPage = () => {
   const { user, checkAuth } = useAuth();
@@ -54,6 +56,28 @@ const ProfileSettingsPage = () => {
   const [showDisable2FA, setShowDisable2FA] = useState(false);
   const [disablePassword, setDisablePassword] = useState('');
   const [copiedBackup, setCopiedBackup] = useState(false);
+  const [showRegenerateCodesModal, setShowRegenerateCodesModal] = useState(false);
+  const [regeneratePassword, setRegeneratePassword] = useState('');
+
+  // Password policy state
+  const [passwordPolicy, setPasswordPolicy] = useState(null);
+  const [passwordRequirements, setPasswordRequirements] = useState({});
+
+  // Push notifications
+  const {
+    isSupported: pushSupported,
+    permission: pushPermission,
+    isSubscribed: pushSubscribed,
+    subscribe: pushSubscribe,
+    unsubscribe: pushUnsubscribe,
+    sendTestNotification,
+    getSubscriptions,
+    deleteSubscription
+  } = usePushNotifications();
+  
+  const [pushSubscriptions, setPushSubscriptions] = useState([]);
+  const [loadingPush, setLoadingPush] = useState(false);
+  const [sendingTest, setSendingTest] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -66,6 +90,113 @@ const ProfileSettingsPage = () => {
       setTwoFactorEnabled(user.two_factor_enabled || false);
     }
   }, [user]);
+
+  // Fetch password policy from API
+  useEffect(() => {
+    const fetchPasswordPolicy = async () => {
+      try {
+        const response = await api.get('/accounts/security/password-policy/');
+        // API returns { policy: {...}, requirements: [...] }
+        setPasswordPolicy(response.data.policy || response.data);
+      } catch (err) {
+        // Use default policy if API fails
+        setPasswordPolicy({
+          min_length: 8,
+          require_uppercase: true,
+          require_lowercase: true,
+          require_numbers: true,
+          require_special_chars: false,
+        });
+      }
+    };
+    fetchPasswordPolicy();
+  }, []);
+
+  // Update password requirements dynamically based on password input
+  useEffect(() => {
+    if (passwordPolicy && passwordData.new_password) {
+      const newPassword = passwordData.new_password;
+      setPasswordRequirements({
+        minLength: newPassword.length >= passwordPolicy.min_length,
+        hasUppercase: !passwordPolicy.require_uppercase || /[A-Z]/.test(newPassword),
+        hasLowercase: !passwordPolicy.require_lowercase || /[a-z]/.test(newPassword),
+        hasNumber: !passwordPolicy.require_numbers || /[0-9]/.test(newPassword),
+        hasSpecialChar: !passwordPolicy.require_special_chars || /[!@#$%^&*()_+\-=\[\]{}|;:',.<>?/~`]/.test(newPassword),
+      });
+    }
+  }, [passwordData.new_password, passwordPolicy]);
+
+  // Load push subscriptions when notifications tab is active
+  useEffect(() => {
+    if (activeTab === 'notifications' && pushSupported) {
+      loadPushSubscriptions();
+    }
+  }, [activeTab, pushSupported]);
+
+  const loadPushSubscriptions = async () => {
+    try {
+      const subs = await getSubscriptions();
+      setPushSubscriptions(subs || []);
+    } catch (err) {
+      console.error('Failed to load push subscriptions:', err);
+    }
+  };
+
+  const handlePushSubscribe = async () => {
+    setLoadingPush(true);
+    try {
+      await pushSubscribe();
+      setMessage({ type: 'success', text: 'Successfully subscribed to push notifications!' });
+      loadPushSubscriptions();
+    } catch (err) {
+      setMessage({ type: 'error', text: err.message || 'Failed to subscribe' });
+    } finally {
+      setLoadingPush(false);
+    }
+  };
+
+  const handlePushUnsubscribe = async () => {
+    setLoadingPush(true);
+    try {
+      await pushUnsubscribe();
+      setMessage({ type: 'success', text: 'Unsubscribed from push notifications' });
+      loadPushSubscriptions();
+    } catch (err) {
+      setMessage({ type: 'error', text: err.message || 'Failed to unsubscribe' });
+    } finally {
+      setLoadingPush(false);
+    }
+  };
+
+  const handleSendTestNotification = async () => {
+    setSendingTest(true);
+    try {
+      await sendTestNotification();
+      setMessage({ type: 'success', text: 'Test notification sent! Check your notifications.' });
+    } catch (err) {
+      setMessage({ type: 'error', text: err.message || 'Failed to send test notification' });
+    } finally {
+      setSendingTest(false);
+    }
+  };
+
+  const handleDeletePushSubscription = async (id) => {
+    try {
+      await deleteSubscription(id);
+      setMessage({ type: 'success', text: 'Device removed from push notifications' });
+      loadPushSubscriptions();
+    } catch (err) {
+      setMessage({ type: 'error', text: 'Failed to remove device' });
+    }
+  };
+
+  const getDeviceIcon = (deviceName) => {
+    const name = (deviceName || '').toLowerCase();
+    if (name.includes('mobile') || name.includes('android') || name.includes('iphone')) {
+      return Smartphone;
+    }
+    return Laptop;
+  };
 
   const handleProfileChange = (e) => {
     const { name, value } = e.target;
@@ -97,19 +228,26 @@ const ProfileSettingsPage = () => {
   };
 
   const validatePassword = () => {
-    if (passwordData.new_password.length < 8) {
-      return 'Password must be at least 8 characters';
+    if (!passwordPolicy) return 'Loading password policy...';
+    
+    const password = passwordData.new_password;
+    
+    if (password.length < passwordPolicy.min_length) {
+      return `Password must be at least ${passwordPolicy.min_length} characters`;
     }
-    if (!/[A-Z]/.test(passwordData.new_password)) {
+    if (passwordPolicy.require_uppercase && !/[A-Z]/.test(password)) {
       return 'Password must contain at least one uppercase letter';
     }
-    if (!/[a-z]/.test(passwordData.new_password)) {
+    if (passwordPolicy.require_lowercase && !/[a-z]/.test(password)) {
       return 'Password must contain at least one lowercase letter';
     }
-    if (!/[0-9]/.test(passwordData.new_password)) {
+    if (passwordPolicy.require_numbers && !/[0-9]/.test(password)) {
       return 'Password must contain at least one number';
     }
-    if (passwordData.new_password !== passwordData.confirm_password) {
+    if (passwordPolicy.require_special_chars && !/[!@#$%^&*()_+\-=\[\]{}|;:',.<>?/~`]/.test(password)) {
+      return 'Password must contain at least one special character';
+    }
+    if (password !== passwordData.confirm_password) {
       return 'Passwords do not match';
     }
     return null;
@@ -179,17 +317,31 @@ const ProfileSettingsPage = () => {
   };
 
   const handleRegenerateBackupCodes = async () => {
+    // Show password confirmation modal
+    setShowRegenerateCodesModal(true);
+  };
+
+  const confirmRegenerateBackupCodes = async () => {
+    if (!regeneratePassword) {
+      setMessage({ type: 'error', text: 'Please enter your password' });
+      return;
+    }
+
     setLoading(true);
     setMessage({ type: '', text: '' });
 
     try {
-      const response = await api.post('/accounts/2fa/regenerate-backup-codes/');
+      const response = await api.post('/accounts/2fa/regenerate-backup-codes/', {
+        password: regeneratePassword
+      });
       setBackupCodes(response.data.backup_codes);
-      setMessage({ type: 'success', text: 'Backup codes regenerated successfully' });
+      setShowRegenerateCodesModal(false);
+      setRegeneratePassword('');
+      setMessage({ type: 'success', text: 'Backup codes regenerated successfully. Save them now!' });
     } catch (err) {
       setMessage({
         type: 'error',
-        text: 'Failed to regenerate backup codes'
+        text: err.response?.data?.message || 'Failed to regenerate backup codes'
       });
     } finally {
       setLoading(false);
@@ -235,6 +387,7 @@ const ProfileSettingsPage = () => {
   const tabs = [
     { id: 'profile', label: 'Profile Information', icon: User },
     { id: 'security', label: 'Security', icon: Shield },
+    { id: 'notifications', label: 'Notifications', icon: Bell },
   ];
 
   // FIXED: Now checks for DATA_COLLECTOR role as well
@@ -535,14 +688,47 @@ const ProfileSettingsPage = () => {
                     </div>
                   </div>
 
-                  <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                    <p className="text-sm font-semibold text-blue-900 mb-2">Password Requirements:</p>
-                    <ul className="text-sm text-blue-700 space-y-1">
-                      <li>• At least 8 characters long</li>
-                      <li>• Contains uppercase and lowercase letters</li>
-                      <li>• Contains at least one number</li>
-                    </ul>
-                  </div>
+                  {passwordPolicy && (
+                    <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
+                      <p className="text-sm font-semibold text-slate-900 mb-3">Password Requirements:</p>
+                      <div className="space-y-2">
+                        <div className={`flex items-center gap-2 text-sm ${passwordRequirements.minLength ? 'text-green-600' : 'text-slate-600'}`}>
+                          {passwordRequirements.minLength ? <Check className="w-4 h-4" /> : <X className="w-4 h-4 text-slate-400" />}
+                          <span>At least {passwordPolicy.min_length} characters long</span>
+                        </div>
+                        {passwordPolicy.require_uppercase && (
+                          <div className={`flex items-center gap-2 text-sm ${passwordRequirements.hasUppercase ? 'text-green-600' : 'text-slate-600'}`}>
+                            {passwordRequirements.hasUppercase ? <Check className="w-4 h-4" /> : <X className="w-4 h-4 text-slate-400" />}
+                            <span>Contains uppercase letter</span>
+                          </div>
+                        )}
+                        {passwordPolicy.require_lowercase && (
+                          <div className={`flex items-center gap-2 text-sm ${passwordRequirements.hasLowercase ? 'text-green-600' : 'text-slate-600'}`}>
+                            {passwordRequirements.hasLowercase ? <Check className="w-4 h-4" /> : <X className="w-4 h-4 text-slate-400" />}
+                            <span>Contains lowercase letter</span>
+                          </div>
+                        )}
+                        {passwordPolicy.require_numbers && (
+                          <div className={`flex items-center gap-2 text-sm ${passwordRequirements.hasNumber ? 'text-green-600' : 'text-slate-600'}`}>
+                            {passwordRequirements.hasNumber ? <Check className="w-4 h-4" /> : <X className="w-4 h-4 text-slate-400" />}
+                            <span>Contains at least one number</span>
+                          </div>
+                        )}
+                        {passwordPolicy.require_special_chars && (
+                          <div className={`flex items-center gap-2 text-sm ${passwordRequirements.hasSpecialChar ? 'text-green-600' : 'text-slate-600'}`}>
+                            {passwordRequirements.hasSpecialChar ? <Check className="w-4 h-4" /> : <X className="w-4 h-4 text-slate-400" />}
+                            <span>Contains at least one special character</span>
+                          </div>
+                        )}
+                      </div>
+                      {passwordData.confirm_password && (
+                        <div className={`mt-3 pt-3 border-t border-slate-200 flex items-center gap-2 text-sm font-medium ${passwordData.new_password === passwordData.confirm_password ? 'text-green-600' : 'text-red-500'}`}>
+                          {passwordData.new_password === passwordData.confirm_password ? <Check className="w-4 h-4" /> : <X className="w-4 h-4" />}
+                          <span>{passwordData.new_password === passwordData.confirm_password ? 'Passwords match' : 'Passwords do not match'}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   <div className="flex justify-end">
                     <button
@@ -661,14 +847,179 @@ const ProfileSettingsPage = () => {
               </div>
             </div>
           )}
+
+          {/* Notifications Tab */}
+          {activeTab === 'notifications' && (
+            <div className="space-y-6">
+              {/* Push Notifications Section */}
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center gap-3">
+                    <Bell className="w-6 h-6 text-indigo-600" />
+                    <div>
+                      <h2 className="text-xl font-bold text-gray-900">Push Notifications</h2>
+                      <p className="text-sm text-gray-600 mt-1">
+                        Receive alerts even when the app is closed
+                      </p>
+                    </div>
+                  </div>
+                  <div className={`px-4 py-2 rounded-lg font-medium ${
+                    pushSubscribed
+                      ? 'bg-green-100 text-green-700'
+                      : 'bg-gray-100 text-gray-700'
+                  }`}>
+                    {pushSubscribed ? 'Enabled' : 'Disabled'}
+                  </div>
+                </div>
+
+                {!pushSupported ? (
+                  <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <div className="flex items-start gap-3">
+                      <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-sm font-medium text-yellow-800">Browser Not Supported</p>
+                        <p className="text-xs text-yellow-700 mt-1">
+                          Push notifications are not supported in this browser. Try using Chrome, Firefox, or Edge.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ) : pushPermission === 'denied' ? (
+                  <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+                    <div className="flex items-start gap-3">
+                      <BellOff className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-sm font-medium text-red-800">Notifications Blocked</p>
+                        <p className="text-xs text-red-700 mt-1">
+                          You've blocked notifications for this site. Click the lock icon in your browser's address bar to allow notifications.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <p className="text-sm text-gray-600">
+                      Get notified about new reports, messages, and important updates even when you're not using the platform.
+                    </p>
+                    
+                    <div className="flex flex-wrap gap-3">
+                      {!pushSubscribed ? (
+                        <button
+                          onClick={handlePushSubscribe}
+                          disabled={loadingPush}
+                          className="px-5 py-2.5 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                        >
+                          {loadingPush ? (
+                            <RefreshCw className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <BellRing className="w-4 h-4" />
+                          )}
+                          Enable Push Notifications
+                        </button>
+                      ) : (
+                        <>
+                          <button
+                            onClick={handlePushUnsubscribe}
+                            disabled={loadingPush}
+                            className="px-5 py-2.5 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                          >
+                            {loadingPush ? (
+                              <RefreshCw className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <BellOff className="w-4 h-4" />
+                            )}
+                            Disable Push Notifications
+                          </button>
+                          <button
+                            onClick={handleSendTestNotification}
+                            disabled={sendingTest}
+                            className="px-5 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                          >
+                            {sendingTest ? (
+                              <RefreshCw className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <Send className="w-4 h-4" />
+                            )}
+                            Send Test Notification
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Subscribed Devices */}
+              {pushSupported && pushSubscriptions.length > 0 && (
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                  <div className="p-5 border-b border-gray-200">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <Smartphone className="w-5 h-5 text-indigo-600" />
+                        <h3 className="font-semibold text-gray-900">Your Subscribed Devices</h3>
+                      </div>
+                      <span className="px-2 py-1 bg-indigo-100 text-indigo-700 text-xs font-medium rounded-full">
+                        {pushSubscriptions.length} device{pushSubscriptions.length !== 1 ? 's' : ''}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="divide-y divide-gray-100">
+                    {pushSubscriptions.map((sub) => {
+                      const DeviceIcon = getDeviceIcon(sub.device_name);
+                      return (
+                        <div key={sub.id} className="p-4 flex items-center justify-between hover:bg-gray-50 transition-colors">
+                          <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center">
+                              <DeviceIcon className="w-5 h-5 text-indigo-600" />
+                            </div>
+                            <div>
+                              <p className="font-medium text-gray-900">
+                                {sub.device_name || 'Unknown Device'}
+                              </p>
+                              <p className="text-xs text-gray-500">
+                                Added {new Date(sub.created_at).toLocaleDateString()}
+                              </p>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => handleDeletePushSubscription(sub.id)}
+                            className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                            title="Remove device"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Info Box */}
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                <div className="flex items-start gap-3">
+                  <Bell className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-blue-900">About Push Notifications</p>
+                    <p className="text-xs text-blue-700 mt-1">
+                      Push notifications let you receive alerts about new reports, messages, and important updates even when you're not actively using the platform. You can subscribe on multiple devices.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* 2FA Setup Modal */}
         <EmailTwoFactorSetupModal
           isOpen={showSetup2FA}
           onClose={() => setShowSetup2FA(false)}
-          onComplete={async () => {
+          onComplete={async (codes) => {
             setTwoFactorEnabled(true);
+            if (codes && codes.length > 0) {
+              setBackupCodes(codes);
+            }
             await checkAuth();
             setMessage({ type: 'success', text: '2FA enabled successfully!' });
           }}
@@ -718,6 +1069,55 @@ const ProfileSettingsPage = () => {
                   className="px-5 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {loading ? 'Disabling...' : 'Disable 2FA'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Regenerate Backup Codes Modal */}
+        {showRegenerateCodesModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+              <div className="px-6 py-5 border-b border-gray-200">
+                <h2 className="text-xl font-bold text-gray-900">Regenerate Backup Codes</h2>
+              </div>
+              <div className="p-6 space-y-4">
+                <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                  <p className="text-sm text-amber-800">
+                    <strong>Warning:</strong> This will invalidate all your existing backup codes. Make sure to save the new codes.
+                  </p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Enter your password to confirm
+                  </label>
+                  <input
+                    type="password"
+                    value={regeneratePassword}
+                    onChange={(e) => setRegeneratePassword(e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    placeholder="Enter your password"
+                    autoFocus
+                  />
+                </div>
+              </div>
+              <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex justify-end gap-3">
+                <button
+                  onClick={() => {
+                    setShowRegenerateCodesModal(false);
+                    setRegeneratePassword('');
+                  }}
+                  className="px-5 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-100 font-medium text-sm transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmRegenerateBackupCodes}
+                  disabled={loading || !regeneratePassword}
+                  className="px-5 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {loading ? 'Generating...' : 'Regenerate Codes'}
                 </button>
               </div>
             </div>

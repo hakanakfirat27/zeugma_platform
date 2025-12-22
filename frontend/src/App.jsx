@@ -88,6 +88,8 @@ import AdminProjectDetailPage from './pages/admin/AdminProjectDetailPage';
 import AdminAddSiteToProjectPage from './pages/admin/AdminAddSiteToProjectPage';
 import AdminViewSitePage from './pages/admin/AdminViewSitePage';
 import AdminEditSitePage from './pages/admin/AdminEditSitePage';
+import AdminThemeSettingsPage from './pages/admin/AdminThemeSettingsPage';
+import AdminSettingsPage from './pages/admin/AdminSettingsPage';
 
 // Other Pages
 import MyTasksPage from './pages/MyTasksPage';
@@ -214,6 +216,12 @@ function App() {
             <Route path="/admin/projects/:projectId/add-site" element={<ProtectedRoute allowedRoles={['SUPERADMIN', 'STAFF_ADMIN']}><AdminAddSiteToProjectPage /></ProtectedRoute>} />
             <Route path="/admin/projects/:projectId/sites/:siteId/view" element={<ProtectedRoute allowedRoles={['SUPERADMIN', 'STAFF_ADMIN']}><AdminViewSitePage /></ProtectedRoute>} />
             <Route path="/admin/projects/:projectId/sites/:siteId/edit" element={<ProtectedRoute allowedRoles={['SUPERADMIN', 'STAFF_ADMIN']}><AdminEditSitePage /></ProtectedRoute>} />
+
+            {/* Admin Theme Settings Route */}
+            <Route path="/admin/settings/theme" element={<ProtectedRoute allowedRoles={['SUPERADMIN', 'STAFF_ADMIN']}><AdminThemeSettingsPage /></ProtectedRoute>} />
+            
+            {/* Admin Settings Hub Route */}
+            <Route path="/admin/settings" element={<ProtectedRoute allowedRoles={['SUPERADMIN', 'STAFF_ADMIN']}><AdminSettingsPage /></ProtectedRoute>} />
 
             {/* Feedback (Admin) - Combined Help Center & Report Feedback */}
             <Route path="/feedback" element={<ProtectedRoute allowedRoles={['SUPERADMIN', 'STAFF_ADMIN']}><FeedbackPage /></ProtectedRoute>} />

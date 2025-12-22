@@ -16,4 +16,7 @@ urlpatterns = [
 
     # Include API URLs
     path('', include('accounts.api_urls')),
+    
+    # Security management URLs
+    path('security/', include('accounts.security_urls')),
 ]

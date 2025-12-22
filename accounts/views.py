@@ -1,4 +1,18 @@
 from .models import User, LoginHistory
+from .password_utils import get_password_policy, validate_password, get_password_requirements_text, check_password_strength
+from .email_notifications import (
+    send_welcome_email, 
+    send_2fa_disabled_email,
+    send_2fa_enabled_email,
+    send_new_device_login_email,
+    send_suspicious_login_email,
+    send_account_locked_email,
+    send_report_ready_email,
+    send_system_announcement_email,
+    is_new_device,
+    get_location_from_ip,
+    parse_user_agent
+)
 from django.contrib.auth import authenticate, login as auth_login, logout as auth_logout
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.core.mail import send_mail
@@ -34,6 +48,344 @@ from email.mime.multipart import MIMEMultipart
 
 
 User = get_user_model()
+
+
+def get_client_ip(request):
+    """
+    Get client IP address from request.
+    Handles X-Forwarded-For header for proxied requests.
+    """
+    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+    if x_forwarded_for:
+        ip = x_forwarded_for.split(',')[0].strip()
+    else:
+        ip = request.META.get('REMOTE_ADDR')
+    return ip
+
+
+def check_login_security(request, username=None):
+    """
+    Check login security before allowing login attempt.
+    
+    Returns: (allowed: bool, error_message: str, error_code: str)
+    - allowed: True if login attempt is allowed
+    - error_message: Human-readable error message if not allowed
+    - error_code: Machine-readable error code for frontend handling
+    """
+    from .security_models import (
+        SecuritySettings, IPWhitelist, IPBlacklist, 
+        FailedLoginAttempt, AuditLog
+    )
+    
+    settings_obj = SecuritySettings.get_settings()
+    ip_address = get_client_ip(request)
+    
+    # Check IP Blacklist
+    if settings_obj.enable_ip_blacklist:
+        blacklisted = IPBlacklist.objects.filter(
+            ip_address=ip_address,
+            is_active=True
+        ).first()
+        
+        if blacklisted and blacklisted.is_blocked():
+            AuditLog.log(
+                event_type='login_failed',
+                ip_address=ip_address,
+                user_agent=request.META.get('HTTP_USER_AGENT', ''),
+                description=f'Login blocked - IP blacklisted: {ip_address}',
+                severity='warning'
+            )
+            return False, 'Access denied. Your IP address has been blocked.', 'ip_blocked'
+    
+    # Check IP Whitelist (if enabled, ONLY whitelisted IPs can login)
+    if settings_obj.enable_ip_whitelist:
+        whitelisted = IPWhitelist.objects.filter(
+            ip_address=ip_address,
+            is_active=True
+        ).exists()
+        
+        if not whitelisted:
+            AuditLog.log(
+                event_type='login_failed',
+                ip_address=ip_address,
+                user_agent=request.META.get('HTTP_USER_AGENT', ''),
+                description=f'Login blocked - IP not whitelisted: {ip_address}',
+                severity='warning'
+            )
+            return False, 'Access denied. Your IP address is not authorized.', 'ip_not_whitelisted'
+    
+    # Check for too many failed attempts (account lockout)
+    if settings_obj.max_failed_attempts > 0:
+        lockout_minutes = settings_obj.lockout_duration_minutes
+        
+        # Check by IP
+        ip_attempts = FailedLoginAttempt.get_recent_attempts(
+            ip_address=ip_address,
+            minutes=lockout_minutes
+        )
+        
+        if ip_attempts >= settings_obj.max_failed_attempts:
+            # Calculate remaining lockout time
+            oldest_attempt = FailedLoginAttempt.objects.filter(
+                ip_address=ip_address,
+                attempted_at__gte=timezone.now() - timedelta(minutes=lockout_minutes)
+            ).order_by('attempted_at').first()
+            
+            if oldest_attempt:
+                unlock_time = oldest_attempt.attempted_at + timedelta(minutes=lockout_minutes)
+                remaining_minutes = max(1, int((unlock_time - timezone.now()).total_seconds() / 60))
+            else:
+                remaining_minutes = lockout_minutes
+            
+            return False, f'Too many failed login attempts. Please try again in {remaining_minutes} minute(s).', 'account_locked'
+        
+        # Check by username (if provided)
+        if username:
+            username_attempts = FailedLoginAttempt.get_recent_attempts(
+                username=username,
+                minutes=lockout_minutes
+            )
+            
+            if username_attempts >= settings_obj.max_failed_attempts:
+                oldest_attempt = FailedLoginAttempt.objects.filter(
+                    username=username,
+                    attempted_at__gte=timezone.now() - timedelta(minutes=lockout_minutes)
+                ).order_by('attempted_at').first()
+                
+                if oldest_attempt:
+                    unlock_time = oldest_attempt.attempted_at + timedelta(minutes=lockout_minutes)
+                    remaining_minutes = max(1, int((unlock_time - timezone.now()).total_seconds() / 60))
+                else:
+                    remaining_minutes = lockout_minutes
+                
+                return False, f'This account is temporarily locked due to too many failed login attempts. Please try again in {remaining_minutes} minute(s).', 'account_locked'
+    
+    return True, None, None
+
+
+def record_failed_login(request, username, reason='invalid_password'):
+    """
+    Record a failed login attempt.
+    Sends suspicious activity email after 3+ failed attempts.
+    """
+    from .security_models import FailedLoginAttempt, AuditLog, SecuritySettings
+    
+    ip_address = get_client_ip(request)
+    user_agent = request.META.get('HTTP_USER_AGENT', '')
+    
+    # Record the failed attempt
+    FailedLoginAttempt.objects.create(
+        username=username,
+        ip_address=ip_address,
+        user_agent=user_agent,
+        reason=reason
+    )
+    
+    # Log to audit
+    AuditLog.log(
+        event_type='login_failed',
+        ip_address=ip_address,
+        user_agent=user_agent,
+        description=f'Failed login attempt for {username}: {reason}',
+        severity='warning'
+    )
+    
+    # Check if this triggers a lockout or suspicious activity notification
+    settings_obj = SecuritySettings.get_settings()
+    if settings_obj.max_failed_attempts > 0:
+        attempts = FailedLoginAttempt.get_recent_attempts(
+            username=username,
+            minutes=settings_obj.lockout_duration_minutes
+        )
+        
+        # Send suspicious activity email after 3 failed attempts (before lockout)
+        if attempts >= 3:
+            try:
+                # Try to find the user to send email
+                user = None
+                if '@' in username:
+                    user = User.objects.filter(email__iexact=username).first()
+                else:
+                    user = User.objects.filter(username__iexact=username).first()
+                
+                if user:
+                    send_suspicious_login_email(user, ip_address, user_agent, attempts)
+            except Exception as e:
+                print(f"Failed to send suspicious login email: {e}")
+        
+        if attempts >= settings_obj.max_failed_attempts:
+            AuditLog.log(
+                event_type='user_locked',
+                ip_address=ip_address,
+                user_agent=user_agent,
+                description=f'Account locked due to {attempts} failed login attempts: {username}',
+                severity='critical'
+            )
+            
+            # Send account locked email
+            try:
+                user = None
+                if '@' in username:
+                    user = User.objects.filter(email__iexact=username).first()
+                else:
+                    user = User.objects.filter(username__iexact=username).first()
+                
+                if user:
+                    send_account_locked_email(
+                        user, ip_address, user_agent, 
+                        attempts, settings_obj.lockout_duration_minutes
+                    )
+            except Exception as e:
+                print(f"Failed to send account locked email: {e}")
+
+
+def clear_failed_attempts(username, ip_address=None):
+    """
+    Clear failed login attempts after successful login.
+    """
+    from .security_models import FailedLoginAttempt
+    
+    # Clear attempts for this username
+    FailedLoginAttempt.objects.filter(username=username).delete()
+    
+    # Optionally clear attempts for this IP
+    if ip_address:
+        FailedLoginAttempt.objects.filter(ip_address=ip_address).delete()
+
+
+def manage_user_sessions(user, request):
+    """
+    Manage user sessions based on security settings.
+    - Enforces max_concurrent_sessions limit
+    - Handles single_session_mode
+    - Creates new session tracking record
+    
+    Returns: (success: bool, message: str)
+    """
+    from .security_models import SecuritySettings, UserSession, AuditLog
+    from django.contrib.sessions.models import Session
+    
+    settings = SecuritySettings.get_settings()
+    session_key = request.session.session_key
+    
+    # Get user agent info for session tracking
+    user_agent = request.META.get('HTTP_USER_AGENT', '')
+    ip_address = request.META.get('REMOTE_ADDR')
+    
+    # Parse device info from user agent
+    device_type = 'unknown'
+    browser = ''
+    os_name = ''
+    
+    if user_agent:
+        user_agent_lower = user_agent.lower()
+        # Detect device type
+        if 'mobile' in user_agent_lower or 'android' in user_agent_lower:
+            device_type = 'mobile'
+        elif 'tablet' in user_agent_lower or 'ipad' in user_agent_lower:
+            device_type = 'tablet'
+        else:
+            device_type = 'desktop'
+        
+        # Detect browser
+        if 'chrome' in user_agent_lower and 'edg' not in user_agent_lower:
+            browser = 'Chrome'
+        elif 'firefox' in user_agent_lower:
+            browser = 'Firefox'
+        elif 'safari' in user_agent_lower and 'chrome' not in user_agent_lower:
+            browser = 'Safari'
+        elif 'edg' in user_agent_lower:
+            browser = 'Edge'
+        else:
+            browser = 'Other'
+        
+        # Detect OS
+        if 'windows' in user_agent_lower:
+            os_name = 'Windows'
+        elif 'mac' in user_agent_lower:
+            os_name = 'macOS'
+        elif 'linux' in user_agent_lower:
+            os_name = 'Linux'
+        elif 'android' in user_agent_lower:
+            os_name = 'Android'
+        elif 'iphone' in user_agent_lower or 'ipad' in user_agent_lower:
+            os_name = 'iOS'
+        else:
+            os_name = 'Other'
+    
+    # Get existing sessions for this user
+    existing_sessions = UserSession.objects.filter(user=user).order_by('-last_activity')
+    
+    # Handle Single Session Mode
+    if settings.single_session_mode:
+        # Terminate all existing sessions
+        for old_session in existing_sessions:
+            try:
+                Session.objects.filter(session_key=old_session.session_key).delete()
+                old_session.delete()
+                
+                AuditLog.log(
+                    event_type='session_terminated',
+                    user=user,
+                    ip_address=ip_address,
+                    description=f'Session terminated due to single session mode (new login)',
+                    severity='info'
+                )
+            except Exception as e:
+                print(f"Error terminating session: {e}")
+    
+    # Handle Max Concurrent Sessions
+    elif settings.max_concurrent_sessions > 0:
+        current_count = existing_sessions.count()
+        
+        if current_count >= settings.max_concurrent_sessions:
+            # Terminate oldest sessions to make room
+            sessions_to_remove = current_count - settings.max_concurrent_sessions + 1
+            oldest_sessions = existing_sessions.order_by('last_activity')[:sessions_to_remove]
+            
+            for old_session in oldest_sessions:
+                try:
+                    Session.objects.filter(session_key=old_session.session_key).delete()
+                    old_session.delete()
+                    
+                    AuditLog.log(
+                        event_type='session_terminated',
+                        user=user,
+                        ip_address=ip_address,
+                        description=f'Session terminated due to max concurrent sessions limit',
+                        severity='info'
+                    )
+                except Exception as e:
+                    print(f"Error terminating session: {e}")
+    
+    # Create new session tracking record
+    if session_key:
+        UserSession.objects.update_or_create(
+            session_key=session_key,
+            defaults={
+                'user': user,
+                'device_type': device_type,
+                'browser': browser,
+                'os': os_name,
+                'ip_address': ip_address,
+                'device_name': f"{browser} on {os_name}",
+                'is_current': True,
+            }
+        )
+        
+        # Mark other sessions as not current
+        UserSession.objects.filter(user=user).exclude(session_key=session_key).update(is_current=False)
+        
+        AuditLog.log(
+            event_type='session_created',
+            user=user,
+            ip_address=ip_address,
+            user_agent=user_agent,
+            description=f'New session created for {user.username}',
+            severity='info'
+        )
+    
+    return True, 'Session created successfully'
 
 
 def send_email_with_ssl_fix(to_email, subject, text_message, html_message=None):
@@ -231,8 +583,11 @@ def generate_username(request):
 @permission_classes([IsAdminUser])
 def create_user_send_email(request):
     """
-    Create user without password and send password creation link
+    Create user without password and send password creation link.
+    Uses the 'user_invited' email template from EmailTemplate system.
     """
+    from .email_models import EmailTemplate, EmailBranding
+    
     serializer = UserManagementSerializer(data=request.data)
 
     if serializer.is_valid():
@@ -248,38 +603,196 @@ def create_user_send_email(request):
         frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:5173')
         password_link = f"{frontend_url}/create-password/{uid}/{token}/"
 
-        # Send email
-        subject = 'Welcome to A Data - Create Your Password'
-        message = f"""
-Hello {user.first_name or user.username},
+        # Get role display name
+        role_display = {
+            'CLIENT': 'Client',
+            'DATA_COLLECTOR': 'Data Collector',
+            'STAFF_ADMIN': 'Staff Admin',
+            'SUPERADMIN': 'Super Admin',
+            'GUEST': 'Guest'
+        }.get(user.role, user.role)
 
-Welcome to A Data! Your account has been created.
+        # Try to use EmailTemplate system first
+        template = EmailTemplate.get_template('user_invited')
+        
+        if template:
+            # Use the EmailTemplate system
+            context_data = {
+                'user_name': user.first_name or user.username,
+                'user_email': user.email,
+                'role': role_display,
+                'invite_url': password_link,
+                'expiry_hours': '24',
+            }
+            
+            success = template.send_email(user.email, context_data)
+            
+            if success:
+                return Response({
+                    'success': True,
+                    'message': 'User created successfully. Password creation email sent.',
+                    'user': UserSerializer(user).data
+                }, status=status.HTTP_201_CREATED)
+            else:
+                # If email fails, delete the user and return error
+                user.delete()
+                return Response({
+                    'success': False,
+                    'message': 'Failed to send email. Please try again.'
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        else:
+            # Fallback: Use inline template if EmailTemplate not found
+            branding = EmailBranding.get_branding()
+            current_year = datetime.datetime.now().year
+            
+            subject = f'Welcome to {branding.company_name} - Set Up Your Account'
+            
+            # Plain text version (fallback)
+            text_message = f"""Welcome to {branding.company_name}!
 
-Please click the link below to create your password and complete your profile:
+Dear {user.first_name or user.username},
 
+Your {role_display} account has been created on {branding.company_name}. We're excited to have you on board!
+
+To get started, please set up your password by clicking the link below:
 {password_link}
 
-This link will expire in 24 hours.
+What happens next:
+- Create a secure password for your account
+- Set up Two-Factor Authentication for enhanced security
+- Complete your profile information
+- Start using the platform!
 
-Best regards,
-A Data Team
-        """
+Note: This link will expire in 24 hours. If you didn't expect this email, please contact support.
 
-        success, error = send_email_with_ssl_fix(user.email, subject, message)
-        
-        if success:
-            return Response({
-                'success': True,
-                'message': 'User created successfully. Password creation email sent.',
-                'user': UserSerializer(user).data
-            }, status=status.HTTP_201_CREATED)
-        else:
-            # If email fails, delete the user and return error
-            user.delete()
-            return Response({
-                'success': False,
-                'message': f'Failed to send email: {error}'
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+Warm regards,
+{branding.company_name} Team"""
+
+            # Professional HTML version
+            html_message = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome to {branding.company_name}</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f5f5;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f5f5; padding: 40px 20px;">
+        <tr>
+            <td align="center">
+                <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); max-width: 600px; overflow: hidden;">
+                    <!-- Header -->
+                    <tr>
+                        <td style="background: linear-gradient(135deg, {branding.primary_color} 0%, {branding.secondary_color} 100%); padding: 50px 40px; text-align: center;">
+                            <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 600;">
+                                Welcome to {branding.company_name}
+                            </h1>
+                        </td>
+                    </tr>
+
+                    <!-- Content -->
+                    <tr>
+                        <td style="padding: 40px 40px 20px 40px;">
+                            <p style="margin: 0 0 20px 0; font-size: 16px; line-height: 1.6; color: {branding.primary_color}; font-weight: 500;">
+                                Dear {user.first_name or user.username},
+                            </p>
+
+                            <p style="margin: 0 0 20px 0; font-size: 16px; line-height: 1.6; color: #4a4a4a;">
+                                Your <strong>{role_display}</strong> account has been created on {branding.company_name}. We're excited to have you on board!
+                            </p>
+
+                            <p style="margin: 0 0 20px 0; font-size: 16px; line-height: 1.6; color: #4a4a4a;">
+                                To get started, please set up your password by clicking the button below:
+                            </p>
+
+                            <!-- Set Up Account Button -->
+                            <table width="100%" cellpadding="0" cellspacing="0">
+                                <tr>
+                                    <td align="center" style="padding: 20px 0;">
+                                        <a href="{password_link}" style="display: inline-block; padding: 16px 40px; background: linear-gradient(135deg, {branding.primary_color} 0%, {branding.secondary_color} 100%); color: #ffffff; text-decoration: none; border-radius: 8px; font-size: 16px; font-weight: 600; box-shadow: 0 4px 14px rgba(139, 92, 246, 0.3);">
+                                            Set Up Your Account
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <!-- What Happens Next -->
+                            <div style="border-left: 4px solid #dc2626; padding: 15px 20px; margin: 25px 0; background-color: #ffffff;">
+                                <p style="margin: 0 0 15px 0; font-size: 15px; font-weight: 600; color: #1a1a1a;">
+                                    What happens next:
+                                </p>
+                                <ul style="margin: 0; padding-left: 20px; color: #4a4a4a; font-size: 14px; line-height: 1.8;">
+                                    <li>Create a secure password for your account</li>
+                                    <li>Set up Two-Factor Authentication for enhanced security</li>
+                                    <li>Complete your profile information</li>
+                                    <li>Start using the platform!</li>
+                                </ul>
+                            </div>
+
+                            <!-- Note -->
+                            <p style="margin: 25px 0; font-size: 14px; line-height: 1.6; color: #4a4a4a;">
+                                <strong>Note:</strong> This link will expire in <strong>24 hours</strong>. If you didn't expect this email, please contact support.
+                            </p>
+
+                            <!-- Fallback Link -->
+                            <p style="margin: 0 0 10px 0; font-size: 13px; color: #6b7280;">
+                                Or copy and paste this link into your browser:
+                            </p>
+                            <p style="margin: 0; font-size: 13px; word-break: break-all;">
+                                <a href="{password_link}" style="color: {branding.primary_color}; text-decoration: none;">{password_link}</a>
+                            </p>
+                        </td>
+                    </tr>
+
+                    <!-- Signature -->
+                    <tr>
+                        <td style="padding: 20px 40px 30px 40px;">
+                            <p style="margin: 0; font-size: 14px; line-height: 1.6; color: #4a4a4a;">
+                                Warm regards,<br>
+                                <strong style="color: {branding.primary_color};">{branding.company_name} Team</strong>
+                            </p>
+                        </td>
+                    </tr>
+
+                    <!-- Footer -->
+                    <tr>
+                        <td style="background-color: #f8f9fa; padding: 30px 40px; border-top: 1px solid #e5e7eb;">
+                            <table width="100%" cellpadding="0" cellspacing="0">
+                                <tr>
+                                    <td align="center">
+                                        <p style="margin: 0 0 5px 0; font-size: 14px; font-weight: 600; color: #1a1a1a;">
+                                            {branding.company_name}
+                                        </p>
+                                        <p style="margin: 0; font-size: 12px; color: #9ca3af;">
+                                            {branding.footer_text}
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>"""
+
+            success, error = send_email_with_ssl_fix(user.email, subject, text_message, html_message)
+            
+            if success:
+                return Response({
+                    'success': True,
+                    'message': 'User created successfully. Password creation email sent.',
+                    'user': UserSerializer(user).data
+                }, status=status.HTTP_201_CREATED)
+            else:
+                # If email fails, delete the user and return error
+                user.delete()
+                return Response({
+                    'success': False,
+                    'message': f'Failed to send email: {error}'
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -324,7 +837,7 @@ def validate_password_token(request, uidb64, token):
 @permission_classes([AllowAny])
 def create_password(request, uidb64, token):
     """
-    Create password for new user
+    Create password for new user - uses dynamic password policy
     """
     try:
         uid = force_str(urlsafe_base64_decode(uidb64))
@@ -349,33 +862,19 @@ def create_password(request, uidb64, token):
             'message': 'Password is required'
         }, status=status.HTTP_400_BAD_REQUEST)
 
-    # Validate password strength
-    if len(password) < 8:
+    # Validate password using dynamic policy
+    is_valid, errors = validate_password(password, user)
+    
+    if not is_valid:
         return Response({
             'success': False,
-            'message': 'Password must be at least 8 characters'
+            'message': errors[0] if errors else 'Password does not meet requirements',
+            'errors': errors
         }, status=status.HTTP_400_BAD_REQUEST)
 
-    if not re.search(r'[A-Z]', password):
-        return Response({
-            'success': False,
-            'message': 'Password must contain at least one uppercase letter'
-        }, status=status.HTTP_400_BAD_REQUEST)
-
-    if not re.search(r'[a-z]', password):
-        return Response({
-            'success': False,
-            'message': 'Password must contain at least one lowercase letter'
-        }, status=status.HTTP_400_BAD_REQUEST)
-
-    if not re.search(r'[0-9]', password):
-        return Response({
-            'success': False,
-            'message': 'Password must contain at least one number'
-        }, status=status.HTTP_400_BAD_REQUEST)
-
-    # Set password
+    # Set password and track change time
     user.set_password(password)
+    user.password_changed_at = timezone.now()
     user.save()
 
     return Response({
@@ -425,28 +924,36 @@ class UserViewSet(viewsets.ModelViewSet):
 @ensure_csrf_cookie
 def login_view(request):
     """
-    Login view with Email 2FA support, Remember Me, and real-time status updates
+    Login view with Email 2FA support, Remember Me, and real-time status updates.
+    Includes login security: IP whitelist/blacklist, failed attempt lockout.
     """
     data = request.data
     username_or_email = data.get('username', '').strip()
     password = data.get('password', '')
-    remember_me = data.get('remember_me', False)  # NEW: Get remember_me flag
+    remember_me = data.get('remember_me', False)
+
+    # ===== SECURITY CHECK: IP whitelist/blacklist and lockout =====
+    allowed, error_message, error_code = check_login_security(request, username_or_email)
+    if not allowed:
+        return Response({
+            'error': error_message,
+            'error_code': error_code,
+        }, status=status.HTTP_403_FORBIDDEN)
 
     # Try to determine if input is email or username
     user = None
-
-    # Add this variable to track user even if auth fails
     attempted_user = None
 
     if '@' in username_or_email:
         try:
             user_obj = User.objects.get(email__iexact=username_or_email)
             user = authenticate(request, username=user_obj.username, password=password)
+            if user is None:
+                attempted_user = user_obj
         except User.DoesNotExist:
             user = None
     else:
         user = authenticate(request, username=username_or_email, password=password)
-        # Try to get user object for failed login recording
         if user is None:
             try:
                 attempted_user = User.objects.get(username__iexact=username_or_email)
@@ -457,88 +964,152 @@ def login_view(request):
         try:
             user_obj = User.objects.get(email__iexact=username_or_email)
             user = authenticate(request, username=user_obj.username, password=password)
+            if user is None:
+                attempted_user = user_obj
         except User.DoesNotExist:
             user = None
 
-    if user is not None:
-        # Check if 2FA is enabled
-        if user.two_factor_enabled:
-            # Generate and send code
-            code = user.generate_2fa_code()
+    # ===== FAILED LOGIN: Record attempt =====
+    if user is None:
+        # Determine the reason for failure
+        if attempted_user is not None:
+            reason = 'invalid_password'
+        else:
+            reason = 'invalid_username'
+        
+        record_failed_login(request, username_or_email, reason)
+        
+        return Response({
+            'error': 'Invalid username or password',
+            'error_code': 'invalid_credentials',
+        }, status=status.HTTP_401_UNAUTHORIZED)
+    
+    # ===== SUCCESSFUL AUTH: Clear failed attempts and continue =====
+    clear_failed_attempts(user.username, get_client_ip(request))
+    
+    # Check if password is expired
+    if user.is_password_expired():
+        days_expired = 0
+        if user.password_changed_at:
+            from .security_models import SecuritySettings
+            settings = SecuritySettings.get_settings()
+            from datetime import timedelta
+            expiry_date = user.password_changed_at + timedelta(days=settings.password_expiry_days)
+            days_expired = (timezone.now() - expiry_date).days
+        
+        return Response({
+            'password_expired': True,
+            'username': user.username,
+            'days_expired': days_expired,
+            'message': 'Your password has expired. Please change your password to continue.'
+        })
+    
+    # Check if 2FA is enabled
+    if user.two_factor_enabled:
+        from .email_models import EmailBranding
+        
+        # Generate and send code
+        code = user.generate_2fa_code()
+        
+        # Get branding
+        branding = EmailBranding.get_branding()
+        current_year = datetime.datetime.now().year
 
-            subject = 'Your Login Verification Code'
-            current_year = datetime.datetime.now().year
+        subject = f'Your Login Verification Code - {branding.company_name}'
 
-            # Plain text version (fallback)
-            text_message = f"""
-            Hello {user.first_name or user.username},
+        # Plain text version (fallback)
+        text_message = f"""
+Hello {user.first_name or user.username},
 
-            Your verification code is: {code}
+Your verification code is: {code}
 
-            This code will expire in 10 minutes.
+This code will expire in 10 minutes.
 
-            If you didn't try to log in, please secure your account immediately.
+If you didn't try to log in, please secure your account immediately.
 
-            Best regards,
-            A Data Team
-                        """
+Best regards,
+{branding.company_name} Team
+        """
 
-            # Professional HTML version
-            html_message = f"""
-            <!DOCTYPE html>
-            <html lang="en">
-            <head>
-                <meta charset="UTF-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <title>Your Login Verification Code</title>
-            </head>
-            <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f5f5;">
-                <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f5f5; padding: 40px 20px;">
+        # Professional HTML version (matching Welcome email design)
+        html_message = f"""
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Your Login Verification Code</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f5f5;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f5f5; padding: 40px 20px;">
+        <tr>
+            <td align="center">
+                <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); max-width: 600px; overflow: hidden;">
+                    <!-- Header -->
                     <tr>
-                        <td align="center">
-                            <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); max-width: 600px;">
-                                <!-- Header -->
+                        <td style="background: linear-gradient(135deg, {branding.primary_color} 0%, #7c3aed 100%); padding: 40px 40px; text-align: center;">
+                            <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 600;">
+                                Your Login Verification Code
+                            </h1>
+                        </td>
+                    </tr>
+
+                    <!-- Content -->
+                    <tr>
+                        <td style="padding: 40px 40px 20px 40px;">
+                            <p style="margin: 0 0 20px 0; font-size: 16px; line-height: 1.6; color: {branding.primary_color}; font-weight: 500;">
+                                Hello {user.first_name or user.username},
+                            </p>
+
+                            <p style="margin: 0 0 30px 0; font-size: 16px; line-height: 1.6; color: #4a4a4a;">
+                                We received a login attempt for your {branding.company_name} account. 
+                                Use the verification code below to complete your login:
+                            </p>
+
+                            <!-- Verification Code Box -->
+                            <div style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border: 2px dashed {branding.primary_color}; border-radius: 12px; padding: 30px; text-align: center; margin: 20px 0 30px 0;">
+                                <div style="font-size: 42px; font-weight: bold; color: {branding.primary_color}; letter-spacing: 12px; font-family: 'Courier New', monospace;">
+                                    {code}
+                                </div>
+                            </div>
+
+                            <p style="margin: 30px 0 10px 0; font-size: 14px; line-height: 1.6; color: #6b7280;">
+                                This code will expire in <strong>10 minutes</strong>.
+                            </p>
+
+                            <p style="margin: 0; font-size: 14px; line-height: 1.6; color: #6b7280;">
+                                If you didn't try to log in, please secure your account immediately by changing your password.
+                            </p>
+                        </td>
+                    </tr>
+
+                    <!-- Signature -->
+                    <tr>
+                        <td style="padding: 20px 40px 30px 40px;">
+                            <p style="margin: 0; font-size: 14px; line-height: 1.6; color: #4a4a4a;">
+                                Warm regards,<br>
+                                <strong style="color: {branding.primary_color};">{branding.company_name} Team</strong>
+                            </p>
+                        </td>
+                    </tr>
+
+                    <!-- Footer -->
+                    <tr>
+                        <td style="background-color: #f8f9fa; padding: 30px 40px; border-top: 1px solid #e5e7eb;">
+                            <table width="100%" cellpadding="0" cellspacing="0">
                                 <tr>
-                                    <td style="padding: 40px 40px 30px 40px;">
-                                        <h1 style="margin: 0; font-size: 28px; font-weight: 600; color: #1a1a1a; line-height: 1.3;">
-                                            Your Login Verification Code
-                                        </h1>
-                                    </td>
-                                </tr>
-
-                                <!-- Content -->
-                                <tr>
-                                    <td style="padding: 0 40px 30px 40px;">
-                                        <p style="margin: 0 0 20px 0; font-size: 16px; line-height: 1.6; color: #4a4a4a;">
-                                            Hello {user.first_name or user.username},
+                                    <td align="center">
+                                        <p style="margin: 0 0 8px 0; font-size: 14px; font-weight: 600; color: #1a1a1a;">
+                                            {branding.company_name}
                                         </p>
-
-                                        <p style="margin: 0 0 30px 0; font-size: 16px; line-height: 1.6; color: #4a4a4a;">
-                                            We received a login attempt for your A Data account. Use the verification code below to complete your login:
+                                        <p style="margin: 0 0 15px 0; font-size: 12px; color: #6b7280;">
+                                            Professional Data Collection & Site Management
                                         </p>
-
-                                        <!-- Verification Code Box -->
-                                        <div style="background-color: #f8f9fa; border: 2px dashed #d1d5db; border-radius: 8px; padding: 24px; text-align: center; margin: 30px 0;">
-                                            <div style="font-size: 36px; font-weight: bold; color: #1a1a1a; letter-spacing: 8px; font-family: 'Courier New', monospace;">
-                                                {code}
-                                            </div>
-                                        </div>
-
-                                        <p style="margin: 30px 0 20px 0; font-size: 14px; line-height: 1.6; color: #6b7280;">
-                                            This code will expire in <strong>10 minutes</strong>.
+                                        <p style="margin: 0; font-size: 11px; color: #9ca3af;">
+                                            This email was sent from an automated system. Please do not reply directly to this email.
                                         </p>
-
-                                        <p style="margin: 0 0 10px 0; font-size: 14px; line-height: 1.6; color: #6b7280;">
-                                            If you didn't try to log in, please secure your account immediately or contact support.
-                                        </p>
-                                    </td>
-                                </tr>
-
-                                <!-- Footer -->
-                                <tr>
-                                    <td style="padding: 30px 40px 40px 40px; border-top: 1px solid #e5e7eb;">
-                                        <p style="margin: 0; font-size: 12px; line-height: 1.5; color: #9ca3af; text-align: center;">
-                                            © {current_year} A Data. All rights reserved.
+                                        <p style="margin: 10px 0 0 0; font-size: 11px; color: #9ca3af;">
+                                            © {current_year} {branding.company_name}. All rights reserved.
                                         </p>
                                     </td>
                                 </tr>
@@ -546,74 +1117,51 @@ def login_view(request):
                         </td>
                     </tr>
                 </table>
-            </body>
-            </html>
-                        """
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
+        """
 
-            try:
-                success, error = send_email_with_ssl_fix(user.email, subject, text_message, html_message)
-                if not success:
-                    return Response({
-                        'error': f'Failed to send verification code: {error}'
-                    }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-            except Exception as e:
+        try:
+            success, error = send_email_with_ssl_fix(user.email, subject, text_message, html_message)
+            if not success:
                 return Response({
-                    'error': 'Failed to send verification code. Please try again.'
+                    'error': f'Failed to send verification code: {error}'
                 }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-            # Don't login yet, require 2FA code
+        except Exception as e:
             return Response({
-                'requires_2fa': True,
-                'username': user.username,
-                'email': user.email,
-                'message': f'Verification code sent to {user.email}'
-            })
+                'error': 'Failed to send verification code. Please try again.'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-        # Check if 2FA setup is required (first login)
-        if user.is_2fa_setup_required:
-            # Login but flag that 2FA setup is required
-            auth_logout(request)
-            auth_login(request, user)
+        # Don't login yet, require 2FA code
+        return Response({
+            'requires_2fa': True,
+            'username': user.username,
+            'email': user.email,
+            'message': f'Verification code sent to {user.email}'
+        })
 
-            # NEW: Set session expiry based on remember_me
-            if remember_me:
-                # Remember for 30 days
-                request.session.set_expiry(2592000)  # 30 days in seconds
-            else:
-                # Session expires when browser closes
-                request.session.set_expiry(0)
-
-            user.update_last_activity()
-
-            # SET USER ONLINE
-            user.is_online = True
-            user.save(update_fields=['is_online'])
-
-            # BROADCAST STATUS
-            broadcast_user_status(user.id, user.username, True)
-
-            user.record_login(
-                ip_address=request.META.get('REMOTE_ADDR'),
-                user_agent=request.META.get('HTTP_USER_AGENT')
-            )
-
-            return Response({
-                'requires_2fa_setup': True,
-                'user': UserSerializer(user).data,
-                'message': '2FA setup required'
-            })
-
-        # Regular login without 2FA
+    # Check if 2FA setup is required (first login)
+    if user.is_2fa_setup_required:
+        # Login but flag that 2FA setup is required
         auth_logout(request)
         auth_login(request, user)
 
-        # NEW: Set session expiry based on remember_me
+        # Store remember_me flag and set session expiry
+        request.session['remember_me'] = remember_me
+        request.session['last_activity'] = timezone.now().isoformat()
+        
         if remember_me:
             # Remember for 30 days
             request.session.set_expiry(2592000)  # 30 days in seconds
         else:
             # Session expires when browser closes
             request.session.set_expiry(0)
+        
+        # Manage sessions (enforce limits, track session)
+        manage_user_sessions(user, request)
 
         user.update_last_activity()
 
@@ -629,39 +1177,113 @@ def login_view(request):
             user_agent=request.META.get('HTTP_USER_AGENT')
         )
 
-        serializer = UserSerializer(user)
+        # Log successful login (2FA setup required)
+        from .security_models import AuditLog
+        AuditLog.log(
+            event_type='login_success',
+            user=user,
+            ip_address=request.META.get('REMOTE_ADDR'),
+            user_agent=request.META.get('HTTP_USER_AGENT', ''),
+            description=f'User {user.username} logged in (2FA setup required)',
+            severity='info'
+        )
 
         return Response({
-            'user': serializer.data,
-            'message': 'Login successful'
+            'requires_2fa_setup': True,
+            'user': UserSerializer(user).data,
+            'message': '2FA setup required'
         })
+
+    # Regular login without 2FA
+    auth_logout(request)
+    auth_login(request, user)
+
+    # Store remember_me flag and set session expiry
+    request.session['remember_me'] = remember_me
+    request.session['last_activity'] = timezone.now().isoformat()
+    
+    if remember_me:
+        # Remember for 30 days
+        request.session.set_expiry(2592000)  # 30 days in seconds
     else:
-        # RECORD FAILED LOGIN ATTEMPT
-        if attempted_user:
-            LoginHistory.objects.create(
-                user=attempted_user,
-                ip_address=request.META.get('REMOTE_ADDR'),
-                user_agent=request.META.get('HTTP_USER_AGENT'),
-                success=False
-            )
-        return Response({
-            'error': 'Invalid credentials. Please check your username/email and password.'
-        }, status=status.HTTP_400_BAD_REQUEST)
+        # Session expires when browser closes
+        request.session.set_expiry(0)
+    
+    # Manage sessions (enforce limits, track session)
+    manage_user_sessions(user, request)
+
+    user.update_last_activity()
+
+    # SET USER ONLINE
+    user.is_online = True
+    user.save(update_fields=['is_online'])
+
+    # BROADCAST STATUS
+    broadcast_user_status(user.id, user.username, True)
+
+    user.record_login(
+        ip_address=request.META.get('REMOTE_ADDR'),
+        user_agent=request.META.get('HTTP_USER_AGENT')
+    )
+
+    # Log successful login
+    from .security_models import AuditLog
+    ip_address = request.META.get('REMOTE_ADDR')
+    user_agent = request.META.get('HTTP_USER_AGENT', '')
+    
+    AuditLog.log(
+        event_type='login_success',
+        user=user,
+        ip_address=ip_address,
+        user_agent=user_agent,
+        description=f'User {user.username} logged in successfully',
+        severity='info'
+    )
+
+    # Check if this is a new device and send notification
+    try:
+        if is_new_device(user, user_agent):
+            send_new_device_login_email(user, ip_address, user_agent)
+    except Exception as e:
+        print(f"Failed to send new device login email: {e}")
+
+    serializer = UserSerializer(user)
+
+    return Response({
+        'user': serializer.data,
+        'message': 'Login successful'
+    })
 
 
 @api_view(['POST'])
 def logout_view(request):
     """
-    Logout view with real-time status updates
+    Logout view with real-time status updates and session cleanup
     """
     user = request.user
+    session_key = request.session.session_key if hasattr(request, 'session') else None
 
     if user.is_authenticated:
-        # 🆕 SET USER OFFLINE
+        # Clean up session tracking
+        if session_key:
+            from .security_models import UserSession, AuditLog
+            try:
+                UserSession.objects.filter(session_key=session_key).delete()
+                AuditLog.log(
+                    event_type='logout',
+                    user=user,
+                    ip_address=request.META.get('REMOTE_ADDR'),
+                    description=f'User {user.username} logged out',
+                    severity='info'
+                )
+            except Exception as e:
+                print(f"Error cleaning up session: {e}")
+        
+        # SET USER OFFLINE
         user.is_online = False
         user.save(update_fields=['is_online'])
 
-        # 🆕 BROADCAST STATUS
+        # BROADCAST STATUS
         broadcast_user_status(user.id, user.username, False)
 
     auth_logout(request)
@@ -903,6 +1525,7 @@ A Data Team
 def disable_2fa(request):
     """
     Disable 2FA for user (requires password confirmation)
+    Sends security notification email when 2FA is disabled
     """
     user = request.user
     password = request.data.get('password', '')
@@ -917,6 +1540,25 @@ def disable_2fa(request):
     user.two_factor_enabled = False
     user.clear_2fa_code()
     user.save()
+
+    # Send security notification email
+    try:
+        ip_address = get_client_ip(request)
+        user_agent = request.META.get('HTTP_USER_AGENT', '')
+        send_2fa_disabled_email(user, ip_address, user_agent)
+    except Exception as e:
+        print(f"Failed to send 2FA disabled notification: {e}")
+
+    # Log to audit
+    from .security_models import AuditLog
+    AuditLog.log(
+        event_type='2fa_disabled',
+        user=user,
+        ip_address=get_client_ip(request),
+        user_agent=request.META.get('HTTP_USER_AGENT', ''),
+        description=f'2FA disabled for user {user.username}',
+        severity='warning'
+    )
 
     return Response({
         'success': True,
@@ -960,13 +1602,19 @@ def verify_2fa_login(request):
         # Login user
         auth_login(request, user)
 
-        # NEW: Set session expiry based on remember_me
+        # Store remember_me flag and set session expiry
+        request.session['remember_me'] = remember_me
+        request.session['last_activity'] = timezone.now().isoformat()
+        
         if remember_me:
             # Remember for 30 days
             request.session.set_expiry(2592000)  # 30 days in seconds
         else:
             # Session expires when browser closes
             request.session.set_expiry(0)
+        
+        # Manage sessions (enforce limits, track session)
+        manage_user_sessions(user, request)
 
         user.update_last_activity()
 
@@ -982,6 +1630,27 @@ def verify_2fa_login(request):
             user_agent=request.META.get('HTTP_USER_AGENT')
         )
 
+        # Log successful login after 2FA verification
+        from .security_models import AuditLog
+        ip_address = request.META.get('REMOTE_ADDR')
+        user_agent = request.META.get('HTTP_USER_AGENT', '')
+        
+        AuditLog.log(
+            event_type='login_success',
+            user=user,
+            ip_address=ip_address,
+            user_agent=user_agent,
+            description=f'User {user.username} logged in after 2FA verification',
+            severity='info'
+        )
+
+        # Check if this is a new device and send notification
+        try:
+            if is_new_device(user, user_agent):
+                send_new_device_login_email(user, ip_address, user_agent)
+        except Exception as e:
+            print(f"Failed to send new device login email: {e}")
+
         return Response({
             'success': True,
             'user': UserSerializer(user).data,
@@ -995,6 +1664,18 @@ def verify_2fa_login(request):
             user_agent=request.META.get('HTTP_USER_AGENT'),
             success=False
         )
+        
+        # Log failed 2FA attempt
+        from .security_models import AuditLog
+        AuditLog.log(
+            event_type='2fa_failed',
+            user=user,
+            ip_address=request.META.get('REMOTE_ADDR'),
+            user_agent=request.META.get('HTTP_USER_AGENT', ''),
+            description=f'Failed 2FA verification for {user.username}',
+            severity='warning'
+        )
+        
         return Response(
             {'success': False, 'message': 'Invalid or expired code'},
             status=status.HTTP_400_BAD_REQUEST
@@ -1005,8 +1686,12 @@ def verify_2fa_login(request):
 @permission_classes([IsAuthenticated])
 def change_password(request):
     """
-    Change user password
+    Change user password - uses dynamic password policy with history check
+    Sends password change confirmation email on success
     """
+    from .security_models import PasswordHistory
+    from .email_models import EmailTemplate, EmailBranding
+    
     user = request.user
     current_password = request.data.get('current_password', '')
     new_password = request.data.get('new_password', '')
@@ -1018,34 +1703,168 @@ def change_password(request):
             status=status.HTTP_400_BAD_REQUEST
         )
 
-    # Validate new password
-    if len(new_password) < 8:
-        return Response(
-            {'success': False, 'message': 'Password must be at least 8 characters'},
-            status=status.HTTP_400_BAD_REQUEST
-        )
+    # Validate new password using dynamic policy (includes history check)
+    is_valid, errors = validate_password(new_password, user)
+    
+    if not is_valid:
+        return Response({
+            'success': False,
+            'message': errors[0] if errors else 'Password does not meet requirements',
+            'errors': errors
+        }, status=status.HTTP_400_BAD_REQUEST)
 
-    if not re.search(r'[A-Z]', new_password):
-        return Response(
-            {'success': False, 'message': 'Password must contain at least one uppercase letter'},
-            status=status.HTTP_400_BAD_REQUEST
-        )
+    # Capture security details BEFORE password change
+    ip_address = get_client_ip(request)
+    user_agent = request.META.get('HTTP_USER_AGENT', '')
+    change_time = timezone.now()
+    
+    # Get location and device info
+    location_info = get_location_from_ip(ip_address)
+    device_info = parse_user_agent(user_agent)
 
-    if not re.search(r'[a-z]', new_password):
-        return Response(
-            {'success': False, 'message': 'Password must contain at least one lowercase letter'},
-            status=status.HTTP_400_BAD_REQUEST
-        )
-
-    if not re.search(r'[0-9]', new_password):
-        return Response(
-            {'success': False, 'message': 'Password must contain at least one number'},
-            status=status.HTTP_400_BAD_REQUEST
-        )
-
-    # Set new password
+    # Save current password to history before changing
+    PasswordHistory.add_password(user, current_password)
+    
+    # Set new password and track change time
     user.set_password(new_password)
+    user.password_changed_at = change_time
     user.save()
+    
+    # Send password change confirmation email
+    try:
+        template = EmailTemplate.get_template('password_changed')
+        
+        if template:
+            # Use EmailTemplate system
+            context_data = {
+                'user_name': user.first_name or user.username,
+                'change_time': change_time.strftime('%B %d, %Y at %I:%M %p UTC'),
+                'ip_address': ip_address,
+                'location': location_info['display'],
+                'device': device_info['device'],
+                'browser': device_info['browser'],
+                'os': device_info['os'],
+            }
+            
+            template.send_email(user.email, context_data)
+            print(f"✅ Password changed confirmation email sent to {user.email}")
+        else:
+            # Fallback: Use inline email
+            branding = EmailBranding.get_branding()
+            current_year = datetime.datetime.now().year
+            formatted_time = change_time.strftime('%B %d, %Y at %I:%M %p UTC')
+            frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:5173')
+            security_url = f"{frontend_url}/settings/security"
+            
+            subject = f'✅ Password Changed Successfully - {branding.company_name}'
+            
+            text_message = f"""
+Hello {user.first_name or user.username},
+
+Your password was successfully changed.
+
+Change Details:
+- Time: {formatted_time}
+- IP Address: {ip_address}
+- Location: {location_info['display']}
+- Device: {device_info['device']}
+- Browser: {device_info['browser']}
+
+If you didn't make this change, your account may be compromised. Please contact support immediately.
+
+Best regards,
+{branding.company_name} Team
+            """
+            
+            html_message = f"""
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Password Changed</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f5f5;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f5f5; padding: 40px 20px;">
+        <tr>
+            <td align="center">
+                <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); max-width: 600px; overflow: hidden;">
+                    <tr>
+                        <td style="background: linear-gradient(135deg, #059669 0%, #10b981 100%); padding: 40px 40px; text-align: center;">
+                            <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 600;">
+                                ✅ Password Changed Successfully
+                            </h1>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 40px 40px 20px 40px;">
+                            <p style="margin: 0 0 20px 0; font-size: 16px; line-height: 1.6; color: #4a4a4a;">
+                                Hello {user.first_name or user.username},
+                            </p>
+                            <p style="margin: 0 0 20px 0; font-size: 16px; line-height: 1.6; color: #4a4a4a;">
+                                Your password was successfully changed.
+                            </p>
+                            <div style="background-color: #f8f9fa; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; margin: 20px 0;">
+                                <p style="margin: 0 0 15px 0; font-size: 14px; font-weight: 600; color: #1a1a1a;">
+                                    📋 Change Details
+                                </p>
+                                <table width="100%" cellpadding="0" cellspacing="0" style="font-size: 14px;">
+                                    <tr>
+                                        <td style="padding: 8px 0; color: #6b7280; width: 140px;">🕒 Time:</td>
+                                        <td style="padding: 8px 0; color: #1a1a1a; font-weight: 500;">{formatted_time}</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="padding: 8px 0; color: #6b7280;">🌐 IP Address:</td>
+                                        <td style="padding: 8px 0; color: #1a1a1a; font-weight: 500;">{ip_address}</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="padding: 8px 0; color: #6b7280;">📍 Location:</td>
+                                        <td style="padding: 8px 0; color: #1a1a1a; font-weight: 500;">{location_info['display']}</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="padding: 8px 0; color: #6b7280;">💻 Device:</td>
+                                        <td style="padding: 8px 0; color: #1a1a1a; font-weight: 500;">{device_info['device']}</td>
+                                    </tr>
+                                </table>
+                            </div>
+                            <div style="background-color: #fef2f2; border-left: 4px solid #dc2626; border-radius: 0 8px 8px 0; padding: 20px; margin: 20px 0;">
+                                <p style="margin: 0 0 10px 0; font-size: 14px; font-weight: 600; color: #991b1b;">
+                                    🚨 Didn't make this change?
+                                </p>
+                                <p style="margin: 0; font-size: 14px; color: #991b1b; line-height: 1.6;">
+                                    If you didn't change your password, your account may be compromised. Please contact support immediately.
+                                </p>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="background-color: #f8f9fa; padding: 30px 40px; border-top: 1px solid #e5e7eb;">
+                            <table width="100%" cellpadding="0" cellspacing="0">
+                                <tr>
+                                    <td align="center">
+                                        <p style="margin: 0 0 8px 0; font-size: 14px; font-weight: 600; color: #1a1a1a;">
+                                            {branding.company_name}
+                                        </p>
+                                        <p style="margin: 0; font-size: 11px; color: #9ca3af;">
+                                            © {current_year} {branding.company_name}. All rights reserved.
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
+            """
+            
+            send_email_with_ssl_fix(user.email, subject, text_message, html_message)
+            print(f"✅ Password changed confirmation email sent to {user.email} (fallback)")
+    except Exception as e:
+        print(f"❌ Failed to send password change confirmation email: {e}")
 
     return Response({
         'success': True,
@@ -1059,105 +1878,36 @@ def enable_email_2fa(request):
     """
     Enable email-based 2FA for user
     Sends a verification code to confirm
+    Uses EmailTemplate system with context-aware message
     """
+    from .email_models import EmailTemplate
+    
     user = request.user
+    
+    # Determine if this is first-time setup or user-requested from profile
+    is_first_time_setup = user.is_2fa_setup_required
 
-    # Generate and send verification code
+    # Generate verification code
     code = user.generate_2fa_code()
-
-    # Send email
-    subject = 'Enable Two-Factor Authentication'
-    current_year = datetime.datetime.now().year
-
-    # Plain text version (fallback)
-    text_message = f"""
-    Hello {user.first_name or user.username},
-
-    You have requested to enable Two-Factor Authentication for your account.
-
-    Your verification code is: {code}
-
-    This code will expire in 10 minutes.
-
-    If you didn't request this, please ignore this email.
-
-    Best regards,
-    A Data Team
-        """
-
-    # Professional HTML version
-    html_message = f"""
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Enable Two-Factor Authentication</title>
-    </head>
-    <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f5f5;">
-        <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f5f5; padding: 40px 20px;">
-            <tr>
-                <td align="center">
-                    <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); max-width: 600px;">
-                        <!-- Header -->
-                        <tr>
-                            <td style="padding: 40px 40px 30px 40px;">
-                                <h1 style="margin: 0; font-size: 28px; font-weight: 600; color: #1a1a1a; line-height: 1.3;">
-                                    Enable Two-Factor Authentication
-                                </h1>
-                            </td>
-                        </tr>
-
-                        <!-- Content -->
-                        <tr>
-                            <td style="padding: 0 40px 30px 40px;">
-                                <p style="margin: 0 0 20px 0; font-size: 16px; line-height: 1.6; color: #4a4a4a;">
-                                    Hello {user.first_name or user.username},
-                                </p>
-
-                                <p style="margin: 0 0 30px 0; font-size: 16px; line-height: 1.6; color: #4a4a4a;">
-                                    You have requested to enable Two-Factor Authentication for your A Data account. This adds an extra layer of security to protect your account.
-                                </p>
-
-                                <p style="margin: 0 0 20px 0; font-size: 16px; line-height: 1.6; color: #4a4a4a;">
-                                    Use the verification code below to complete the setup:
-                                </p>
-
-                                <!-- Verification Code Box -->
-                                <div style="background-color: #f8f9fa; border: 2px dashed #d1d5db; border-radius: 8px; padding: 24px; text-align: center; margin: 30px 0;">
-                                    <div style="font-size: 36px; font-weight: bold; color: #1a1a1a; letter-spacing: 8px; font-family: 'Courier New', monospace;">
-                                        {code}
-                                    </div>
-                                </div>
-
-                                <p style="margin: 30px 0 20px 0; font-size: 14px; line-height: 1.6; color: #6b7280;">
-                                    This code will expire in <strong>10 minutes</strong>.
-                                </p>
-
-                                <p style="margin: 0 0 10px 0; font-size: 14px; line-height: 1.6; color: #6b7280;">
-                                    If you didn't request this, you can safely ignore this email.
-                                </p>
-                            </td>
-                        </tr>
-
-                        <!-- Footer -->
-                        <tr>
-                            <td style="padding: 30px 40px 40px 40px; border-top: 1px solid #e5e7eb;">
-                                <p style="margin: 0; font-size: 12px; line-height: 1.5; color: #9ca3af; text-align: center;">
-                                    © {current_year} A Data. All rights reserved.
-                                </p>
-                            </td>
-                        </tr>
-                    </table>
-                </td>
-            </tr>
-        </table>
-    </body>
-    </html>
-        """
-
-    try:
-        success, error = send_email_with_ssl_fix(user.email, subject, text_message, html_message)
+    
+    # Try to use EmailTemplate system
+    template = EmailTemplate.get_template('2fa_setup_code')
+    
+    if template:
+        # Set context-aware message based on setup type
+        if is_first_time_setup:
+            setup_message = 'System requires Two-Factor Authentication to be enabled for your first login.'
+        else:
+            setup_message = 'You have requested to enable Two-Factor Authentication for your account. This adds an extra layer of security to protect your account.'
+        
+        context_data = {
+            'user_name': user.first_name or user.username,
+            'code': code,
+            'expiry_minutes': '10',
+            'setup_message': setup_message,
+        }
+        
+        success = template.send_email(user.email, context_data)
         
         if success:
             return Response({
@@ -1167,13 +1917,128 @@ def enable_email_2fa(request):
         else:
             return Response({
                 'success': False,
-                'message': f'Failed to send email: {error}'
+                'message': 'Failed to send email. Please try again.'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-    except Exception as e:
-        return Response({
-            'success': False,
-            'message': f'Failed to send email: {str(e)}'
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    else:
+        # Fallback: Use inline email if template not found
+        from .email_models import EmailBranding
+        branding = EmailBranding.get_branding()
+        current_year = datetime.datetime.now().year
+        
+        # Set context-aware message
+        if is_first_time_setup:
+            setup_message = 'System requires Two-Factor Authentication to be enabled for your first login.'
+        else:
+            setup_message = f'You have requested to enable Two-Factor Authentication for your {branding.company_name} account. This adds an extra layer of security to protect your account.'
+
+        subject = f'Enable Two-Factor Authentication - {branding.company_name}'
+
+        text_message = f"""
+Hello {user.first_name or user.username},
+
+{setup_message}
+
+Your verification code is: {code}
+
+This code will expire in 10 minutes.
+
+If you didn't request this, please ignore this email.
+
+Best regards,
+{branding.company_name} Team
+        """
+
+        html_message = f"""
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enable Two-Factor Authentication</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f5f5;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f5f5; padding: 40px 20px;">
+        <tr>
+            <td align="center">
+                <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); max-width: 600px; overflow: hidden;">
+                    <tr>
+                        <td style="background: linear-gradient(135deg, {branding.primary_color} 0%, #7c3aed 100%); padding: 40px 40px; text-align: center;">
+                            <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 600;">
+                                Enable Two-Factor Authentication
+                            </h1>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 40px 40px 20px 40px;">
+                            <p style="margin: 0 0 20px 0; font-size: 16px; line-height: 1.6; color: {branding.primary_color}; font-weight: 500;">
+                                Hello {user.first_name or user.username},
+                            </p>
+                            <p style="margin: 0 0 20px 0; font-size: 16px; line-height: 1.6; color: #4a4a4a;">
+                                {setup_message}
+                            </p>
+                            <p style="margin: 0 0 30px 0; font-size: 16px; line-height: 1.6; color: #4a4a4a;">
+                                Use the verification code below to complete the setup:
+                            </p>
+                            <div style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border: 2px dashed {branding.primary_color}; border-radius: 12px; padding: 30px; text-align: center; margin: 20px 0 30px 0;">
+                                <div style="font-size: 42px; font-weight: bold; color: {branding.primary_color}; letter-spacing: 12px; font-family: 'Courier New', monospace;">
+                                    {code}
+                                </div>
+                            </div>
+                            <p style="margin: 30px 0 10px 0; font-size: 14px; line-height: 1.6; color: #6b7280;">
+                                This code will expire in <strong>10 minutes</strong>.
+                            </p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 20px 40px 30px 40px;">
+                            <p style="margin: 0; font-size: 14px; line-height: 1.6; color: #4a4a4a;">
+                                Warm regards,<br>
+                                <strong style="color: {branding.primary_color};">{branding.company_name} Team</strong>
+                            </p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="background-color: #f8f9fa; padding: 30px 40px; border-top: 1px solid #e5e7eb;">
+                            <table width="100%" cellpadding="0" cellspacing="0">
+                                <tr>
+                                    <td align="center">
+                                        <p style="margin: 0 0 8px 0; font-size: 14px; font-weight: 600; color: #1a1a1a;">
+                                            {branding.company_name}
+                                        </p>
+                                        <p style="margin: 0; font-size: 11px; color: #9ca3af;">
+                                            © {current_year} {branding.company_name}. All rights reserved.
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
+        """
+
+        try:
+            success, error = send_email_with_ssl_fix(user.email, subject, text_message, html_message)
+            
+            if success:
+                return Response({
+                    'success': True,
+                    'message': f'Verification code sent to {user.email}'
+                })
+            else:
+                return Response({
+                    'success': False,
+                    'message': f'Failed to send email: {error}'
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        except Exception as e:
+            return Response({
+                'success': False,
+                'message': f'Failed to send email: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_view(['POST'])
@@ -1181,9 +2046,18 @@ def enable_email_2fa(request):
 def verify_enable_2fa(request):
     """
     Verify code and enable 2FA
+    Generates backup codes and returns them to the user
+    - First-time setup: Sends welcome email (not 2FA enabled email)
+    - Profile settings: Sends 2FA enabled confirmation email
     """
+    from .security_models import TwoFactorBackupCode, SecuritySettings
+    
     user = request.user
     code = request.data.get('code', '')
+    
+    # Check if this is first-time 2FA setup BEFORE enabling
+    # (is_2fa_setup_required is True for new users who haven't completed 2FA setup)
+    is_first_time_setup = user.is_2fa_setup_required
 
     if not code:
         return Response(
@@ -1198,9 +2072,50 @@ def verify_enable_2fa(request):
         user.clear_2fa_code()
         user.save()
 
+        # Generate backup codes
+        backup_codes = []
+        try:
+            # Get settings for backup codes count
+            settings = SecuritySettings.get_settings()
+            code_count = settings.backup_codes_count
+        except:
+            code_count = 5  # Default
+        
+        # Delete any existing backup codes
+        TwoFactorBackupCode.objects.filter(user=user).delete()
+        
+        # Generate new backup codes
+        for _ in range(code_count):
+            code_str = TwoFactorBackupCode.generate_code()
+            TwoFactorBackupCode.objects.create(
+                user=user,
+                code_hash=TwoFactorBackupCode.hash_code(code_str)
+            )
+            # Format code with dash for readability (e.g., ABCD-EFGH)
+            formatted_code = f"{code_str[:4]}-{code_str[4:]}"
+            backup_codes.append(formatted_code)
+
+        # Send appropriate email based on setup type
+        try:
+            ip_address = get_client_ip(request)
+            user_agent = request.META.get('HTTP_USER_AGENT', '')
+            
+            if is_first_time_setup:
+                # First-time setup: Send welcome email instead of 2FA enabled email
+                # User should NOT receive "2FA Enabled" during first-time setup
+                send_welcome_email(user, ip_address, user_agent)
+                print(f"✅ Welcome email sent to {user.email} (first-time 2FA setup)")
+            else:
+                # Enabling from profile settings: Send 2FA enabled confirmation
+                send_2fa_enabled_email(user, ip_address, user_agent)
+                print(f"✅ 2FA enabled email sent to {user.email} (profile settings)")
+        except Exception as e:
+            print(f"Failed to send email after 2FA setup: {e}")
+
         return Response({
             'success': True,
-            'message': '2FA enabled successfully'
+            'message': '2FA enabled successfully',
+            'backup_codes': backup_codes
         })
     else:
         return Response(
@@ -1210,11 +2125,67 @@ def verify_enable_2fa(request):
 
 
 @api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def regenerate_backup_codes(request):
+    """
+    Regenerate backup codes for a user
+    Requires password confirmation for security
+    """
+    from .security_models import TwoFactorBackupCode, SecuritySettings
+    
+    user = request.user
+    password = request.data.get('password', '')
+    
+    # Verify password
+    if not user.check_password(password):
+        return Response(
+            {'success': False, 'message': 'Invalid password'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    # Check if 2FA is enabled
+    if not user.two_factor_enabled:
+        return Response(
+            {'success': False, 'message': '2FA is not enabled for your account'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    # Generate new backup codes
+    backup_codes = []
+    try:
+        settings = SecuritySettings.get_settings()
+        code_count = settings.backup_codes_count
+    except:
+        code_count = 5  # Default
+    
+    # Delete existing backup codes
+    TwoFactorBackupCode.objects.filter(user=user).delete()
+    
+    # Generate new codes
+    for _ in range(code_count):
+        code_str = TwoFactorBackupCode.generate_code()
+        TwoFactorBackupCode.objects.create(
+            user=user,
+            code_hash=TwoFactorBackupCode.hash_code(code_str)
+        )
+        formatted_code = f"{code_str[:4]}-{code_str[4:]}"
+        backup_codes.append(formatted_code)
+    
+    return Response({
+        'success': True,
+        'message': 'Backup codes regenerated successfully',
+        'backup_codes': backup_codes
+    })
+
+
+@api_view(['POST'])
 @permission_classes([AllowAny])
 def send_2fa_code(request):
     """
     Send 2FA code to user's email during login
     """
+    from .email_models import EmailBranding
+    
     username = request.data.get('username', '')
 
     if not username:
@@ -1243,93 +2214,119 @@ def send_2fa_code(request):
 
     # Generate and send code
     code = user.generate_2fa_code()
-
-    # Get current year for the email template
+    
+    # Get branding
+    branding = EmailBranding.get_branding()
     current_year = datetime.datetime.now().year
 
-    subject = 'Your Login Verification Code'
-    current_year = datetime.datetime.now().year
+    subject = f'Your Login Verification Code - {branding.company_name}'
 
     # Plain text version (fallback)
     text_message = f"""
-    Hello {user.first_name or user.username},
+Hello {user.first_name or user.username},
 
-    Your verification code is: {code}
+Your verification code is: {code}
 
-    This code will expire in 10 minutes.
+This code will expire in 10 minutes.
 
-    If you didn't try to log in, please secure your account immediately.
+If you didn't try to log in, please secure your account immediately.
 
-    Best regards,
-    A Data Team
-        """
+Best regards,
+{branding.company_name} Team
+    """
 
-    # Professional HTML version
+    # Professional HTML version (matching Welcome email design)
     html_message = f"""
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Your Login Verification Code</title>
-    </head>
-    <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f5f5;">
-        <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f5f5; padding: 40px 20px;">
-            <tr>
-                <td align="center">
-                    <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); max-width: 600px;">
-                        <!-- Header -->
-                        <tr>
-                            <td style="padding: 40px 40px 30px 40px;">
-                                <h1 style="margin: 0; font-size: 28px; font-weight: 600; color: #1a1a1a; line-height: 1.3;">
-                                    Your Login Verification Code
-                                </h1>
-                            </td>
-                        </tr>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Your Login Verification Code</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f5f5;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f5f5; padding: 40px 20px;">
+        <tr>
+            <td align="center">
+                <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); max-width: 600px; overflow: hidden;">
+                    <!-- Header -->
+                    <tr>
+                        <td style="background: linear-gradient(135deg, {branding.primary_color} 0%, #7c3aed 100%); padding: 40px 40px; text-align: center;">
+                            <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 600;">
+                                Your Login Verification Code
+                            </h1>
+                        </td>
+                    </tr>
 
-                        <!-- Content -->
-                        <tr>
-                            <td style="padding: 0 40px 30px 40px;">
-                                <p style="margin: 0 0 20px 0; font-size: 16px; line-height: 1.6; color: #4a4a4a;">
-                                    Hello {user.first_name or user.username},
-                                </p>
+                    <!-- Content -->
+                    <tr>
+                        <td style="padding: 40px 40px 20px 40px;">
+                            <p style="margin: 0 0 20px 0; font-size: 16px; line-height: 1.6; color: {branding.primary_color}; font-weight: 500;">
+                                Hello {user.first_name or user.username},
+                            </p>
 
-                                <p style="margin: 0 0 30px 0; font-size: 16px; line-height: 1.6; color: #4a4a4a;">
-                                    Here is your verification code to complete your login to A Data:
-                                </p>
+                            <p style="margin: 0 0 30px 0; font-size: 16px; line-height: 1.6; color: #4a4a4a;">
+                                We received a login attempt for your {branding.company_name} account. 
+                                Use the verification code below to complete your login:
+                            </p>
 
-                                <!-- Verification Code Box -->
-                                <div style="background-color: #f8f9fa; border: 2px dashed #d1d5db; border-radius: 8px; padding: 24px; text-align: center; margin: 30px 0;">
-                                    <div style="font-size: 36px; font-weight: bold; color: #1a1a1a; letter-spacing: 8px; font-family: 'Courier New', monospace;">
-                                        {code}
-                                    </div>
+                            <!-- Verification Code Box -->
+                            <div style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border: 2px dashed {branding.primary_color}; border-radius: 12px; padding: 30px; text-align: center; margin: 20px 0 30px 0;">
+                                <div style="font-size: 42px; font-weight: bold; color: {branding.primary_color}; letter-spacing: 12px; font-family: 'Courier New', monospace;">
+                                    {code}
                                 </div>
+                            </div>
 
-                                <p style="margin: 30px 0 20px 0; font-size: 14px; line-height: 1.6; color: #6b7280;">
-                                    This code is valid for <strong>10 minutes</strong>.
-                                </p>
+                            <p style="margin: 30px 0 10px 0; font-size: 14px; line-height: 1.6; color: #6b7280;">
+                                This code will expire in <strong>10 minutes</strong>.
+                            </p>
 
-                                <p style="margin: 0 0 10px 0; font-size: 14px; line-height: 1.6; color: #6b7280;">
-                                    If you did not request this code, please ignore this email and contact support if you have concerns about your account security.
-                                </p>
-                            </td>
-                        </tr>
+                            <p style="margin: 0; font-size: 14px; line-height: 1.6; color: #6b7280;">
+                                If you didn't try to log in, please secure your account immediately by changing your password.
+                            </p>
+                        </td>
+                    </tr>
 
-                        <!-- Footer -->
-                        <tr>
-                            <td style="padding: 30px 40px 40px 40px; border-top: 1px solid #e5e7eb;">
-                                <p style="margin: 0; font-size: 12px; line-height: 1.5; color: #9ca3af; text-align: center;">
-                                    © {current_year} A Data. All rights reserved.
-                                </p>
-                            </td>
-                        </tr>
-                    </table>
-                </td>
-            </tr>
-        </table>
-    </body>
-    </html>
-        """
+                    <!-- Signature -->
+                    <tr>
+                        <td style="padding: 20px 40px 30px 40px;">
+                            <p style="margin: 0; font-size: 14px; line-height: 1.6; color: #4a4a4a;">
+                                Warm regards,<br>
+                                <strong style="color: {branding.primary_color};">{branding.company_name} Team</strong>
+                            </p>
+                        </td>
+                    </tr>
+
+                    <!-- Footer -->
+                    <tr>
+                        <td style="background-color: #f8f9fa; padding: 30px 40px; border-top: 1px solid #e5e7eb;">
+                            <table width="100%" cellpadding="0" cellspacing="0">
+                                <tr>
+                                    <td align="center">
+                                        <p style="margin: 0 0 8px 0; font-size: 14px; font-weight: 600; color: #1a1a1a;">
+                                            {branding.company_name}
+                                        </p>
+                                        <p style="margin: 0 0 15px 0; font-size: 12px; color: #6b7280;">
+                                            Professional Data Collection & Site Management
+                                        </p>
+                                        <p style="margin: 0; font-size: 11px; color: #9ca3af;">
+                                            This email was sent from an automated system. Please do not reply directly to this email.
+                                        </p>
+                                        <p style="margin: 10px 0 0 0; font-size: 11px; color: #9ca3af;">
+                                            © {current_year} {branding.company_name}. All rights reserved.
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
+    """
 
     try:
         success, error = send_email_with_ssl_fix(user.email, subject, text_message, html_message)
@@ -1350,6 +2347,109 @@ def send_2fa_code(request):
             'success': False,
             'message': f'Failed to send email: {str(e)}'
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def verify_backup_code_login(request):
+    """
+    Verify backup code during login (when user can't access email)
+    """
+    from .security_models import TwoFactorBackupCode
+    
+    username = request.data.get('username', '')
+    backup_code = request.data.get('backup_code', '')
+    remember_me = request.data.get('remember_me', False)
+    
+    if not username or not backup_code:
+        return Response(
+            {'success': False, 'message': 'Username and backup code are required'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    try:
+        # Find user
+        if '@' in username:
+            user = User.objects.get(email__iexact=username)
+        else:
+            user = User.objects.get(username__iexact=username)
+    except User.DoesNotExist:
+        return Response(
+            {'success': False, 'message': 'Invalid credentials'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    if not user.two_factor_enabled:
+        return Response(
+            {'success': False, 'message': '2FA is not enabled for this account'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    # Clean and hash the backup code
+    clean_code = backup_code.replace('-', '').replace(' ', '').upper()
+    code_hash = TwoFactorBackupCode.hash_code(clean_code)
+    
+    # Find matching unused backup code
+    try:
+        backup_code_obj = TwoFactorBackupCode.objects.get(
+            user=user,
+            code_hash=code_hash,
+            is_used=False
+        )
+        
+        # Mark code as used
+        backup_code_obj.is_used = True
+        backup_code_obj.used_at = timezone.now()
+        backup_code_obj.save()
+        
+        # Login user
+        auth_login(request, user)
+        
+        # Set session expiry based on remember_me
+        if remember_me:
+            request.session.set_expiry(2592000)  # 30 days
+        else:
+            request.session.set_expiry(0)
+        
+        user.update_last_activity()
+        
+        # Set user online
+        user.is_online = True
+        user.save(update_fields=['is_online'])
+        
+        # Broadcast status
+        broadcast_user_status(user.id, user.username, True)
+        
+        user.record_login(
+            ip_address=request.META.get('REMOTE_ADDR'),
+            user_agent=request.META.get('HTTP_USER_AGENT')
+        )
+        
+        # Count remaining backup codes
+        remaining_codes = TwoFactorBackupCode.objects.filter(
+            user=user,
+            is_used=False
+        ).count()
+        
+        return Response({
+            'success': True,
+            'user': UserSerializer(user).data,
+            'message': 'Login successful',
+            'remaining_backup_codes': remaining_codes
+        })
+        
+    except TwoFactorBackupCode.DoesNotExist:
+        # Record failed attempt
+        LoginHistory.objects.create(
+            user=user,
+            ip_address=request.META.get('REMOTE_ADDR'),
+            user_agent=request.META.get('HTTP_USER_AGENT'),
+            success=False
+        )
+        return Response(
+            {'success': False, 'message': 'Invalid or already used backup code'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
 
 
 @api_view(['GET'])
@@ -1528,6 +2628,8 @@ def request_password_reset(request):
     """
     Send password reset link to user's email
     """
+    from .email_models import EmailBranding
+    
     email = request.data.get('email', '').strip().lower()
 
     if not email:
@@ -1547,15 +2649,18 @@ def request_password_reset(request):
         frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:5173')
         reset_link = f"{frontend_url}/reset-password/{uid}/{token}/"
 
-        # Get current year for email template
+        # Get branding
+        branding = EmailBranding.get_branding()
         current_year = datetime.datetime.now().year
 
         # Send email
-        subject = 'Reset Your Password - A Data'
-        message = f"""
+        subject = f'Reset Your Password - {branding.company_name}'
+        
+        # Plain text version
+        text_message = f"""
 Hello {user.first_name or user.username},
 
-We received a request to reset your password for your A Data account.
+We received a request to reset your password for your {branding.company_name} account.
 
 Click the link below to reset your password:
 
@@ -1566,46 +2671,128 @@ This link will expire in 24 hours.
 If you didn't request a password reset, you can safely ignore this email.
 
 Best regards,
-A Data Team
+{branding.company_name} Team
         """
 
-        # HTML version
+        # Professional HTML version (matching Welcome email design)
         html_message = f"""
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Reset Your Password</title>
-            <style>
-                body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
-                .container {{ width: 90%; max-width: 600px; margin: 20px auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px; }}
-                .header {{ font-size: 24px; font-weight: bold; color: #000; margin-bottom: 20px; }}
-                .button {{ display: inline-block; padding: 12px 24px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 6px; margin: 20px 0; }}
-                .footer {{ margin-top: 20px; font-size: 12px; color: #888; }}
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <div class="header">Reset Your Password</div>
-                <p>Hello {user.first_name or user.username},</p>
-                <p>We received a request to reset your password for your A Data account.</p>
-                <p>Click the button below to reset your password:</p>
-                <a href="{reset_link}" class="button">Reset Password</a>
-                <p>Or copy and paste this link into your browser:</p>
-                <p style="word-break: break-all; color: #2563eb;">{reset_link}</p>
-                <p>This link will expire in 24 hours.</p>
-                <p>If you didn't request a password reset, you can safely ignore this email.</p>
-                <div class="footer">
-                    <p>&copy; {current_year} A Data. All rights reserved.</p>
-                </div>
-            </div>
-        </body>
-        </html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reset Your Password</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f5f5;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f5f5; padding: 40px 20px;">
+        <tr>
+            <td align="center">
+                <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); max-width: 600px; overflow: hidden;">
+                    <!-- Header -->
+                    <tr>
+                        <td style="background: linear-gradient(135deg, {branding.primary_color} 0%, #7c3aed 100%); padding: 40px 40px; text-align: center;">
+                            <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 600;">
+                                Reset Your Password
+                            </h1>
+                        </td>
+                    </tr>
+
+                    <!-- Content -->
+                    <tr>
+                        <td style="padding: 40px 40px 20px 40px;">
+                            <p style="margin: 0 0 20px 0; font-size: 16px; line-height: 1.6; color: {branding.primary_color}; font-weight: 500;">
+                                Hello {user.first_name or user.username},
+                            </p>
+
+                            <p style="margin: 0 0 20px 0; font-size: 16px; line-height: 1.6; color: #4a4a4a;">
+                                We received a request to reset your password for your {branding.company_name} account.
+                            </p>
+
+                            <p style="margin: 0 0 30px 0; font-size: 16px; line-height: 1.6; color: #4a4a4a;">
+                                Click the button below to create a new password:
+                            </p>
+
+                            <!-- CTA Button -->
+                            <table width="100%" cellpadding="0" cellspacing="0">
+                                <tr>
+                                    <td align="center" style="padding: 10px 0 30px 0;">
+                                        <a href="{reset_link}" style="display: inline-block; padding: 16px 40px; background: linear-gradient(135deg, {branding.primary_color} 0%, #7c3aed 100%); color: #ffffff; text-decoration: none; border-radius: 8px; font-size: 16px; font-weight: 600; box-shadow: 0 4px 14px rgba(124, 58, 237, 0.4);">
+                                            Reset Password
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <!-- Info Box -->
+                            <div style="background-color: #f8f9fa; border-left: 4px solid {branding.primary_color}; border-radius: 0 8px 8px 0; padding: 20px; margin: 20px 0;">
+                                <p style="margin: 0 0 10px 0; font-size: 14px; font-weight: 600; color: #1a1a1a;">
+                                    Security Tips:
+                                </p>
+                                <ul style="margin: 0; padding-left: 20px; color: #4a4a4a; font-size: 14px; line-height: 1.8;">
+                                    <li>Choose a strong, unique password</li>
+                                    <li>Don't reuse passwords from other accounts</li>
+                                    <li>Enable Two-Factor Authentication for extra security</li>
+                                </ul>
+                            </div>
+
+                            <p style="margin: 30px 0 10px 0; font-size: 14px; line-height: 1.6; color: #6b7280;">
+                                <strong>Note:</strong> This link will expire in <strong>24 hours</strong>.
+                            </p>
+
+                            <p style="margin: 0 0 10px 0; font-size: 14px; line-height: 1.6; color: #6b7280;">
+                                If you didn't request a password reset, you can safely ignore this email. Your password will remain unchanged.
+                            </p>
+
+                            <p style="margin: 20px 0 0 0; font-size: 14px; line-height: 1.6; color: #6b7280;">
+                                Or copy and paste this link into your browser:<br>
+                                <a href="{reset_link}" style="color: {branding.primary_color}; word-break: break-all;">{reset_link}</a>
+                            </p>
+                        </td>
+                    </tr>
+
+                    <!-- Signature -->
+                    <tr>
+                        <td style="padding: 20px 40px 30px 40px;">
+                            <p style="margin: 0; font-size: 14px; line-height: 1.6; color: #4a4a4a;">
+                                Warm regards,<br>
+                                <strong style="color: {branding.primary_color};">{branding.company_name} Team</strong>
+                            </p>
+                        </td>
+                    </tr>
+
+                    <!-- Footer -->
+                    <tr>
+                        <td style="background-color: #f8f9fa; padding: 30px 40px; border-top: 1px solid #e5e7eb;">
+                            <table width="100%" cellpadding="0" cellspacing="0">
+                                <tr>
+                                    <td align="center">
+                                        <p style="margin: 0 0 8px 0; font-size: 14px; font-weight: 600; color: #1a1a1a;">
+                                            {branding.company_name}
+                                        </p>
+                                        <p style="margin: 0 0 15px 0; font-size: 12px; color: #6b7280;">
+                                            Professional Data Collection & Site Management
+                                        </p>
+                                        <p style="margin: 0; font-size: 11px; color: #9ca3af;">
+                                            This email was sent from an automated system. Please do not reply directly to this email.
+                                        </p>
+                                        <p style="margin: 10px 0 0 0; font-size: 11px; color: #9ca3af;">
+                                            © {current_year} {branding.company_name}. All rights reserved.
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
         """
 
         try:
-            success, error = send_email_with_ssl_fix(user.email, subject, message, html_message)
+            success, error = send_email_with_ssl_fix(user.email, subject, text_message, html_message)
 
             if success:
                 return Response({
@@ -1632,43 +2819,147 @@ A Data Team
         })
 
 
+def get_location_from_ip(ip_address):
+    """
+    Get location information from IP address using free API.
+    Returns dict with city, region, country, or 'Unknown' values on failure.
+    """
+    import requests
+    
+    # Skip for localhost/private IPs
+    if ip_address in ['127.0.0.1', 'localhost', '::1'] or ip_address.startswith('192.168.') or ip_address.startswith('10.'):
+        return {
+            'city': 'Local Network',
+            'region': '',
+            'country': '',
+            'display': 'Local Network'
+        }
+    
+    try:
+        # Using ip-api.com (free, no API key needed, 45 requests/minute)
+        response = requests.get(f'http://ip-api.com/json/{ip_address}', timeout=5)
+        if response.status_code == 200:
+            data = response.json()
+            if data.get('status') == 'success':
+                city = data.get('city', 'Unknown')
+                region = data.get('regionName', '')
+                country = data.get('country', 'Unknown')
+                
+                # Build display string
+                parts = [p for p in [city, region, country] if p]
+                display = ', '.join(parts) if parts else 'Unknown Location'
+                
+                return {
+                    'city': city,
+                    'region': region,
+                    'country': country,
+                    'display': display
+                }
+    except Exception as e:
+        print(f"Failed to get location from IP: {e}")
+    
+    return {
+        'city': 'Unknown',
+        'region': '',
+        'country': '',
+        'display': 'Unknown Location'
+    }
+
+
+def parse_user_agent(user_agent):
+    """
+    Parse user agent string to extract browser and OS information.
+    Returns dict with browser, os, and device info.
+    """
+    if not user_agent:
+        return {
+            'browser': 'Unknown Browser',
+            'os': 'Unknown OS',
+            'device': 'Unknown Device'
+        }
+    
+    user_agent_lower = user_agent.lower()
+    
+    # Detect browser
+    if 'edg/' in user_agent_lower or 'edge' in user_agent_lower:
+        browser = 'Microsoft Edge'
+    elif 'chrome' in user_agent_lower and 'chromium' not in user_agent_lower:
+        browser = 'Google Chrome'
+    elif 'firefox' in user_agent_lower:
+        browser = 'Mozilla Firefox'
+    elif 'safari' in user_agent_lower and 'chrome' not in user_agent_lower:
+        browser = 'Apple Safari'
+    elif 'opera' in user_agent_lower or 'opr/' in user_agent_lower:
+        browser = 'Opera'
+    elif 'msie' in user_agent_lower or 'trident' in user_agent_lower:
+        browser = 'Internet Explorer'
+    else:
+        browser = 'Unknown Browser'
+    
+    # Detect OS
+    if 'windows nt 10' in user_agent_lower:
+        os_name = 'Windows 10/11'
+    elif 'windows nt 6.3' in user_agent_lower:
+        os_name = 'Windows 8.1'
+    elif 'windows nt 6.2' in user_agent_lower:
+        os_name = 'Windows 8'
+    elif 'windows nt 6.1' in user_agent_lower:
+        os_name = 'Windows 7'
+    elif 'windows' in user_agent_lower:
+        os_name = 'Windows'
+    elif 'mac os x' in user_agent_lower:
+        os_name = 'macOS'
+    elif 'linux' in user_agent_lower and 'android' not in user_agent_lower:
+        os_name = 'Linux'
+    elif 'android' in user_agent_lower:
+        os_name = 'Android'
+    elif 'iphone' in user_agent_lower:
+        os_name = 'iOS (iPhone)'
+    elif 'ipad' in user_agent_lower:
+        os_name = 'iOS (iPad)'
+    elif 'ios' in user_agent_lower:
+        os_name = 'iOS'
+    else:
+        os_name = 'Unknown OS'
+    
+    # Detect device type
+    if 'mobile' in user_agent_lower or 'android' in user_agent_lower and 'tablet' not in user_agent_lower:
+        if 'iphone' in user_agent_lower:
+            device = 'iPhone'
+        elif 'android' in user_agent_lower:
+            device = 'Android Phone'
+        else:
+            device = 'Mobile Device'
+    elif 'tablet' in user_agent_lower or 'ipad' in user_agent_lower:
+        if 'ipad' in user_agent_lower:
+            device = 'iPad'
+        else:
+            device = 'Tablet'
+    else:
+        device = 'Desktop/Laptop'
+    
+    return {
+        'browser': browser,
+        'os': os_name,
+        'device': device
+    }
+
+
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def reset_password(request, uidb64, token):
     """
-    Reset password using token from email
+    Reset password using token from email - uses dynamic password policy
     """
+    from .security_models import PasswordHistory
+    from .email_models import EmailBranding
+    
     new_password = request.data.get('password', '')
 
     if not new_password:
         return Response({
             'success': False,
             'message': 'Password is required'
-        }, status=status.HTTP_400_BAD_REQUEST)
-
-    # Validate password strength
-    if len(new_password) < 8:
-        return Response({
-            'success': False,
-            'message': 'Password must be at least 8 characters long'
-        }, status=status.HTTP_400_BAD_REQUEST)
-
-    if not re.search(r'[A-Z]', new_password):
-        return Response({
-            'success': False,
-            'message': 'Password must contain at least one uppercase letter'
-        }, status=status.HTTP_400_BAD_REQUEST)
-
-    if not re.search(r'[a-z]', new_password):
-        return Response({
-            'success': False,
-            'message': 'Password must contain at least one lowercase letter'
-        }, status=status.HTTP_400_BAD_REQUEST)
-
-    if not re.search(r'[0-9]', new_password):
-        return Response({
-            'success': False,
-            'message': 'Password must contain at least one number'
         }, status=status.HTTP_400_BAD_REQUEST)
 
     try:
@@ -1680,19 +2971,249 @@ def reset_password(request, uidb64, token):
             'message': 'Invalid password reset link'
         }, status=status.HTTP_400_BAD_REQUEST)
 
-    if default_token_generator.check_token(user, token):
-        user.set_password(new_password)
-        user.save()
-
+    if not default_token_generator.check_token(user, token):
         return Response({
-            'success': True,
-            'message': 'Password has been reset successfully. You can now log in with your new password.'
-        })
+            'success': False,
+            'message': 'Password reset link has expired or is invalid'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    # Validate password using dynamic policy (includes history check)
+    is_valid, errors = validate_password(new_password, user)
+    
+    if not is_valid:
+        return Response({
+            'success': False,
+            'message': errors[0] if errors else 'Password does not meet requirements',
+            'errors': errors
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    # Capture security details BEFORE password change
+    ip_address = get_client_ip(request)
+    user_agent = request.META.get('HTTP_USER_AGENT', '')
+    change_time = timezone.now()
+    
+    # Get location and device info
+    location_info = get_location_from_ip(ip_address)
+    device_info = parse_user_agent(user_agent)
+
+    # Save current password to history before changing (if user has a password)
+    if user.has_usable_password():
+        # We can't save the actual old password since we don't know it
+        # Password history will track the new password going forward
+        pass
+    
+    # Set new password and track change time
+    user.set_password(new_password)
+    user.password_changed_at = change_time
+    user.save()
+    
+    # Add new password to history
+    PasswordHistory.add_password(user, new_password)
+
+    # Send password reset confirmation email with security details
+    print(f"\n🔔 Attempting to send password reset confirmation email to {user.email}...")
+    try:
+        branding = EmailBranding.get_branding()
+        current_year = datetime.datetime.now().year
+        print(f"📧 Branding loaded: {branding.company_name}")
+        
+        # Format the change time nicely
+        formatted_time = change_time.strftime('%B %d, %Y at %I:%M %p UTC')
+        
+        # Build security settings URL
+        frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:5173')
+        security_url = f"{frontend_url}/settings/security"
+        
+        subject = f'Password Reset Successful - {branding.company_name}'
+        
+        # Plain text version
+        text_message = f"""
+Hello {user.first_name or user.username},
+
+Your password has been successfully reset for your {branding.company_name} account.
+
+Password Change Details:
+- Time: {formatted_time}
+- IP Address: {ip_address}
+- Location: {location_info['display']}
+- Device: {device_info['device']}
+- Browser: {device_info['browser']}
+- Operating System: {device_info['os']}
+
+If you made this change, you can safely ignore this email.
+
+If you did NOT reset your password, please contact our support team immediately or reset your password again to secure your account.
+
+Best regards,
+{branding.company_name} Team
+        """
+
+        # Professional HTML version with security details
+        html_message = f"""
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Password Reset Successful</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f5f5;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f5f5; padding: 40px 20px;">
+        <tr>
+            <td align="center">
+                <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); max-width: 600px; overflow: hidden;">
+                    <!-- Header -->
+                    <tr>
+                        <td style="background: linear-gradient(135deg, {branding.primary_color} 0%, #7c3aed 100%); padding: 40px 40px; text-align: center;">
+                            <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 600;">
+                                Password Reset Successful
+                            </h1>
+                        </td>
+                    </tr>
+
+                    <!-- Content -->
+                    <tr>
+                        <td style="padding: 40px 40px 20px 40px;">
+                            <p style="margin: 0 0 20px 0; font-size: 16px; line-height: 1.6; color: {branding.primary_color}; font-weight: 500;">
+                                Hello {user.first_name or user.username},
+                            </p>
+
+                            <p style="margin: 0 0 20px 0; font-size: 16px; line-height: 1.6; color: #4a4a4a;">
+                                Your password has been successfully reset for your {branding.company_name} account.
+                            </p>
+
+                            <!-- Success Icon -->
+                            <div style="text-align: center; margin: 30px 0;">
+                                <div style="display: inline-block; width: 80px; height: 80px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); border-radius: 50%; line-height: 80px;">
+                                    <span style="color: white; font-size: 40px;">✓</span>
+                                </div>
+                            </div>
+
+                            <p style="margin: 0 0 30px 0; font-size: 16px; line-height: 1.6; color: #4a4a4a; text-align: center;">
+                                You can now log in with your new password.
+                            </p>
+
+                            <!-- Security Details Box -->
+                            <div style="background-color: #f8f9fa; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; margin: 20px 0;">
+                                <p style="margin: 0 0 15px 0; font-size: 14px; font-weight: 600; color: #1a1a1a;">
+                                    🔒 Password Change Details
+                                </p>
+                                <table width="100%" cellpadding="0" cellspacing="0" style="font-size: 14px;">
+                                    <tr>
+                                        <td style="padding: 8px 0; color: #6b7280; width: 140px;">🕒 Time:</td>
+                                        <td style="padding: 8px 0; color: #1a1a1a; font-weight: 500;">{formatted_time}</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="padding: 8px 0; color: #6b7280;">🌐 IP Address:</td>
+                                        <td style="padding: 8px 0; color: #1a1a1a; font-weight: 500;">{ip_address}</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="padding: 8px 0; color: #6b7280;">📍 Location:</td>
+                                        <td style="padding: 8px 0; color: #1a1a1a; font-weight: 500;">{location_info['display']}</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="padding: 8px 0; color: #6b7280;">💻 Device:</td>
+                                        <td style="padding: 8px 0; color: #1a1a1a; font-weight: 500;">{device_info['device']}</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="padding: 8px 0; color: #6b7280;">🌐 Browser:</td>
+                                        <td style="padding: 8px 0; color: #1a1a1a; font-weight: 500;">{device_info['browser']}</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="padding: 8px 0; color: #6b7280;">🖥️ Operating System:</td>
+                                        <td style="padding: 8px 0; color: #1a1a1a; font-weight: 500;">{device_info['os']}</td>
+                                    </tr>
+                                </table>
+                            </div>
+
+                            <!-- Warning Box -->
+                            <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; border-radius: 0 8px 8px 0; padding: 20px; margin: 30px 0;">
+                                <p style="margin: 0 0 10px 0; font-size: 14px; font-weight: 600; color: #92400e;">
+                                    ⚠️ Didn't make this change?
+                                </p>
+                                <p style="margin: 0 0 15px 0; font-size: 14px; color: #92400e; line-height: 1.6;">
+                                    If you did NOT reset your password, your account may be compromised. Please take action immediately:
+                                </p>
+                                <ul style="margin: 0 0 20px 0; padding-left: 20px; color: #92400e; font-size: 14px; line-height: 1.8;">
+                                    <li>Reset your password again immediately</li>
+                                    <li>Enable Two-Factor Authentication</li>
+                                    <li>Review your account activity</li>
+                                    <li>Contact our support team</li>
+                                </ul>
+                                
+                                <!-- Secure Account Button -->
+                                <table width="100%" cellpadding="0" cellspacing="0">
+                                    <tr>
+                                        <td align="center">
+                                            <a href="{security_url}" style="display: inline-block; padding: 12px 24px; background-color: #dc2626; color: #ffffff; text-decoration: none; border-radius: 6px; font-size: 14px; font-weight: 600;">
+                                                🛡️ Secure Your Account
+                                            </a>
+                                        </td>
+                                    </tr>
+                                </table>
+                            </div>
+
+                            <p style="margin: 20px 0 0 0; font-size: 14px; line-height: 1.6; color: #6b7280;">
+                                For your security, this email was sent to confirm a recent password change on your account.
+                            </p>
+                        </td>
+                    </tr>
+
+                    <!-- Signature -->
+                    <tr>
+                        <td style="padding: 20px 40px 30px 40px;">
+                            <p style="margin: 0; font-size: 14px; line-height: 1.6; color: #4a4a4a;">
+                                Warm regards,<br>
+                                <strong style="color: {branding.primary_color};">{branding.company_name} Team</strong>
+                            </p>
+                        </td>
+                    </tr>
+
+                    <!-- Footer -->
+                    <tr>
+                        <td style="background-color: #f8f9fa; padding: 30px 40px; border-top: 1px solid #e5e7eb;">
+                            <table width="100%" cellpadding="0" cellspacing="0">
+                                <tr>
+                                    <td align="center">
+                                        <p style="margin: 0 0 8px 0; font-size: 14px; font-weight: 600; color: #1a1a1a;">
+                                            {branding.company_name}
+                                        </p>
+                                        <p style="margin: 0 0 15px 0; font-size: 12px; color: #6b7280;">
+                                            Professional Data Collection & Site Management
+                                        </p>
+                                        <p style="margin: 0; font-size: 11px; color: #9ca3af;">
+                                            This email was sent from an automated system. Please do not reply directly to this email.
+                                        </p>
+                                        <p style="margin: 10px 0 0 0; font-size: 11px; color: #9ca3af;">
+                                            © {current_year} {branding.company_name}. All rights reserved.
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
+        """
+
+        print(f"📨 Sending email to {user.email} with subject: {subject}")
+        success, error = send_email_with_ssl_fix(user.email, subject, text_message, html_message)
+        if success:
+            print(f"✅ Password reset confirmation email sent successfully to {user.email}")
+        else:
+            print(f"❌ Failed to send password reset confirmation email: {error}")
+    except Exception as e:
+        # Log the error but don't fail the password reset
+        print(f"❌ Failed to send password reset confirmation email: {e}")
 
     return Response({
-        'success': False,
-        'message': 'Password reset link has expired or is invalid'
-    }, status=status.HTTP_400_BAD_REQUEST)
+        'success': True,
+        'message': 'Password has been reset successfully. You can now log in with your new password.'
+    })
 
 
 @api_view(['GET'])
@@ -1721,3 +3242,306 @@ def validate_reset_token(request, uidb64, token):
         'valid': False,
         'message': 'Reset link has expired'
     }, status=status.HTTP_400_BAD_REQUEST)
+
+
+# ============================================
+# PASSWORD EXPIRY ENDPOINTS
+# ============================================
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_password_expiry_info(request):
+    """
+    Get password expiry information for the current user.
+    """
+    from .security_models import SecuritySettings, TwoFactorBackupCode
+    
+    user = request.user
+    settings = SecuritySettings.get_settings()
+    
+    # Password expiry info
+    password_expiry_days = settings.password_expiry_days
+    password_changed_at = user.password_changed_at
+    days_until_expiry = user.days_until_password_expires()
+    is_expired = user.is_password_expired()
+    
+    # Backup codes info
+    total_backup_codes = TwoFactorBackupCode.objects.filter(user=user).count()
+    remaining_backup_codes = TwoFactorBackupCode.objects.filter(user=user, is_used=False).count()
+    
+    return Response({
+        'password_expiry_days': password_expiry_days,
+        'password_changed_at': password_changed_at,
+        'days_until_expiry': days_until_expiry,
+        'is_expired': is_expired,
+        'never_expires': password_expiry_days == 0,
+        'total_backup_codes': total_backup_codes,
+        'remaining_backup_codes': remaining_backup_codes,
+        'two_factor_enabled': user.two_factor_enabled
+    })
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def change_expired_password(request):
+    """
+    Change password for a user whose password has expired.
+    Requires current password verification and new password.
+    """
+    from .security_models import PasswordHistory
+    
+    username = request.data.get('username', '')
+    current_password = request.data.get('current_password', '')
+    new_password = request.data.get('new_password', '')
+    
+    if not username or not current_password or not new_password:
+        return Response({
+            'success': False,
+            'message': 'Username, current password, and new password are required'
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    try:
+        # Find user by username or email
+        if '@' in username:
+            user = User.objects.get(email__iexact=username)
+        else:
+            user = User.objects.get(username__iexact=username)
+    except User.DoesNotExist:
+        return Response({
+            'success': False,
+            'message': 'Invalid credentials'
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    # Verify current password
+    if not user.check_password(current_password):
+        return Response({
+            'success': False,
+            'message': 'Current password is incorrect'
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    # Validate new password using dynamic policy
+    is_valid, errors = validate_password(new_password, user)
+    
+    if not is_valid:
+        return Response({
+            'success': False,
+            'message': errors[0] if errors else 'Password does not meet requirements',
+            'errors': errors
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    # Check that new password is different from current
+    if user.check_password(new_password):
+        return Response({
+            'success': False,
+            'message': 'New password must be different from current password'
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    # Save current password to history
+    PasswordHistory.add_password(user, current_password)
+    
+    # Set new password and track change time
+    user.set_password(new_password)
+    user.password_changed_at = timezone.now()
+    user.save()
+    
+    return Response({
+        'success': True,
+        'message': 'Password changed successfully. You can now log in with your new password.'
+    })
+
+
+# ============================================
+# PASSWORD POLICY ENDPOINTS
+# ============================================
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_password_policy_view(request):
+    """
+    Get current password policy for frontend validation.
+    This endpoint is public so login/signup pages can fetch requirements.
+    """
+    policy = get_password_policy()
+    requirements = get_password_requirements_text()
+    
+    return Response({
+        'policy': policy,
+        'requirements': requirements
+    })
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def validate_password_strength(request):
+    """
+    Validate a password against current policy.
+    Returns validation result and strength score.
+    """
+    password = request.data.get('password', '')
+    user_id = request.data.get('user_id', None)  # For password history check
+    
+    if not password:
+        return Response({
+            'valid': False,
+            'errors': ['Password is required'],
+            'strength': {'score': 0, 'label': 'None', 'color': 'gray'}
+        })
+    
+    # Get user for password history check (optional)
+    user = None
+    if user_id:
+        try:
+            user = User.objects.get(pk=user_id)
+        except User.DoesNotExist:
+            pass
+    
+    # Validate against policy
+    is_valid, errors = validate_password(password, user)
+    
+    # Get strength score
+    strength = check_password_strength(password)
+    
+    return Response({
+        'valid': is_valid,
+        'errors': errors,
+        'strength': strength
+    })
+
+
+# =============================================================================
+# SESSION MANAGEMENT VIEWS
+# =============================================================================
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_session_status(request):
+    """
+    Get current session status.
+    Returns whether session is active, locked, or expired.
+    """
+    if not request.user.is_authenticated:
+        return Response({
+            'status': 'unauthenticated',
+            'authenticated': False,
+            'locked': False,
+        })
+    
+    is_locked = request.session.get('is_locked', False)
+    locked_at = request.session.get('locked_at')
+    remember_me = request.session.get('remember_me', False)
+    
+    if is_locked:
+        return Response({
+            'status': 'locked',
+            'authenticated': True,
+            'locked': True,
+            'locked_at': locked_at,
+            'user': {
+                'username': request.user.username,
+                'email': request.user.email,
+                'first_name': request.user.first_name,
+                'last_name': request.user.last_name,
+                'full_name': request.user.full_name,
+            }
+        })
+    
+    # Get timeout info
+    from .security_models import SecuritySettings
+    settings = SecuritySettings.get_settings()
+    
+    last_activity = request.session.get('last_activity')
+    
+    return Response({
+        'status': 'active',
+        'authenticated': True,
+        'locked': False,
+        'remember_me': remember_me,
+        'session_timeout_minutes': settings.session_timeout_minutes,
+        'last_activity': last_activity,
+        'user': UserSerializer(request.user).data
+    })
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def unlock_session(request):
+    """
+    Unlock a locked session with password.
+    This is the "wake from sleep" functionality.
+    """
+    if not request.user.is_authenticated:
+        return Response({
+            'success': False,
+            'message': 'No active session to unlock. Please log in.'
+        }, status=status.HTTP_401_UNAUTHORIZED)
+    
+    # Check if session is actually locked
+    is_locked = request.session.get('is_locked', False)
+    if not is_locked:
+        # Even if not locked, update last_activity to prevent immediate lock after this
+        request.session['last_activity'] = timezone.now().isoformat()
+        request.session.modified = True
+        request.session.save()
+        return Response({
+            'success': True,
+            'message': 'Session is already active.',
+            'user': UserSerializer(request.user).data
+        })
+    
+    # Verify password
+    password = request.data.get('password', '')
+    
+    if not password:
+        return Response({
+            'success': False,
+            'message': 'Password is required'
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    if not request.user.check_password(password):
+        # Log failed unlock attempt
+        from .security_models import AuditLog
+        AuditLog.log(
+            event_type='login_failed',
+            user=request.user,
+            ip_address=request.META.get('REMOTE_ADDR'),
+            user_agent=request.META.get('HTTP_USER_AGENT', ''),
+            description=f'Failed session unlock attempt for {request.user.username}',
+            severity='warning'
+        )
+        
+        return Response({
+            'success': False,
+            'message': 'Invalid password'
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    # Unlock session - explicitly mark session as modified to ensure it saves
+    request.session['is_locked'] = False
+    request.session['locked_at'] = None
+    request.session['last_activity'] = timezone.now().isoformat()
+    request.session.modified = True
+    request.session.save()  # Force immediate save
+    
+    # Update user activity
+    request.user.update_last_activity()
+    request.user.is_online = True
+    request.user.save(update_fields=['is_online'])
+    
+    # Broadcast status
+    broadcast_user_status(request.user.id, request.user.username, True)
+    
+    # Log successful unlock
+    from .security_models import AuditLog
+    AuditLog.log(
+        event_type='login_success',
+        user=request.user,
+        ip_address=request.META.get('REMOTE_ADDR'),
+        user_agent=request.META.get('HTTP_USER_AGENT', ''),
+        description=f'Session unlocked for {request.user.username}',
+        severity='info'
+    )
+    
+    return Response({
+        'success': True,
+        'message': 'Session unlocked successfully',
+        'user': UserSerializer(request.user).data
+    })

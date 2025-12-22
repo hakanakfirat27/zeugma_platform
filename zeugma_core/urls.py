@@ -13,6 +13,7 @@ urlpatterns = [
     # --- API URLS ---
     path('api/', include('reports.api_urls')),
     path('api/auth/', include('accounts.api_urls')),
+    path('api/security/', include('accounts.security_urls')),
     path('', include('notifications.urls')),
 
     # --- DJANGO-BASED AUTH & DASHBOARD URLS ---

@@ -12,6 +12,8 @@ class UserSerializer(serializers.ModelSerializer):
     """
     full_name = serializers.CharField(read_only=True)
     initials = serializers.CharField(read_only=True)
+    password_expired = serializers.SerializerMethodField()
+    days_until_password_expires = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -36,8 +38,20 @@ class UserSerializer(serializers.ModelSerializer):
             'is_2fa_setup_required',
             'login_count',
             'last_login_ip',
+            # Password fields
+            'password_changed_at',
+            'password_expired',
+            'days_until_password_expires',
         ]
         read_only_fields = fields
+    
+    def get_password_expired(self, obj):
+        """Check if user's password has expired"""
+        return obj.is_password_expired()
+    
+    def get_days_until_password_expires(self, obj):
+        """Get days until password expires (None if never)"""
+        return obj.days_until_password_expires()
 
 # --- NEW SERIALIZER FOR USER MANAGEMENT ---
 # This serializer is used by staff to create and update users.

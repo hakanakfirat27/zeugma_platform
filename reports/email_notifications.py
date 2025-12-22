@@ -2,6 +2,7 @@
 """
 Email notification system for Unverified Sites
 Sends notifications when sites are submitted, approved, or rejected
+Now respects global notification settings!
 """
 
 from django.core.mail import send_mail, EmailMultiAlternatives
@@ -14,10 +15,34 @@ from .models import UnverifiedSite, VerificationStatus
 User = get_user_model()
 
 
+def check_email_allowed(notification_type):
+    """
+    Check if email notifications are allowed for this type.
+    """
+    try:
+        from notifications.services import check_notification_allowed, check_channel_enabled
+        
+        # Check global settings
+        is_allowed, _ = check_notification_allowed(notification_type)
+        if not is_allowed:
+            return False
+        
+        # Check if email channel is enabled for this type
+        return check_channel_enabled(notification_type, 'email')
+    except Exception as e:
+        print(f"⚠️ Could not check email settings: {e}")
+        return True  # Default to allowing if settings not available
+
+
 def send_site_submitted_notification(site):
     """
     Send notification to staff when a new site is submitted
     """
+    # Check if email notifications are allowed
+    if not check_email_allowed('site_submitted'):
+        print(f"🚫 Site submitted email notification blocked by settings")
+        return False
+    
     # Get all staff admins and superadmins
     staff_users = User.objects.filter(
         role__in=['STAFF_ADMIN', 'SUPERADMIN'],
@@ -159,6 +184,11 @@ def send_site_approved_notification(site, approved_by):
     """
     Send notification to data collector when their site is approved
     """
+    # Check if email notifications are allowed
+    if not check_email_allowed('site_approved'):
+        print(f"🚫 Site approved email notification blocked by settings")
+        return False
+    
     if not site.collected_by or not site.collected_by.email:
         return
     
@@ -257,6 +287,11 @@ def send_site_rejected_notification(site, rejected_by, reason):
     """
     Send notification to data collector when their site is rejected
     """
+    # Check if email notifications are allowed
+    if not check_email_allowed('site_rejected'):
+        print(f"🚫 Site rejected email notification blocked by settings")
+        return False
+    
     if not site.collected_by or not site.collected_by.email:
         return
     
@@ -359,6 +394,22 @@ def send_daily_summary_to_staff():
     Can be called via Django management command or Celery task
     """
     from django.db.models import Count, Avg
+    from django.utils import timezone
+    
+    # Check if daily summary is enabled
+    try:
+        from dashboard.models import NotificationSettings
+        global_settings = NotificationSettings.get_settings()
+        
+        if not global_settings.get('notifications_enabled', True):
+            print(f"🚫 Daily summary blocked: notifications disabled")
+            return False
+        
+        if not global_settings.get('daily_summary_enabled', True):
+            print(f"🚫 Daily summary blocked: daily summary disabled")
+            return False
+    except Exception as e:
+        print(f"⚠️ Could not check daily summary settings: {e}")
     
     # Get stats
     total_pending = UnverifiedSite.objects.filter(

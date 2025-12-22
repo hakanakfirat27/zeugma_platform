@@ -1,7 +1,7 @@
 # dashboard/admin.py
 
 from django.contrib import admin
-from .models import UserActivity, RecentlyViewedCompany
+from .models import UserActivity, RecentlyViewedCompany, ThemeSettings
 
 
 @admin.register(UserActivity)
@@ -20,3 +20,43 @@ class RecentlyViewedCompanyAdmin(admin.ModelAdmin):
     search_fields = ['user__username', 'company_name']
     ordering = ['-viewed_at']
     readonly_fields = ['id', 'viewed_at']
+
+
+@admin.register(ThemeSettings)
+class ThemeSettingsAdmin(admin.ModelAdmin):
+    list_display = [
+        'layout_type', 
+        'default_theme', 
+        'allow_user_toggle', 
+        'toggle_variant',
+        'sidebar_variant',
+        'updated_at'
+    ]
+    list_filter = ['layout_type', 'default_theme', 'allow_user_toggle']
+    readonly_fields = ['id', 'updated_at', 'updated_by']
+    
+    fieldsets = (
+        ('Layout', {
+            'fields': ('layout_type',)
+        }),
+        ('Theme Settings', {
+            'fields': (
+                'default_theme',
+                'allow_user_toggle',
+                'show_toggle_in_header',
+                'toggle_variant',
+                'remember_user_preference',
+            )
+        }),
+        ('Sidebar Settings', {
+            'fields': ('sidebar_variant',)
+        }),
+        ('Metadata', {
+            'fields': ('updated_at', 'updated_by'),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    def save_model(self, request, obj, form, change):
+        obj.updated_by = request.user
+        super().save_model(request, obj, form, change)

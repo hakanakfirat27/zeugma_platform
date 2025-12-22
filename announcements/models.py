@@ -39,6 +39,7 @@ class Announcement(models.Model):
         ('clients', 'Clients Only'),
         ('staff', 'Staff Only'),
         ('superadmin', 'Superadmin Only'),
+        ('data_collectors', 'Data Collectors Only'),
         ('custom', 'Custom Selection'),
     ]
 
@@ -122,15 +123,17 @@ class Announcement(models.Model):
     def get_target_users(self):
         """Get list of users who should see this announcement"""
         if self.target_audience == 'all':
-            return User.objects.all()
+            return User.objects.filter(is_active=True)
         elif self.target_audience == 'clients':
-            return User.objects.filter(role='CLIENT')
+            return User.objects.filter(role='CLIENT', is_active=True)
         elif self.target_audience == 'staff':
-            return User.objects.filter(role__in=['STAFF_ADMIN', 'SUPERADMIN'])
+            return User.objects.filter(role__in=['STAFF_ADMIN', 'SUPERADMIN'], is_active=True)
         elif self.target_audience == 'superadmin':
-            return User.objects.filter(role='SUPERADMIN')
+            return User.objects.filter(role='SUPERADMIN', is_active=True)
+        elif self.target_audience == 'data_collectors':
+            return User.objects.filter(role='DATA_COLLECTOR', is_active=True)
         elif self.target_audience == 'custom':
-            return self.specific_users.all()
+            return self.specific_users.filter(is_active=True)
         return User.objects.none()
 
 

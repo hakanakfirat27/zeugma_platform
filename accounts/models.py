@@ -5,6 +5,13 @@ from datetime import timedelta
 import random
 import string
 
+# Import security models to make them available through this module
+from .security_models import (
+    SecuritySettings, UserTOTPDevice, TwoFactorBackupCode,
+    UserSession, PasswordHistory, APIKey, IPWhitelist, IPBlacklist,
+    FailedLoginAttempt, AuditLog
+)
+
 
 # This class defines the choices for the 'role' field.
 # It makes the code more readable and prevents typos.
@@ -39,6 +46,9 @@ class User(AbstractUser):
     # Login Tracking Fields
     login_count = models.IntegerField(default=0, help_text='Total number of successful logins')
     last_login_ip = models.GenericIPAddressField(null=True, blank=True, help_text='IP address of last login')
+    
+    # Password Management Fields
+    password_changed_at = models.DateTimeField(null=True, blank=True, help_text='When password was last changed')
 
     def save(self, *args, **kwargs):
         """
@@ -134,6 +144,47 @@ class User(AbstractUser):
             user_agent=user_agent,
             success=True
         )
+
+    def is_password_expired(self):
+        """Check if user's password has expired based on security settings"""
+        settings = SecuritySettings.get_settings()
+        
+        # If password expiry is disabled (0 days), password never expires
+        if settings.password_expiry_days == 0:
+            return False
+        
+        # If password_changed_at is not set, consider it expired (force change)
+        if not self.password_changed_at:
+            return True
+        
+        # Calculate expiry date
+        expiry_date = self.password_changed_at + timedelta(days=settings.password_expiry_days)
+        return timezone.now() > expiry_date
+    
+    def days_until_password_expires(self):
+        """Get number of days until password expires (None if never)"""
+        settings = SecuritySettings.get_settings()
+        
+        if settings.password_expiry_days == 0:
+            return None  # Never expires
+        
+        if not self.password_changed_at:
+            return 0  # Already expired
+        
+        expiry_date = self.password_changed_at + timedelta(days=settings.password_expiry_days)
+        days_left = (expiry_date - timezone.now()).days
+        return max(0, days_left)
+    
+    def update_password(self, new_password):
+        """Update password with tracking and history"""
+        # Save old password to history before changing
+        if self.password:  # Only if user already has a password
+            PasswordHistory.add_password(self, self.password)
+        
+        # Set new password
+        self.set_password(new_password)
+        self.password_changed_at = timezone.now()
+        self.save()
 
     def __str__(self):
         return f"{self.username} ({self.get_role_display()})"

@@ -1,19 +1,30 @@
 import { useState, useEffect } from 'react';
-import { Shield, Mail, Check, X, AlertCircle, Loader2, Clock } from 'lucide-react';
+import { Shield, Mail, Check, X, AlertCircle, Loader2, Clock, Copy, Download, Key, CheckCircle } from 'lucide-react';
 import api from '../../utils/api';
 
 const EmailTwoFactorSetupModal = ({ isOpen, onClose, onComplete, isRequired = false }) => {
-  const [step, setStep] = useState(1); // 1: Info, 2: Verify Code
+  const [step, setStep] = useState(1); // 1: Info, 2: Verify Code, 3: Backup Codes
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [codeSent, setCodeSent] = useState(false);
   const [resendTimer, setResendTimer] = useState(0);
   const [userEmail, setUserEmail] = useState('');
+  const [backupCodes, setBackupCodes] = useState([]);
+  const [copiedCodes, setCopiedCodes] = useState(false);
+  const [savedConfirmed, setSavedConfirmed] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
-      // Get user email when modal opens
+      // Reset state when modal opens
+      setStep(1);
+      setCode('');
+      setError('');
+      setCodeSent(false);
+      setResendTimer(0);
+      setBackupCodes([]);
+      setCopiedCodes(false);
+      setSavedConfirmed(false);
       getUserEmail();
     }
   }, [isOpen]);
@@ -68,8 +79,15 @@ const EmailTwoFactorSetupModal = ({ isOpen, onClose, onComplete, isRequired = fa
       const response = await api.post('/accounts/2fa/verify-enable/', { code });
 
       if (response.data.success) {
-        onComplete();
-        onClose();
+        // Store backup codes from response
+        if (response.data.backup_codes && response.data.backup_codes.length > 0) {
+          setBackupCodes(response.data.backup_codes);
+          setStep(3); // Go to backup codes step
+        } else {
+          // No backup codes, complete immediately
+          onComplete();
+          onClose();
+        }
       }
     } catch (err) {
       setError(err.response?.data?.message || 'Invalid code. Please try again.');
@@ -86,16 +104,58 @@ const EmailTwoFactorSetupModal = ({ isOpen, onClose, onComplete, isRequired = fa
     await sendVerificationCode();
   };
 
-  const handleComplete = () => {
-    onComplete();
+  const copyBackupCodes = async () => {
+    try {
+      const codesText = backupCodes.join('\n');
+      await navigator.clipboard.writeText(codesText);
+      setCopiedCodes(true);
+      setTimeout(() => setCopiedCodes(false), 3000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+      setError('Failed to copy to clipboard');
+    }
+  };
+
+  const downloadBackupCodes = () => {
+    const text = `Zeugma Platform - 2FA Backup Codes
+========================================
+
+Generated: ${new Date().toLocaleString()}
+Email: ${userEmail}
+
+Your backup codes (each can only be used once):
+
+${backupCodes.map((code, i) => `${i + 1}. ${code}`).join('\n')}
+
+========================================
+IMPORTANT:
+- Store these codes in a safe place
+- Each code can only be used ONCE
+- Use these if you can't receive email verification
+- Generate new codes if you run out
+========================================`;
+
+    const blob = new Blob([text], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `zeugma-2fa-backup-codes-${new Date().toISOString().split('T')[0]}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleFinalComplete = () => {
+    onComplete(backupCodes); // Pass backup codes to parent if needed
     onClose();
   };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="px-6 py-5 border-b border-gray-200 bg-gradient-to-r from-indigo-600 to-purple-600">
+        <div className="px-6 py-5 border-b border-gray-200 bg-gradient-to-r from-indigo-600 to-purple-600 sticky top-0">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 bg-white/20 backdrop-blur-xl rounded-xl flex items-center justify-center">
@@ -104,11 +164,11 @@ const EmailTwoFactorSetupModal = ({ isOpen, onClose, onComplete, isRequired = fa
               <div>
                 <h2 className="text-xl font-bold text-white">Two-Factor Authentication</h2>
                 <p className="text-indigo-100 text-sm">
-                  {isRequired ? 'Required for your account' : 'Add an extra layer of security'}
+                  {step === 3 ? 'Save your backup codes' : isRequired ? 'Required for your account' : 'Add an extra layer of security'}
                 </p>
               </div>
             </div>
-            {!isRequired && (
+            {!isRequired && step !== 3 && (
               <button
                 onClick={onClose}
                 className="p-2 text-white hover:bg-white/20 rounded-lg transition-colors"
@@ -116,6 +176,35 @@ const EmailTwoFactorSetupModal = ({ isOpen, onClose, onComplete, isRequired = fa
                 <X className="w-5 h-5" />
               </button>
             )}
+          </div>
+        </div>
+
+        {/* Progress Steps */}
+        <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
+          <div className="flex items-center justify-between">
+            {[
+              { num: 1, label: 'Setup' },
+              { num: 2, label: 'Verify' },
+              { num: 3, label: 'Backup Codes' }
+            ].map((s, index) => (
+              <div key={s.num} className="flex items-center">
+                <div className={`flex items-center gap-2 ${step >= s.num ? 'text-indigo-600' : 'text-gray-400'}`}>
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${
+                    step > s.num 
+                      ? 'bg-green-500 text-white' 
+                      : step === s.num 
+                        ? 'bg-indigo-600 text-white' 
+                        : 'bg-gray-200 text-gray-500'
+                  }`}>
+                    {step > s.num ? <Check className="w-4 h-4" /> : s.num}
+                  </div>
+                  <span className="text-sm font-medium hidden sm:inline">{s.label}</span>
+                </div>
+                {index < 2 && (
+                  <div className={`w-12 sm:w-20 h-0.5 mx-2 ${step > s.num ? 'bg-green-500' : 'bg-gray-200'}`} />
+                )}
+              </div>
+            ))}
           </div>
         </div>
 
@@ -158,7 +247,7 @@ const EmailTwoFactorSetupModal = ({ isOpen, onClose, onComplete, isRequired = fa
                     <ul className="text-sm text-blue-700 mt-2 space-y-1">
                       <li>• You'll receive a code via email when logging in</li>
                       <li>• Each code is valid for 10 minutes</li>
-                      <li>• Keep your email secure to protect your account</li>
+                      <li>• You'll get backup codes for emergencies</li>
                     </ul>
                   </div>
                 </div>
@@ -259,11 +348,109 @@ const EmailTwoFactorSetupModal = ({ isOpen, onClose, onComplete, isRequired = fa
                   ) : (
                     <>
                       <Check className="w-5 h-5" />
-                      Verify & Enable
+                      Verify
                     </>
                   )}
                 </button>
               </div>
+            </div>
+          )}
+
+          {/* Step 3: Backup Codes */}
+          {step === 3 && (
+            <div className="space-y-6">
+              <div className="text-center">
+                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <CheckCircle className="w-8 h-8 text-green-600" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                  2FA Enabled Successfully!
+                </h3>
+                <p className="text-sm text-gray-600">
+                  Save these backup codes in a safe place. You'll need them if you can't access your email.
+                </p>
+              </div>
+
+              <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                <div className="flex gap-3">
+                  <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-semibold text-amber-900">Important!</p>
+                    <p className="text-sm text-amber-700 mt-1">
+                      These codes will only be shown <strong>once</strong>. Each code can only be used <strong>one time</strong>.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Backup Codes Display */}
+              <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <Key className="w-5 h-5 text-gray-600" />
+                    <span className="text-sm font-semibold text-gray-900">Your Backup Codes</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={copyBackupCodes}
+                      className="p-2 text-gray-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                      title="Copy all codes"
+                    >
+                      {copiedCodes ? (
+                        <Check className="w-4 h-4 text-green-600" />
+                      ) : (
+                        <Copy className="w-4 h-4" />
+                      )}
+                    </button>
+                    <button
+                      onClick={downloadBackupCodes}
+                      className="p-2 text-gray-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                      title="Download as file"
+                    >
+                      <Download className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  {backupCodes.map((code, index) => (
+                    <div
+                      key={index}
+                      className="bg-white border border-gray-200 rounded-lg px-3 py-2 font-mono text-sm text-center text-gray-800"
+                    >
+                      {code}
+                    </div>
+                  ))}
+                </div>
+
+                {copiedCodes && (
+                  <p className="text-xs text-green-600 text-center mt-3">
+                    ✓ Codes copied to clipboard!
+                  </p>
+                )}
+              </div>
+
+              {/* Confirmation Checkbox */}
+              <label className="flex items-start gap-3 p-4 bg-gray-50 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
+                <input
+                  type="checkbox"
+                  checked={savedConfirmed}
+                  onChange={(e) => setSavedConfirmed(e.target.checked)}
+                  className="w-5 h-5 mt-0.5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                />
+                <span className="text-sm text-gray-700">
+                  I have saved my backup codes in a safe place and understand that each code can only be used once.
+                </span>
+              </label>
+
+              <button
+                onClick={handleFinalComplete}
+                disabled={!savedConfirmed}
+                className="w-full bg-green-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                <CheckCircle className="w-5 h-5" />
+                Complete Setup
+              </button>
             </div>
           )}
         </div>

@@ -44,7 +44,7 @@ class AnnouncementListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Announcement
         fields = [
-            'id', 'title', 'summary', 'announcement_type', 'priority', 'status',
+            'id', 'title', 'content', 'summary', 'announcement_type', 'priority', 'status',
             'target_audience', 'start_date', 'end_date', 'is_pinned', 'show_popup',
             'require_acknowledgment', 'icon', 'color_scheme', 'created_by_name',
             'created_at', 'updated_at', 'views_count', 'is_active',

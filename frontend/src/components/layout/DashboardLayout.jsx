@@ -38,27 +38,57 @@ const DashboardLayout = ({ children, pageTitle, headerActions, pageSubtitleTop, 
   const menuRef = useRef(null);
   const [showAvatarMenu, setShowAvatarMenu] = useState(false);
   const avatarMenuRef = useRef(null);
+  const [expandedGroups, setExpandedGroups] = useState(['database', 'management', 'system']);
 
-  // navLinks array with 'color' properties
-const navLinks = [
-  { name: 'Dashboard', path: '/staff-dashboard', icon: LayoutDashboard, roles: ['SUPERADMIN', 'STAFF_ADMIN'], color: 'text-blue-500',},
-  { name: 'Unverified Sites', path: '/unverified-sites', icon: Database, roles: ['SUPERADMIN', 'STAFF_ADMIN'], color: 'text-teal-500' },
-  { 
-  name: 'Company Database', 
-  path: '/company-database', 
-  icon: Building2, 
-  roles: ['SUPERADMIN', 'STAFF_ADMIN'], 
-  color: 'text-emerald-500' 
-},
-  { name: 'All Projects', path: '/admin/projects', icon: FolderKanban, roles: ['SUPERADMIN', 'STAFF_ADMIN'], color: 'text-indigo-500' },
-  //{ name: 'Review Queue', path: '/my-tasks', icon: AlertCircle, roles: ['SUPERADMIN', 'STAFF_ADMIN'], color: 'text-orange-500' },
-  { name: 'Custom Reports', path: '/custom-reports', icon: FileText, roles: ['SUPERADMIN', 'STAFF_ADMIN'], color: 'text-purple-500' },
-  { name: 'Subscriptions', path: '/subscriptions', icon: CreditCard, roles: ['SUPERADMIN', 'STAFF_ADMIN'], color: 'text-green-500' },
-  { name: 'User Management', path: '/user-management', icon: Users, roles: ['SUPERADMIN'], color: 'text-red-500' },
-  { name: 'Announcements', path: '/announcements-management', icon: Bell, roles: ['SUPERADMIN', 'STAFF_ADMIN'], color: 'text-red-500' },
-  { name: 'Feedback', path: '/feedback', icon: Star, roles: ['SUPERADMIN', 'STAFF_ADMIN'], color: 'text-amber-500' },
-  { name: 'Chat', path: '/staff-chat', icon: MessageSquare, roles: ['SUPERADMIN', 'STAFF_ADMIN'], color: 'text-orange-500' },
-];
+  // Grouped navigation structure - ultra compact version (no scroll)
+  const navGroups = [
+    {
+      id: 'main',
+      label: null,
+      items: [
+        { name: 'Dashboard', path: '/staff-dashboard', icon: LayoutDashboard, roles: ['SUPERADMIN', 'STAFF_ADMIN'], color: 'text-blue-500' },
+      ]
+    },
+    {
+      id: 'database',
+      label: 'Database',
+      icon: Database,
+      items: [
+        { name: 'Companies', path: '/company-database', icon: Building2, roles: ['SUPERADMIN', 'STAFF_ADMIN'], color: 'text-emerald-500' },
+        { name: 'Unverified Sites', path: '/unverified-sites', icon: Database, roles: ['SUPERADMIN', 'STAFF_ADMIN'], color: 'text-teal-500' },
+        { name: 'Projects', path: '/admin/projects', icon: FolderKanban, roles: ['SUPERADMIN', 'STAFF_ADMIN'], color: 'text-indigo-500' },
+        { name: 'Reports', path: '/custom-reports', icon: FileText, roles: ['SUPERADMIN', 'STAFF_ADMIN'], color: 'text-purple-500' },
+      ]
+    },
+    {
+      id: 'management',
+      label: 'Management',
+      icon: Users,
+      items: [
+        { name: 'Subscriptions', path: '/subscriptions', icon: CreditCard, roles: ['SUPERADMIN', 'STAFF_ADMIN'], color: 'text-green-500' },
+        { name: 'Users', path: '/user-management', icon: Users, roles: ['SUPERADMIN'], color: 'text-red-500' },
+        { name: 'Announcements', path: '/announcements-management', icon: Bell, roles: ['SUPERADMIN', 'STAFF_ADMIN'], color: 'text-pink-500' },
+        { name: 'Feedback', path: '/feedback', icon: Star, roles: ['SUPERADMIN', 'STAFF_ADMIN'], color: 'text-amber-500' },
+        { name: 'Chat', path: '/staff-chat', icon: MessageSquare, roles: ['SUPERADMIN', 'STAFF_ADMIN'], color: 'text-orange-500' },
+      ]
+    },
+    {
+      id: 'system',
+      label: 'System',
+      icon: Settings,
+      items: [
+        { name: 'Settings', path: '/admin/settings', icon: Settings, roles: ['SUPERADMIN', 'STAFF_ADMIN'], color: 'text-gray-500' },
+      ]
+    },
+  ];
+
+  const toggleGroup = (groupId) => {
+    setExpandedGroups(prev => 
+      prev.includes(groupId) 
+        ? prev.filter(id => id !== groupId)
+        : [...prev, groupId]
+    );
+  };
 
   // Links for the avatar dropdown menu
   const dropdownLinks = [
@@ -367,146 +397,159 @@ const navLinks = [
         className={`${sidebarWidth} transition-all duration-300 ease-in-out bg-gradient-to-b from-slate-800 via-slate-900 to-slate-900 text-white flex flex-col shadow-2xl relative z-50`}
       >
         {/* Logo Section */}
-        <div className="p-4 border-b border-slate-700/50">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-purple-600 via-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
-                <Database className="w-6 h-6 text-white" />
-              </div>
-              {(isSidebarOpen) && (
-                <div className="transition-opacity duration-200">
-                  <h2 className="text-lg font-bold text-white">A Data</h2>
-                  <p className="text-xs text-slate-400">Staff Portal</p>
-                </div>
-              )}
+        <div className="px-4 py-4 border-b border-slate-700 flex items-center">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-purple-600 via-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-purple-500/20">
+              <Database className="w-5 h-5 text-white" />
             </div>
+            {(isSidebarOpen) && (
+              <div className="transition-opacity duration-200">
+                <h2 className="text-base font-bold text-white">A Data</h2>
+                <p className="text-[11px] text-slate-500">Staff Portal</p>
+              </div>
+            )}
           </div>
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 px-3 py-2">
-          <div className="space-y-0.5">
-            {navLinks
-              .filter(link => user?.role && link.roles.includes(user.role.toUpperCase()))
-              .map((link) => {
-                const Icon = link.icon;
-                const active = isActive(link.path);
-                const isChatLink = link.name === 'Chat';
-                return (
-                  <button
-                    key={link.name}
-                    onClick={() => {
-                      navigate(link.path);
-                      // Clear chat badge immediately when clicking Chat
-                      if (isChatLink) {
-                        clearChatBadge();
-                      }
-                    }}
-                    title={link.name}
-                    className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all group relative ${
-                      active
-                        ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg'
-                        : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                    }`}
-                  >
-                    <Icon className={`w-5 h-5 flex-shrink-0 ${active ? 'text-white' : link.color}`} />
-                    {(isSidebarOpen) && (
-                      <span className="font-medium text-sm transition-opacity duration-200 truncate">{link.name}</span>
-                    )}
-                    {/* --- 3. Add Badge (CORRECTED) --- */}
-                    {isChatLink && chatUnreadCount > 0 && (
-                      <span className={`absolute min-w-[20px] h-5 px-1.5 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-200 ${
-                        active ? 'bg-white text-purple-600' : 'bg-red-500 text-white'
-                      } ${
-                        isSidebarOpen
-                          ? 'right-4 top-1/2 -translate-y-1/2' // Centered when open
-                          : 'scale-75 top-1 right-1' // Top-right corner when collapsed
-                      }`}>
-                        {chatUnreadCount > 99 ? '99+' : chatUnreadCount}
-                      </span>
-                    )}
-                    {/* --- End Badge --- */}
-                    {active && (isSidebarOpen) && (
-                      <ChevronRight className="w-4 h-4 ml-auto flex-shrink-0" />
-                    )}
-                  </button>
-                );
-              })}
+        <nav className="flex-1 px-2 py-1.5">
+          <div>
+            {navGroups.map((group) => {
+              const visibleItems = group.items.filter(
+                item => user?.role && item.roles.includes(user.role.toUpperCase())
+              );
+              
+              if (visibleItems.length === 0) return null;
+              
+              const isExpanded = expandedGroups.includes(group.id);
+              
+              return (
+                <div key={group.id} className="mb-1">
+                  {/* Group Header */}
+                  {group.label && isSidebarOpen ? (
+                    <button
+                      onClick={() => toggleGroup(group.id)}
+                      className="w-full flex items-center justify-between px-3 py-1.5 text-xs font-semibold text-slate-500 uppercase tracking-wider hover:text-slate-400 transition-colors"
+                    >
+                      <span>{group.label}</span>
+                      <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${isExpanded ? '' : '-rotate-90'}`} />
+                    </button>
+                  ) : group.label && !isSidebarOpen ? (
+                    <div className="flex justify-center py-1">
+                      <div className="w-5 h-px bg-slate-700"></div>
+                    </div>
+                  ) : null}
+                  
+                  {/* Group Items */}
+                  {(group.label === null || isExpanded || !isSidebarOpen) && (
+                    <div className="space-y-0.5">
+                      {visibleItems.map((link) => {
+                        const Icon = link.icon;
+                        const active = isActive(link.path);
+                        const isChatLink = link.name === 'Chat';
+                        
+                        return (
+                          <button
+                            key={link.name}
+                            onClick={() => {
+                              navigate(link.path);
+                              if (isChatLink) clearChatBadge();
+                            }}
+                            title={link.name}
+                            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all group relative ${
+                              active
+                                ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-sm'
+                                : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                            }`}
+                          >
+                            <Icon className={`w-[18px] h-[18px] flex-shrink-0 ${active ? 'text-white' : link.color}`} />
+                            {isSidebarOpen && (
+                              <span className="text-sm transition-opacity duration-200 truncate">{link.name}</span>
+                            )}
+                            {isChatLink && chatUnreadCount > 0 && (
+                              <span className={`absolute min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center text-[11px] font-bold transition-all duration-200 ${
+                                active ? 'bg-white text-purple-600' : 'bg-red-500 text-white'
+                              } ${
+                                isSidebarOpen ? 'right-2.5 top-1/2 -translate-y-1/2' : 'scale-75 top-0 right-0'
+                              }`}>
+                                {chatUnreadCount > 99 ? '99+' : chatUnreadCount}
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </nav>
 
         {/* User Section (Sidebar bottom) */}
-        <div className="p-3 border-t border-slate-700/50">
-          <div className={`flex items-center gap-3 p-2 rounded-xl bg-slate-800/50 ${!(isSidebarOpen) && 'justify-center'}`}>
+        <div className="px-2 py-2 border-t border-slate-700/50">
+          <div className={`flex items-center gap-2.5 p-1.5 rounded-lg bg-slate-800/50 ${!(isSidebarOpen) && 'justify-center'}`}>
             <div className="relative">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-blue-600 flex items-center justify-center text-sm font-bold shadow-lg">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-blue-600 flex items-center justify-center text-xs font-bold shadow">
                 {getUserInitials()}
               </div>
-              <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-slate-800"></div>
+              <div className="absolute -bottom-0.5 -right-0.5 w-2 h-2 bg-green-500 rounded-full border border-slate-800"></div>
             </div>
             {(isSidebarOpen) && (
-              <div className="flex-1 transition-opacity duration-200">
-                <p className="text-sm font-semibold text-white truncate">{user?.full_name || user?.username}</p>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-white truncate">{user?.full_name || user?.username}</p>
                 <p className="text-xs text-slate-400">{getUserRole()}</p>
               </div>
             )}
           </div>
-          <div className="mt-2 space-y-1">
-            <button
-              onClick={handleLogout}
-              className="w-full flex items-center gap-3 px-4 py-2 rounded-xl text-slate-300 hover:bg-red-600/10 hover:text-red-400 transition-all"
-            >
-              <LogOut className="w-5 h-5" />
-              {(isSidebarOpen) && <span className="font-medium">Logout</span>}
-            </button>
-          </div>
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center gap-2.5 px-3 py-1.5 mt-1.5 rounded-lg text-slate-400 hover:bg-red-600/10 hover:text-red-400 transition-all text-sm"
+          >
+            <LogOut className="w-4 h-4" />
+            {(isSidebarOpen) && <span>Logout</span>}
+          </button>
         </div>
       </aside>
 
       {/* MAIN CONTENT */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* --- TOP HEADER --- */}
-        <header className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white  shadow-lg">
-          <div className="flex items-center px-6 py-4">
+        <header className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white shadow-lg border-b border-purple-700/50">
+          <div className="flex items-center px-6 py-3">
             {/* Left Section */}
-            <div className="flex flex-shrink-0 items-center gap-4">
-              {/* --- MODIFIED: Icon color and hover --- */}
+            <div className="flex flex-shrink-0 items-center gap-3">
               <button
                 onClick={() => {
                   if (isSidebarOpen) {
-                    // Closing sidebar - lock it
                     setIsSidebarOpen(false);
                     setIsSidebarLocked(true);
                   } else {
-                    // Opening sidebar - unlock it
                     setIsSidebarOpen(true);
                     setIsSidebarLocked(false);
                   }
                 }}
-                className="p-2 hover:bg-white-900 rounded-xl transition-colors"
+                className="p-1.5 hover:bg-white/20 rounded-lg transition-colors"
                 title={isSidebarOpen ? "Close and lock sidebar" : "Open sidebar"}
               >
                 {isSidebarOpen ? (
-                  <Menu className="w-5 h-5 text-white-600" />
+                  <Menu className="w-4 h-4 text-white" />
                 ) : (
-                  <ArrowRight className="w-5 h-5 text-white-600" />
+                  <ArrowRight className="w-4 h-4 text-white" />
                 )}
               </button>
               {/* Page Title & Subtitle Area */}
               <div className="min-w-0">
-                {/* --- MODIFIED: Top subtitle color --- */}
                 {pageSubtitleTop && (
-                  <div className="mb-1 text-white-300">
+                  <div className="text-sm text-white/80">
                     {pageSubtitleTop}
                   </div>
                 )}
-                {/* --- MODIFIED: Page title color --- */}
-                <h1 className="text-xl font-bold text-white ">
-                  {pageTitle || navLinks.find(link => isActive(link.path))?.name || 'Dashboard'}
+                <h1 className="text-lg font-semibold text-white">
+                  {pageTitle || 'Dashboard'}
                 </h1>
-                {/* --- MODIFIED: Bottom subtitle color --- */}
                 {pageSubtitleBottom && (
-                  <div className="mt-1 text-white">
+                  <div className="text-sm text-white/80">
                     {pageSubtitleBottom}
                   </div>
                 )}
@@ -514,18 +557,18 @@ const navLinks = [
             </div>
 
             {/* Right Section */}
-            <div className="flex items-center gap-3 ml-auto">
-              {/* --- Action Slot Divider --- */}
+            <div className="flex items-center gap-2 ml-auto">
+              {/* Header Actions */}
               {headerActions && (
-                <div className="flex items-center gap-2 border-r border-white pr-5 mr-1">
+                <div className="flex items-center gap-2 border-r border-white/30 pr-3 mr-1 [&_button]:text-sm [&_button]:py-1.5 [&_button]:px-3">
                   {headerActions}
                 </div>
               )}
 
-              {/* --- Fullscreen icon color and hover --- */}
+              {/* Fullscreen */}
               <button
                 onClick={toggleFullscreen}
-                className="p-2 hover:bg-white/20 rounded-xl transition-colors"
+                className="p-1.5 hover:bg-white/20 rounded-lg transition-colors"
                 title={isFullscreen ? "Exit Fullscreen" : "Toggle Fullscreen"}
               >
                 {isFullscreen ? <Minimize className="w-5 h-5 text-white" /> : <Maximize className="w-5 h-5 text-white" />}
@@ -706,11 +749,6 @@ const navLinks = [
                     <div className="p-2">
                       {dropdownLinks.map((link) => {
                         const Icon = link.icon;
-                        const navLinkData = navLinks.find(nl => nl.name === link.name);
-                        if (navLinkData && navLinkData.roles && !(user?.role && navLinkData.roles.includes(user.role.toUpperCase()))) {
-                           if (link.name !== 'My Profile') return null;
-                        }
-
                         return (
                           <button
                             key={link.name}

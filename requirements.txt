@@ -17,6 +17,7 @@ qrcode==8.2
 six==1.17.0
 sqlparse==0.5.3
 tzdata==2025.2
+psutil==6.1.0
 
 # channels==4.0.0
 # channels-redis==4.1.0  # For production with Redis

@@ -74,6 +74,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'accounts.middleware.UpdateLastActivityMiddleware',
+    'accounts.middleware.SessionTimeoutMiddleware',  # Session timeout with sleep mode
 ]
 
 ROOT_URLCONF = 'zeugma_core.urls'
@@ -261,18 +262,20 @@ SESSION_COOKIE_PATH = '/'
 # EMAIL CONFIGURATION - Now using environment variables
 # ==============================================================================
 
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+# For development, use console backend to see emails in terminal:
+if DEBUG:
+    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+else:
+    # For production/real email sending:
+    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+
 EMAIL_HOST = config('EMAIL_HOST', default='smtp.gmail.com')
 EMAIL_PORT = config('EMAIL_PORT', default=587, cast=int)
 EMAIL_USE_TLS = config('EMAIL_USE_TLS', default=True, cast=bool)
+EMAIL_USE_SSL = config('EMAIL_USE_SSL', default=False, cast=bool)
 EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='')
 EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
 DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='A Data <zeugma.research@gmail.com>')
-
-# Disable SSL certificate verification for development (NOT for production!)
-if DEBUG:
-    import ssl
-    ssl._create_default_https_context = ssl._create_unverified_context
 
 # ==============================================================================
 # CELERY CONFIGURATION (Background tasks)
@@ -319,3 +322,11 @@ if not DEBUG:
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
 
+
+# ==============================================================================
+# PUSH NOTIFICATIONS (VAPID)
+# ==============================================================================
+
+VAPID_PUBLIC_KEY = config('VAPID_PUBLIC_KEY', default='')
+VAPID_PRIVATE_KEY = config('VAPID_PRIVATE_KEY', default='')
+VAPID_CLAIMS_EMAIL = config('VAPID_CLAIMS_EMAIL', default='admin@zeugma.com')

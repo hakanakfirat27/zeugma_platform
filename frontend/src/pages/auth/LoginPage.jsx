@@ -5,6 +5,7 @@ import { useToast } from '../../contexts/ToastContext';
 import { User, Mail, Lock, Eye, EyeOff, AlertCircle, CheckCircle, Check, X, Loader2, Building, Phone, LogIn, UserPlus } from 'lucide-react';
 import EmailTwoFactorVerificationModal from '../../components/auth/EmailTwoFactorVerificationModal';
 import EmailTwoFactorSetupModal from '../../components/auth/EmailTwoFactorSetupModal';
+import ExpiredPasswordModal from '../../components/auth/ExpiredPasswordModal';
 import api from '../../utils/api';
 
 const LoginPage = ({ initialMode }) => {
@@ -22,6 +23,7 @@ const LoginPage = ({ initialMode }) => {
   const [loginError, setLoginError] = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
   const [infoMessage, setInfoMessage] = useState('');
+  const [warningMessage, setWarningMessage] = useState('');
 
   // Login validation state
   const [loginTouched, setLoginTouched] = useState({
@@ -84,6 +86,10 @@ const LoginPage = ({ initialMode }) => {
   const [requires2FASetup, setRequires2FASetup] = useState(false);
   const [tempUsername, setTempUsername] = useState('');
   const [tempEmail, setTempEmail] = useState('');
+
+  // Password expiry states
+  const [passwordExpired, setPasswordExpired] = useState(false);
+  const [daysExpired, setDaysExpired] = useState(0);
 
   const { user, checkAuth } = useAuth();
   const navigate = useNavigate();
@@ -161,8 +167,24 @@ const LoginPage = ({ initialMode }) => {
   useEffect(() => {
     // Handle logout success message - use sessionStorage flag for reliability
     const showLogoutToast = sessionStorage.getItem('showLogoutToast');
+    const logoutReason = sessionStorage.getItem('logoutReason');
+    const logoutMessage = sessionStorage.getItem('logoutMessage');
     
-    if (showLogoutToast === 'true' && !logoutToastShown) {
+    // Handle session termination/expiry messages
+    if (logoutReason && logoutMessage) {
+      sessionStorage.removeItem('logoutReason');
+      sessionStorage.removeItem('logoutMessage');
+      
+      if (logoutReason === 'session_terminated') {
+        // Show as warning for session termination (e.g., single session mode)
+        setWarningMessage(logoutMessage);
+      } else {
+        // Show as info for session expiry
+        setInfoMessage(logoutMessage);
+      }
+    }
+    // Handle normal logout success
+    else if (showLogoutToast === 'true' && !logoutToastShown) {
       setLogoutToastShown(true);
       sessionStorage.removeItem('showLogoutToast');
       toast.success('You have been logged out successfully');
@@ -322,6 +344,7 @@ const LoginPage = ({ initialMode }) => {
     e.preventDefault();
     setLoginError('');
     setInfoMessage('');
+    setWarningMessage('');
 
     // Validate all fields
     let hasErrors = false;
@@ -348,6 +371,16 @@ const LoginPage = ({ initialMode }) => {
         remember_me: rememberMe
       });
 
+      // Check if password is expired
+      if (response.data.password_expired) {
+        setPasswordExpired(true);
+        setTempUsername(response.data.username);
+        setDaysExpired(response.data.days_expired || 0);
+        setInfoMessage(response.data.message);
+        setLoginLoading(false);
+        return;
+      }
+
       if (response.data.requires_2fa) {
         setRequires2FA(true);
         setTempUsername(response.data.username);
@@ -365,7 +398,8 @@ const LoginPage = ({ initialMode }) => {
       }
 
       if (response.data.user) {
-        toast.success('You have successful!y logged in');
+        // Store success message in sessionStorage so it persists after redirect
+        sessionStorage.setItem('showLoginSuccessToast', 'true');
         await checkAuth();
         setLoginLoading(false);
       }
@@ -465,6 +499,14 @@ const LoginPage = ({ initialMode }) => {
     await checkAuth();
   };
 
+  const handlePasswordChangeSuccess = () => {
+    setPasswordExpired(false);
+    setTempUsername('');
+    setDaysExpired(0);
+    toast.success('Password changed successfully! Please log in with your new password.');
+    setLoginData({ ...loginData, password: '' });
+  };
+
   const redirectToDashboard = (userData) => {
     const userRole = userData.role;
     if (userRole === 'SUPERADMIN' || userRole === 'STAFF_ADMIN') {
@@ -488,6 +530,7 @@ const LoginPage = ({ initialMode }) => {
       setLoginError('');
       setSignupError('');
       setInfoMessage('');
+      setWarningMessage('');
       // Reset touched states
       setLoginTouched({ username: false, password: false });
       setSignupTouched({
@@ -573,6 +616,13 @@ const LoginPage = ({ initialMode }) => {
                   <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-xl flex items-start gap-2">
                     <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
                     <p className="text-sm text-green-700">{infoMessage}</p>
+                  </div>
+                )}
+
+                {warningMessage && (
+                  <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-2">
+                    <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+                    <p className="text-sm text-amber-700">{warningMessage}</p>
                   </div>
                 )}
 
@@ -992,6 +1042,19 @@ const LoginPage = ({ initialMode }) => {
         onClose={() => {}}
         onComplete={handle2FASetupComplete}
         isRequired={true}
+      />
+
+      {/* Expired Password Modal */}
+      <ExpiredPasswordModal
+        isOpen={passwordExpired}
+        username={tempUsername}
+        daysExpired={daysExpired}
+        onSuccess={handlePasswordChangeSuccess}
+        onCancel={() => {
+          setPasswordExpired(false);
+          setTempUsername('');
+          setDaysExpired(0);
+        }}
       />
     </div>
   );

@@ -1,5 +1,6 @@
 # notifications/models.py
 
+import uuid
 from django.db import models
 from django.contrib.auth import get_user_model
 from django.utils import timezone
@@ -63,3 +64,60 @@ class Notification(models.Model):
             return f"{minutes} minute{'s' if minutes > 1 else ''} ago"
         else:
             return "Just now"
+
+
+class PushSubscription(models.Model):
+    """
+    Stores Web Push subscription information for each user/browser.
+    A user can have multiple subscriptions (different browsers/devices).
+    """
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False
+    )
+    
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='push_subscriptions'
+    )
+    
+    # The push subscription endpoint URL
+    endpoint = models.TextField(unique=True)
+    
+    # Encryption keys from the browser
+    p256dh_key = models.CharField(max_length=255)
+    auth_key = models.CharField(max_length=255)
+    
+    # Device/browser info for identification
+    user_agent = models.TextField(blank=True, null=True)
+    device_name = models.CharField(max_length=255, blank=True, null=True)
+    
+    # Status
+    is_active = models.BooleanField(default=True)
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    last_used = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = "Push Subscription"
+        verbose_name_plural = "Push Subscriptions"
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['user', 'is_active']),
+        ]
+    
+    def __str__(self):
+        return f"{self.user.username} - {self.device_name or 'Unknown Device'}"
+    
+    def get_subscription_info(self):
+        """Return subscription info in the format required by pywebpush."""
+        return {
+            "endpoint": self.endpoint,
+            "keys": {
+                "p256dh": self.p256dh_key,
+                "auth": self.auth_key
+            }
+        }

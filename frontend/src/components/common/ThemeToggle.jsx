@@ -1,17 +1,30 @@
 // frontend/src/components/common/ThemeToggle.jsx
 // Multiple Theme Toggle Styles - 12 Variants to choose from!
-// Change the 'variant' prop to switch styles
+// Now integrates with ThemeContext to use admin-configured variant
 
 import { useTheme } from '../../contexts/ThemeContext';
-import { Sun, Moon, Monitor } from 'lucide-react';
+import { Sun, Moon } from 'lucide-react';
 
 const ThemeToggle = ({ 
-  variant = 'bouncy', // See all options below
+  variant: propVariant, // Override variant from props (optional)
   size = 'md', 
   showLabel = false,
   className = '' 
 }) => {
-  const { isDarkMode, toggleTheme } = useTheme();
+  const { isDarkMode, toggleTheme, canToggle, showToggle, toggleVariant } = useTheme();
+
+  // Use prop variant if provided, otherwise use context variant
+  const variant = propVariant || toggleVariant || 'scene';
+
+  // Don't render if admin disabled the toggle or set show_toggle_in_header to false
+  if (!showToggle) {
+    return null;
+  }
+
+  // Render disabled state if toggle is not allowed
+  if (!canToggle) {
+    return null; // Or you could show a disabled toggle
+  }
 
   // ============================================
   // STYLE 1: Minimal - Simple icon button
@@ -209,7 +222,6 @@ const ThemeToggle = ({
       }}
       title={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
     >
-      {/* Sun */}
       <div 
         className="absolute w-8 h-8 rounded-full transition-all duration-700"
         style={{
@@ -220,7 +232,6 @@ const ThemeToggle = ({
           boxShadow: isDarkMode ? 'none' : '0 0 20px rgba(250, 204, 21, 0.6)'
         }}
       />
-      {/* Moon overlay (eclipse) */}
       <div 
         className="absolute w-8 h-8 rounded-full transition-all duration-700"
         style={{
@@ -241,7 +252,6 @@ const ThemeToggle = ({
           </>
         )}
       </div>
-      {/* Stars */}
       <div className={`absolute inset-0 transition-opacity duration-500 ${isDarkMode ? 'opacity-100' : 'opacity-0'}`}>
         <span className="absolute w-0.5 h-0.5 bg-white rounded-full top-2 left-2" />
         <span className="absolute w-1 h-1 bg-white rounded-full top-1 right-2" />
@@ -296,7 +306,6 @@ const ThemeToggle = ({
         ${isDarkMode ? 'bg-slate-900' : 'bg-sky-200'} ${className}`}
       title={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
     >
-      {/* Liquid blob background */}
       <div 
         className="absolute transition-all duration-700 ease-in-out rounded-full"
         style={{
@@ -351,16 +360,10 @@ const ThemeToggle = ({
             : 'inset 0 4px 8px rgba(0,0,0,0.5)'
         }}
       />
-      {/* Top indicator (light) */}
       <div className={`absolute top-2 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full transition-all duration-300 ${!isDarkMode ? 'bg-amber-400 shadow-lg' : 'bg-gray-600'}`}
-        style={{ boxShadow: !isDarkMode ? '0 0 8px #f59e0b' : 'none' }}>
-        <Sun className={`w-1.5 h-1.5 absolute top-0.5 left-0.5 transition-opacity ${!isDarkMode ? 'opacity-0' : 'opacity-0'}`} />
-      </div>
-      {/* Bottom indicator (dark) */}
+        style={{ boxShadow: !isDarkMode ? '0 0 8px #f59e0b' : 'none' }} />
       <div className={`absolute bottom-2 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full transition-all duration-300 ${isDarkMode ? 'bg-indigo-400 shadow-lg' : 'bg-gray-600'}`}
-        style={{ boxShadow: isDarkMode ? '0 0 8px #818cf8' : 'none' }}>
-        <Moon className={`w-1.5 h-1.5 absolute top-0.5 left-0.5 transition-opacity ${isDarkMode ? 'opacity-0' : 'opacity-0'}`} />
-      </div>
+        style={{ boxShadow: isDarkMode ? '0 0 8px #818cf8' : 'none' }} />
     </button>
   );
 
@@ -375,12 +378,10 @@ const ThemeToggle = ({
         ${isDarkMode ? 'bg-gray-800 w-20' : 'bg-amber-400 w-20'} ${className}`}
       title={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
     >
-      {/* Text */}
       <span className={`absolute top-1/2 -translate-y-1/2 text-xs font-bold transition-all duration-300
         ${isDarkMode ? 'left-2 text-gray-400' : 'right-2 text-amber-800'}`}>
         {isDarkMode ? 'DARK' : 'LIGHT'}
       </span>
-      {/* Sliding orb */}
       <span 
         className={`absolute top-1 w-6 h-6 rounded-full transition-all duration-500 flex items-center justify-center
           ${isDarkMode ? 'left-12 bg-indigo-500' : 'left-1 bg-white'}`}
@@ -417,11 +418,6 @@ const ThemeToggle = ({
         <Sun className={`w-3.5 h-3.5 absolute transition-all duration-300 ${isDarkMode ? 'opacity-0 scale-0' : 'opacity-100 scale-100 text-amber-600'}`} />
         <Moon className={`w-3.5 h-3.5 absolute transition-all duration-300 ${isDarkMode ? 'opacity-100 scale-100 text-indigo-800' : 'opacity-0 scale-0'}`} />
       </span>
-      <style>{`
-        button:active span {
-          transform: scale(0.9);
-        }
-      `}</style>
     </button>
   );
 

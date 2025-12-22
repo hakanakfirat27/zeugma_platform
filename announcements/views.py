@@ -76,6 +76,23 @@ class AnnouncementViewSet(viewsets.ModelViewSet):
             return [IsStaffOrSuperAdmin()]
         return [IsAuthenticated()]
 
+    def perform_create(self, serializer):
+        """Send notifications when announcement is created as active"""
+        announcement = serializer.save(created_by=self.request.user)
+        
+        # If created directly as active, send notifications
+        if announcement.status == 'active':
+            self._send_announcement_notifications(announcement)
+
+    def perform_update(self, serializer):
+        """Send notifications when announcement status changes to active"""
+        old_status = self.get_object().status
+        announcement = serializer.save()
+        
+        # If status changed to active, send notifications
+        if old_status != 'active' and announcement.status == 'active':
+            self._send_announcement_notifications(announcement)
+
     def retrieve(self, request, *args, **kwargs):
         """Mark announcement as viewed when retrieved"""
         announcement = self.get_object()
@@ -127,6 +144,12 @@ class AnnouncementViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(
                 Q(target_audience='all') |
                 Q(target_audience='staff') |
+                Q(target_audience='custom', specific_users=user)
+            )
+        elif user.role == 'DATA_COLLECTOR':
+            queryset = queryset.filter(
+                Q(target_audience='all') |
+                Q(target_audience='data_collectors') |
                 Q(target_audience='custom', specific_users=user)
             )
         else:  # CLIENT
@@ -188,7 +211,13 @@ class AnnouncementViewSet(viewsets.ModelViewSet):
                 Q(target_audience='staff') |
                 Q(target_audience='custom', specific_users=user)
             )
-        else:
+        elif user.role == 'DATA_COLLECTOR':
+            queryset = queryset.filter(
+                Q(target_audience='all') |
+                Q(target_audience='data_collectors') |
+                Q(target_audience='custom', specific_users=user)
+            )
+        else:  # CLIENT
             queryset = queryset.filter(
                 Q(target_audience='all') |
                 Q(target_audience='clients') |
@@ -241,7 +270,13 @@ class AnnouncementViewSet(viewsets.ModelViewSet):
                 Q(target_audience='staff') |
                 Q(target_audience='custom', specific_users=user)
             )
-        else:
+        elif user.role == 'DATA_COLLECTOR':
+            queryset = queryset.filter(
+                Q(target_audience='all') |
+                Q(target_audience='data_collectors') |
+                Q(target_audience='custom', specific_users=user)
+            )
+        else:  # CLIENT
             queryset = queryset.filter(
                 Q(target_audience='all') |
                 Q(target_audience='clients') |
@@ -301,7 +336,13 @@ class AnnouncementViewSet(viewsets.ModelViewSet):
                 Q(target_audience='staff') |
                 Q(target_audience='custom', specific_users=user)
             )
-        else:
+        elif user.role == 'DATA_COLLECTOR':
+            queryset = queryset.filter(
+                Q(target_audience='all') |
+                Q(target_audience='data_collectors') |
+                Q(target_audience='custom', specific_users=user)
+            )
+        else:  # CLIENT
             queryset = queryset.filter(
                 Q(target_audience='all') |
                 Q(target_audience='clients') |
@@ -467,28 +508,93 @@ class AnnouncementViewSet(viewsets.ModelViewSet):
         """Send notifications to target users when announcement is published"""
         try:
             from notifications.models import Notification
+            from notifications.services import check_notification_allowed, check_channel_enabled
+            from notifications.push_service import send_push_notification
             from django.contrib.auth import get_user_model
+            from asgiref.sync import async_to_sync
+            from channels.layers import get_channel_layer
             User = get_user_model()
+
+            # Check if notifications are allowed globally
+            is_allowed, _ = check_notification_allowed('announcement')
+            if not is_allowed:
+                print(f"🚫 Announcement notification blocked by global settings")
+                return
+
+            # Check if in-app notifications are enabled
+            inapp_enabled = check_channel_enabled('announcement', 'inapp')
+            push_enabled = check_channel_enabled('announcement', 'push')
 
             # Get target users
             target_users = announcement.get_target_users()
 
             # Create notifications for each user
             notifications_to_create = []
+            channel_layer = get_channel_layer()
+
             for user in target_users:
-                notifications_to_create.append(
-                    Notification(
+                # Create in-app notification
+                if inapp_enabled:
+                    notification = Notification(
                         user=user,
                         title=f"New Announcement: {announcement.title}",
                         message=announcement.summary or announcement.content[:100],
                         notification_type='announcement',
-                        is_read=False
+                        is_read=False,
+                        related_announcement_id=announcement.id
                     )
-                )
+                    notifications_to_create.append(notification)
 
-            # Bulk create notifications
+            # Bulk create in-app notifications
             if notifications_to_create:
-                Notification.objects.bulk_create(notifications_to_create)
+                created_notifications = Notification.objects.bulk_create(notifications_to_create)
+                print(f"✅ Created {len(created_notifications)} in-app announcement notifications")
+
+                # Send real-time WebSocket notifications
+                for i, user in enumerate(target_users):
+                    if i < len(created_notifications):
+                        notification = created_notifications[i]
+                        try:
+                            async_to_sync(channel_layer.group_send)(
+                                f'notifications_{user.id}',
+                                {
+                                    'type': 'notification_message',
+                                    'notification': {
+                                        'id': notification.id,
+                                        'notification_type': notification.notification_type,
+                                        'title': notification.title,
+                                        'message': notification.message,
+                                        'is_read': notification.is_read,
+                                        'created_at': notification.created_at.isoformat(),
+                                    }
+                                }
+                            )
+                        except Exception as ws_error:
+                            print(f"⚠️ WebSocket notification failed for {user.username}: {ws_error}")
+
+            # Send push notifications
+            if push_enabled:
+                push_success = 0
+                for user in target_users:
+                    try:
+                        result = send_push_notification(
+                            user=user,
+                            title=f"📢 {announcement.title}",
+                            message=announcement.summary or announcement.content[:100],
+                            url='/announcements',
+                            tag=f'announcement_{announcement.id}',
+                            notification_type='announcement'
+                        )
+                        if result.get('success', 0) > 0:
+                            push_success += 1
+                    except Exception as push_error:
+                        print(f"⚠️ Push notification failed for {user.username}: {push_error}")
+                
+                if push_success > 0:
+                    print(f"📱 Sent {push_success} push notifications for announcement")
+
         except Exception as e:
             # If notification system doesn't exist or fails, just log and continue
-            print(f"Failed to send notifications: {e}")
+            print(f"❌ Failed to send notifications: {e}")
+            import traceback
+            traceback.print_exc()

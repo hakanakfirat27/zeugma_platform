@@ -222,13 +222,28 @@ class ChatConsumer(AsyncWebsocketConsumer):
         """
         Send notification using your existing notifications app
         Compatible with your notification types: 'message'
+        Now respects global notification settings!
+        Also sends push notifications to offline users!
         """
         try:
             from notifications.models import Notification
+            from notifications.services import check_notification_allowed, check_channel_enabled
+            from notifications.push_service import send_push_notification
             from accounts.models import User
             from .models import ChatRoom
             from asgiref.sync import async_to_sync
             from channels.layers import get_channel_layer
+
+            # Check if notifications are allowed globally
+            is_allowed, _ = check_notification_allowed('message')
+            if not is_allowed:
+                print(f"🚫 Chat notification blocked by global settings")
+                return False
+            
+            # Check if in-app notifications are enabled for message type
+            if not check_channel_enabled('message', 'inapp'):
+                print(f"🚫 In-app chat notification blocked by type settings")
+                return False
 
             room = ChatRoom.objects.get(room_id=self.room_id)
 
@@ -240,6 +255,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 # Staff sent message - notify client
                 recipients = [room.client]
 
+            sender_name = self.user.get_full_name() or self.user.username
+            message_preview = message_data.get("content", "sent a file")[:50]
+
             # Create notifications for each recipient
             for recipient in recipients:
                 if recipient != self.user:
@@ -248,7 +266,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                         user=recipient,
                         notification_type='message',  # Using your existing type
                         title='New Chat Message',
-                        message=f'{self.user.get_full_name() or self.user.username}: {message_data.get("content", "sent a file")[:50]}',
+                        message=f'{sender_name}: {message_preview}',
                         related_message_id=None  # You can link to the chat message if needed
                     )
 
@@ -270,7 +288,24 @@ class ChatConsumer(AsyncWebsocketConsumer):
                         }
                     )
 
-                    print(f"✅ Notification sent to {recipient.username}")
+                    print(f"✅ In-app notification sent to {recipient.username}")
+
+                    # Send push notification (for when user is offline/tab closed)
+                    try:
+                        push_result = send_push_notification(
+                            user=recipient,
+                            title='New Chat Message',
+                            message=f'{sender_name}: {message_preview}',
+                            url='/client/chat' if recipient.role == 'CLIENT' else '/staff-chat',
+                            tag=f'chat_{room.room_id}',  # Group notifications from same chat
+                            notification_type='message'
+                        )
+                        if push_result.get('success', 0) > 0:
+                            print(f"📱 Push notification sent to {recipient.username}")
+                        elif push_result.get('no_subscriptions'):
+                            print(f"ℹ️ No push subscriptions for {recipient.username}")
+                    except Exception as push_error:
+                        print(f"⚠️ Push notification failed for {recipient.username}: {push_error}")
 
             return True
 

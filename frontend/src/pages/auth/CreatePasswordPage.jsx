@@ -17,6 +17,7 @@ const CreatePasswordPage = () => {
   const [user, setUser] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [validationErrors, setValidationErrors] = useState([]);
 
   // 2FA setup state
   const [requires2FASetup, setRequires2FASetup] = useState(false);
@@ -38,25 +39,48 @@ const CreatePasswordPage = () => {
     }
   };
 
+  // Validate password against backend policy
+  const validatePassword = async () => {
+    try {
+      const { data } = await api.post('/accounts/validate-password/', {
+        password: password,
+        user_id: user?.id
+      });
+      return data;
+    } catch (err) {
+      console.error('Password validation error:', err);
+      return { valid: false, errors: ['Failed to validate password'] };
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError('');
+    setValidationErrors([]);
 
-    if (password.length < 8 ||
-        !/[A-Z]/.test(password) ||
-        !/[a-z]/.test(password) ||
-        !/[0-9]/.test(password)) {
-      setError('Please meet all password requirements');
+    // First validate password against dynamic policy
+    const validation = await validatePassword();
+    
+    if (!validation.valid) {
+      setValidationErrors(validation.errors || []);
+      setError(validation.errors?.[0] || 'Please meet all password requirements');
       return;
     }
 
     setSubmitting(true);
-    setError('');
 
     try {
-      // Create password
-      await api.post(`/accounts/create-password/${uidb64}/${token}/`, {
+      // Create password - backend will also validate
+      const createResponse = await api.post(`/accounts/create-password/${uidb64}/${token}/`, {
         password: password,
       });
+
+      if (!createResponse.data.success) {
+        setError(createResponse.data.message || 'Failed to create password');
+        setValidationErrors(createResponse.data.errors || []);
+        setSubmitting(false);
+        return;
+      }
 
       // Auto-login the user
       const loginResponse = await api.post('/accounts/login/', {
@@ -83,7 +107,9 @@ const CreatePasswordPage = () => {
       });
 
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to create password. Please try again.');
+      const errorData = err.response?.data;
+      setError(errorData?.message || 'Failed to create password. Please try again.');
+      setValidationErrors(errorData?.errors || []);
       setSubmitting(false);
     }
   };
@@ -166,7 +192,15 @@ const CreatePasswordPage = () => {
 
           {error && (
             <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-              <p className="text-sm text-red-800">{error}</p>
+              <p className="text-sm text-red-800 font-medium">{error}</p>
+              {/* Only show validation errors that are different from the main error */}
+              {validationErrors.filter(err => err !== error).length > 0 && (
+                <ul className="mt-2 list-disc list-inside text-sm text-red-700">
+                  {validationErrors.filter(err => err !== error).map((err, idx) => (
+                    <li key={idx}>{err}</li>
+                  ))}
+                </ul>
+              )}
             </div>
           )}
 
@@ -175,11 +209,12 @@ const CreatePasswordPage = () => {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               touched={true}
+              userId={user?.id}
             />
 
             <button
               type="submit"
-              disabled={submitting}
+              disabled={submitting || !password}
               className="w-full mt-6 bg-indigo-600 text-white py-3 rounded-lg font-medium hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {submitting ? (
