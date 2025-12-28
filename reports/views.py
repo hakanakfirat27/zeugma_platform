@@ -743,6 +743,9 @@ class FilterOptionsAPIView(APIView):
     selected category and respecting the order from fields.py.
     
     Now queries Company Database (ProductionSiteVersion) instead of Superdatabase.
+    
+    IMPORTANT: When report_id is provided, counts are filtered by the report's
+    filter_criteria to show accurate counts for that specific report context.
     """
     permission_classes = [IsAuthenticated]
     CATEGORY_FIELD_MAP = {
@@ -753,12 +756,136 @@ class FilterOptionsAPIView(APIView):
     }
 
     def get(self, request, format=None):
-        from .company_models import ProductionSiteVersion
+        from .company_models import ProductionSiteVersion, CompanyStatus
         
-        # Get base queryset - only current versions
-        base_queryset = ProductionSiteVersion.objects.filter(is_current=True)
+        # Get base queryset - only current AND active versions, excluding deleted companies
+        base_queryset = ProductionSiteVersion.objects.filter(is_current=True, is_active=True)
+        base_queryset = base_queryset.exclude(production_site__company__status=CompanyStatus.DELETED)
         
-        # Apply category filter if provided
+        # ========================================
+        # CRITICAL FIX: Apply report's filter_criteria when report_id is provided
+        # This ensures counts match the actual filtered data in the report
+        # ========================================
+        report_id = request.query_params.get('report_id')
+        if report_id:
+            try:
+                report = CustomReport.objects.get(report_id=report_id)
+                filter_criteria = report.filter_criteria or {}
+                
+                # Apply report's status filter
+                if 'status' in filter_criteria:
+                    status_filter = filter_criteria['status']
+                    if isinstance(status_filter, list) and len(status_filter) > 0:
+                        base_queryset = base_queryset.filter(production_site__company__status__in=status_filter)
+                    elif isinstance(status_filter, str) and status_filter:
+                        base_queryset = base_queryset.filter(production_site__company__status=status_filter)
+                
+                # Apply report's filter groups
+                if 'filter_groups' in filter_criteria:
+                    filter_groups = filter_criteria['filter_groups']
+                    if isinstance(filter_groups, list):
+                        for group in filter_groups:
+                            if not isinstance(group, dict):
+                                continue
+                            
+                            filters = group.get('filters', {})
+                            technical_filters = group.get('technicalFilters', {})
+                            
+                            if not filters and not technical_filters:
+                                continue
+                            
+                            group_query = Q()
+                            
+                            # Handle boolean filters
+                            for field_name, field_value in filters.items():
+                                try:
+                                    ProductionSiteVersion._meta.get_field(field_name)
+                                    if field_value is True:
+                                        group_query |= Q(**{field_name: True})
+                                    elif field_value is False:
+                                        group_query |= Q(**{field_name: False}) | Q(**{f'{field_name}__isnull': True})
+                                except Exception:
+                                    continue
+                            
+                            # Handle technical filters
+                            for field_name, filter_config in technical_filters.items():
+                                if not isinstance(filter_config, dict):
+                                    continue
+                                
+                                try:
+                                    field = ProductionSiteVersion._meta.get_field(field_name)
+                                    mode = filter_config.get('mode', 'range')
+                                    
+                                    if mode == 'equals':
+                                        equals_val = filter_config.get('equals', '')
+                                        if equals_val != '' and equals_val is not None:
+                                            try:
+                                                if field.get_internal_type() == 'FloatField':
+                                                    equals_val = float(equals_val)
+                                                else:
+                                                    equals_val = int(equals_val)
+                                                group_query |= Q(**{field_name: equals_val})
+                                            except (ValueError, TypeError):
+                                                pass
+                                    
+                                    elif mode == 'range':
+                                        min_val = filter_config.get('min', '')
+                                        max_val = filter_config.get('max', '')
+                                        range_query = Q()
+                                        
+                                        if min_val != '' and min_val is not None:
+                                            try:
+                                                if field.get_internal_type() == 'FloatField':
+                                                    min_val = float(min_val)
+                                                else:
+                                                    min_val = int(min_val)
+                                                range_query &= Q(**{f'{field_name}__gte': min_val})
+                                            except (ValueError, TypeError):
+                                                pass
+                                        
+                                        if max_val != '' and max_val is not None:
+                                            try:
+                                                if field.get_internal_type() == 'FloatField':
+                                                    max_val = float(max_val)
+                                                else:
+                                                    max_val = int(max_val)
+                                                range_query &= Q(**{f'{field_name}__lte': max_val})
+                                            except (ValueError, TypeError):
+                                                pass
+                                        
+                                        if range_query:
+                                            group_query |= range_query
+                                except Exception:
+                                    continue
+                            
+                            if group_query:
+                                base_queryset = base_queryset.filter(group_query)
+                
+                # Apply report's category filters
+                report_categories = None
+                if 'categories' in filter_criteria:
+                    report_categories = filter_criteria['categories']
+                elif 'category' in filter_criteria:
+                    report_categories = filter_criteria['category']
+                
+                if report_categories:
+                    if isinstance(report_categories, list) and len(report_categories) > 0:
+                        base_queryset = base_queryset.filter(production_site__category__in=report_categories)
+                    elif isinstance(report_categories, str) and report_categories:
+                        base_queryset = base_queryset.filter(production_site__category=report_categories)
+                
+                # Apply report's country filters
+                if 'country' in filter_criteria:
+                    countries = filter_criteria['country']
+                    if isinstance(countries, list) and len(countries) > 0:
+                        base_queryset = base_queryset.filter(production_site__company__country__in=countries)
+                    elif isinstance(countries, str) and countries:
+                        base_queryset = base_queryset.filter(production_site__company__country=countries)
+                        
+            except CustomReport.DoesNotExist:
+                pass  # If report not found, continue with unfiltered queryset
+        
+        # Apply category filter from query params (may override/combine with report filter)
         category = request.query_params.get('category', 'ALL').upper()
         if category != 'ALL':
             categories = [c.strip() for c in category.split(',')]
@@ -1243,6 +1370,13 @@ class DatabaseStatsAPIView(APIView):
             for item in category_data if item['production_sites__category']
         ]
         
+        # Get available categories (list of category codes that have data)
+        # This matches what client portal uses for filter sidebar
+        available_categories = [
+            item['production_sites__category']
+            for item in category_data if item['production_sites__category']
+        ]
+        
         return Response({
             'total_count': total_count,
             'countries_count': countries_count,
@@ -1251,7 +1385,9 @@ class DatabaseStatsAPIView(APIView):
                 for item in top_countries
             ],
             'all_countries': all_countries,
-            'categories': categories
+            'categories': categories,
+            'available_categories': available_categories,  # Added for filter sidebar
+            'by_category': categories,  # Alias for compatibility
         })
 
 
@@ -1514,6 +1650,9 @@ class TechnicalFilterOptionsAPIView(APIView):
     even if they don't have data yet.
     
     Now queries Company Database (ProductionSiteVersion) instead of Superdatabase.
+    
+    IMPORTANT: When report_id is provided, min/max values are calculated from
+    records that match the report's filter_criteria, ensuring accurate ranges.
     """
     permission_classes = [IsAuthenticated]
 
@@ -1591,7 +1730,7 @@ class TechnicalFilterOptionsAPIView(APIView):
     ]
 
     def get(self, request, format=None):
-        from .company_models import ProductionSiteVersion
+        from .company_models import ProductionSiteVersion, CompanyStatus
         
         # Get the category from query params
         category = request.query_params.get('category', 'ALL').upper()
@@ -1611,10 +1750,134 @@ class TechnicalFilterOptionsAPIView(APIView):
         if not relevant_technical_fields:
             return Response([])
 
-        # Get the base queryset - only current versions
-        base_queryset = ProductionSiteVersion.objects.filter(is_current=True)
+        # Get the base queryset - only current AND active versions, excluding deleted companies
+        base_queryset = ProductionSiteVersion.objects.filter(is_current=True, is_active=True)
+        base_queryset = base_queryset.exclude(production_site__company__status=CompanyStatus.DELETED)
 
-        # Apply category filter if not ALL
+        # ========================================
+        # CRITICAL FIX: Apply report's filter_criteria when report_id is provided
+        # This ensures min/max values match the actual report data
+        # ========================================
+        report_id = request.query_params.get('report_id')
+        if report_id:
+            try:
+                report = CustomReport.objects.get(report_id=report_id)
+                filter_criteria = report.filter_criteria or {}
+                
+                # Apply report's status filter
+                if 'status' in filter_criteria:
+                    status_filter = filter_criteria['status']
+                    if isinstance(status_filter, list) and len(status_filter) > 0:
+                        base_queryset = base_queryset.filter(production_site__company__status__in=status_filter)
+                    elif isinstance(status_filter, str) and status_filter:
+                        base_queryset = base_queryset.filter(production_site__company__status=status_filter)
+                
+                # Apply report's filter groups
+                if 'filter_groups' in filter_criteria:
+                    filter_groups = filter_criteria['filter_groups']
+                    if isinstance(filter_groups, list):
+                        for group in filter_groups:
+                            if not isinstance(group, dict):
+                                continue
+                            
+                            filters = group.get('filters', {})
+                            technical_filters = group.get('technicalFilters', {})
+                            
+                            if not filters and not technical_filters:
+                                continue
+                            
+                            group_query = Q()
+                            
+                            # Handle boolean filters
+                            for field_name, field_value in filters.items():
+                                try:
+                                    ProductionSiteVersion._meta.get_field(field_name)
+                                    if field_value is True:
+                                        group_query |= Q(**{field_name: True})
+                                    elif field_value is False:
+                                        group_query |= Q(**{field_name: False}) | Q(**{f'{field_name}__isnull': True})
+                                except Exception:
+                                    continue
+                            
+                            # Handle technical filters
+                            for field_name, filter_config in technical_filters.items():
+                                if not isinstance(filter_config, dict):
+                                    continue
+                                
+                                try:
+                                    field = ProductionSiteVersion._meta.get_field(field_name)
+                                    mode = filter_config.get('mode', 'range')
+                                    
+                                    if mode == 'equals':
+                                        equals_val = filter_config.get('equals', '')
+                                        if equals_val != '' and equals_val is not None:
+                                            try:
+                                                if field.get_internal_type() == 'FloatField':
+                                                    equals_val = float(equals_val)
+                                                else:
+                                                    equals_val = int(equals_val)
+                                                group_query |= Q(**{field_name: equals_val})
+                                            except (ValueError, TypeError):
+                                                pass
+                                    
+                                    elif mode == 'range':
+                                        min_val = filter_config.get('min', '')
+                                        max_val = filter_config.get('max', '')
+                                        range_query = Q()
+                                        
+                                        if min_val != '' and min_val is not None:
+                                            try:
+                                                if field.get_internal_type() == 'FloatField':
+                                                    min_val = float(min_val)
+                                                else:
+                                                    min_val = int(min_val)
+                                                range_query &= Q(**{f'{field_name}__gte': min_val})
+                                            except (ValueError, TypeError):
+                                                pass
+                                        
+                                        if max_val != '' and max_val is not None:
+                                            try:
+                                                if field.get_internal_type() == 'FloatField':
+                                                    max_val = float(max_val)
+                                                else:
+                                                    max_val = int(max_val)
+                                                range_query &= Q(**{f'{field_name}__lte': max_val})
+                                            except (ValueError, TypeError):
+                                                pass
+                                        
+                                        if range_query:
+                                            group_query |= range_query
+                                except Exception:
+                                    continue
+                            
+                            if group_query:
+                                base_queryset = base_queryset.filter(group_query)
+                
+                # Apply report's category filters
+                report_categories = None
+                if 'categories' in filter_criteria:
+                    report_categories = filter_criteria['categories']
+                elif 'category' in filter_criteria:
+                    report_categories = filter_criteria['category']
+                
+                if report_categories:
+                    if isinstance(report_categories, list) and len(report_categories) > 0:
+                        base_queryset = base_queryset.filter(production_site__category__in=report_categories)
+                    elif isinstance(report_categories, str) and report_categories:
+                        base_queryset = base_queryset.filter(production_site__category=report_categories)
+                
+                # Apply report's country filters
+                if 'country' in filter_criteria:
+                    countries = filter_criteria['country']
+                    if isinstance(countries, list) and len(countries) > 0:
+                        base_queryset = base_queryset.filter(production_site__company__country__in=countries)
+                    elif isinstance(countries, str) and countries:
+                        base_queryset = base_queryset.filter(production_site__company__country=countries)
+                        
+            except CustomReport.DoesNotExist:
+                pass  # If report not found, continue with unfiltered queryset
+
+        # Apply category filter from query params (may override/combine with report filter)
         if category != 'ALL':
             categories = [c.strip() for c in category.split(',')]
             base_queryset = base_queryset.filter(

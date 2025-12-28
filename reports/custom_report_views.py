@@ -20,7 +20,7 @@ from .serializers import (
     ClientSerializer, ReportPreviewSerializer
 )
 from .company_serializers import CompanyListSerializer
-from .company_models import Company, CompanyStatus, ProductionSiteVersion
+from .company_models import Company, CompanyStatus, ProductionSite, ProductionSiteVersion
 from .pagination import CustomPagination
 from notifications.services import NotificationService
 
@@ -289,6 +289,11 @@ class ReportRecordsAPIView(generics.ListAPIView):
     Get all records for a specific custom report.
     Staff can access any report. Clients can only access reports they have active subscriptions to.
     Now defaults to Company Database.
+    
+    OPTIMIZED for PostgreSQL with:
+    - Prefetch related data to avoid N+1 queries
+    - Annotated counts instead of Python property calls
+    - Proper indexing (see migration 0028)
     """
     pagination_class = CustomPagination
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
@@ -297,6 +302,7 @@ class ReportRecordsAPIView(generics.ListAPIView):
 
     def get_queryset(self):
         from accounts.models import UserRole
+        from django.db.models import Prefetch, Count, Exists, OuterRef
         import json
 
         # Get report_id from URL
@@ -589,6 +595,39 @@ class ReportRecordsAPIView(generics.ListAPIView):
                 Q(country__icontains=search) |
                 Q(region__icontains=search)
             )
+
+        # OPTIMIZATION: Prefetch related data to avoid N+1 queries
+        # Use Prefetch to only get current versions
+        from django.db.models import Prefetch, Count, Subquery, OuterRef, Value
+        from django.db.models.functions import Coalesce
+        
+        current_versions_prefetch = Prefetch(
+            'production_sites__versions',
+            queryset=ProductionSiteVersion.objects.filter(is_current=True).only(
+                'version_id', 'production_site_id', 'is_current', 'is_active'
+            ),
+            to_attr='current_versions_list'
+        )
+        
+        production_sites_prefetch = Prefetch(
+            'production_sites',
+            queryset=ProductionSite.objects.select_related().only(
+                'site_id', 'company_id', 'category', 'created_at'
+            ),
+            to_attr='prefetched_sites'
+        )
+        
+        # Annotate counts to avoid property calls
+        queryset = queryset.annotate(
+            production_site_count_annotated=Count('production_sites', distinct=True)
+        ).prefetch_related(
+            production_sites_prefetch,
+            current_versions_prefetch
+        ).only(
+            'company_id', 'unique_key', 'company_name', 'country', 'region',
+            'status', 'project_code', 'phone_number', 'website',
+            'created_at', 'updated_at'
+        )
 
         return queryset.order_by('company_name')
 

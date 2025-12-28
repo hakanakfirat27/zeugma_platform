@@ -129,7 +129,7 @@ const SecuritySettingsSection = () => {
       </div>
 
       {/* Tab Navigation */}
-      <div className="flex gap-2 p-1 bg-gray-100 dark:bg-gray-800 rounded-xl overflow-x-auto">
+      <div className="flex gap-1 p-1.5 bg-gray-100 dark:bg-gray-800 rounded-xl overflow-x-auto">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           return (
@@ -138,8 +138,8 @@ const SecuritySettingsSection = () => {
               onClick={() => setActiveTab(tab.id)}
               className={`flex-1 min-w-max px-4 py-2.5 rounded-lg font-medium text-sm transition-all flex items-center justify-center gap-2 ${
                 activeTab === tab.id
-                  ? 'bg-white dark:bg-gray-700 shadow-sm text-gray-900 dark:text-white'
-                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                  ? 'bg-gradient-to-r from-red-500 to-rose-600 text-white shadow-lg shadow-red-500/25'
+                  : 'text-gray-600 dark:text-gray-400 hover:bg-white/60 dark:hover:bg-gray-700/60 hover:text-gray-900 dark:hover:text-white'
               }`}
             >
               <Icon className="w-4 h-4" />
@@ -170,6 +170,7 @@ const SecuritySettingsSection = () => {
 // ============================================
 const GlobalSecuritySettings = ({ settings, updateSetting, saving, toast }) => {
   const [expandedSection, setExpandedSection] = useState('2fa');
+  const sectionRefs = useRef({});
   
   // IP Lists state
   const [whitelist, setWhitelist] = useState([]);
@@ -294,6 +295,21 @@ const GlobalSecuritySettings = ({ settings, updateSetting, saving, toast }) => {
     gray: { bg: 'bg-gray-100 dark:bg-gray-700', text: 'text-gray-600 dark:text-gray-400' },
   };
 
+  const handleSectionClick = (sectionId) => {
+    const isCurrentlyExpanded = expandedSection === sectionId;
+    setExpandedSection(isCurrentlyExpanded ? null : sectionId);
+    
+    // Scroll to the beginning of the section when expanding
+    if (!isCurrentlyExpanded) {
+      setTimeout(() => {
+        sectionRefs.current[sectionId]?.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'start' 
+        });
+      }, 100);
+    }
+  };
+
   return (
     <div className="space-y-4">
       {sections.map((section) => {
@@ -304,12 +320,21 @@ const GlobalSecuritySettings = ({ settings, updateSetting, saving, toast }) => {
         return (
           <div
             key={section.id}
-            className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden"
+            ref={el => sectionRefs.current[section.id] = el}
+            className={`rounded-2xl shadow-sm overflow-hidden transition-all duration-300 ${
+              isExpanded 
+                ? 'bg-gradient-to-r from-red-50 to-rose-50 dark:from-red-900/20 dark:to-rose-900/20 border-2 border-red-300 dark:border-red-700 ring-2 ring-red-200 dark:ring-red-800/50' 
+                : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700'
+            }`}
           >
             {/* Section Header */}
             <button
-              onClick={() => setExpandedSection(isExpanded ? null : section.id)}
-              className="w-full p-5 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+              onClick={() => handleSectionClick(section.id)}
+              className={`w-full p-5 flex items-center justify-between transition-colors ${
+                isExpanded 
+                  ? 'bg-white/60 dark:bg-gray-800/60' 
+                  : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'
+              }`}
             >
               <div className="flex items-center gap-4">
                 <div className={`w-10 h-10 rounded-xl ${colors.bg} flex items-center justify-center`}>

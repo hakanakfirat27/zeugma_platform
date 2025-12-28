@@ -372,10 +372,14 @@ class ProductionSiteDetailSerializer(serializers.ModelSerializer):
 # =============================================================================
 
 class CompanyListSerializer(serializers.ModelSerializer):
-    """List serializer for companies (optimized for list views)"""
+    """List serializer for companies (optimized for list views)
+    
+    OPTIMIZED: Uses prefetched data and annotations to avoid N+1 queries.
+    When used with properly optimized queryset, reduces database queries significantly.
+    """
     status_display = serializers.CharField(source='get_status_display', read_only=True)
-    active_categories = serializers.ListField(read_only=True)
-    all_categories = serializers.ListField(read_only=True)
+    active_categories = serializers.SerializerMethodField()
+    all_categories = serializers.SerializerMethodField()
     production_site_count = serializers.SerializerMethodField()
     
     class Meta:
@@ -392,7 +396,35 @@ class CompanyListSerializer(serializers.ModelSerializer):
         read_only_fields = fields
     
     def get_production_site_count(self, obj):
+        # Use annotated value if available, otherwise fall back to count()
+        if hasattr(obj, 'production_site_count_annotated'):
+            return obj.production_site_count_annotated
         return obj.production_sites.count()
+    
+    def get_all_categories(self, obj):
+        # Use prefetched data if available
+        if hasattr(obj, 'prefetched_sites'):
+            return list(set(site.category for site in obj.prefetched_sites))
+        return list(obj.production_sites.values_list('category', flat=True).distinct())
+    
+    def get_active_categories(self, obj):
+        # Use prefetched data if available
+        if hasattr(obj, 'prefetched_sites'):
+            active = []
+            for site in obj.prefetched_sites:
+                if hasattr(site, 'current_versions_list') and site.current_versions_list:
+                    for version in site.current_versions_list:
+                        if version.is_active:
+                            active.append(site.category)
+                            break
+            return list(set(active))
+        # Fallback to original method
+        return list(
+            obj.production_sites.filter(
+                versions__is_active=True,
+                versions__is_current=True
+            ).values_list('category', flat=True).distinct()
+        )
 
 
 class CompanyDetailSerializer(serializers.ModelSerializer):

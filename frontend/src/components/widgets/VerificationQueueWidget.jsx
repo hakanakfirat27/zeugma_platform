@@ -1,115 +1,81 @@
 // frontend/src/components/widgets/VerificationQueueWidget.jsx
-/**
- * Compact widget showing verification queue status
- * Displays action-required items prominently
- */
-
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { AlertCircle, CheckCircle, Clock, TrendingUp } from 'lucide-react';
+import { ListChecks, Clock, AlertCircle, CheckCircle } from 'lucide-react';
 import api from '../../utils/api';
 
-const VerificationQueueWidget = () => {
-  const navigate = useNavigate();
-  const [stats, setStats] = useState(null);
-  const [loading, setLoading] = useState(true);
-  
-  useEffect(() => {
-    fetchStats();
-    // Refresh every 5 minutes
-    const interval = setInterval(fetchStats, 300000);
-    return () => clearInterval(interval);
-  }, []);
-  
-  const fetchStats = async () => {
-    try {
-      const response = await api.get('/api/unverified-sites/stats/');
-      setStats(response.data);
-    } catch (error) {
-      console.error('Error fetching stats:', error);
-    } finally {
-      setLoading(false);
+const VerificationQueueWidget = ({ stats }) => {
+  const queue = stats?.verification_queue || [];
+
+  const getUrgencyStyles = (urgency) => {
+    switch (urgency) {
+      case 'critical':
+        return 'bg-red-50 text-red-700 border-red-200';
+      case 'warning':
+        return 'bg-amber-50 text-amber-700 border-amber-200';
+      default:
+        return 'bg-gray-50 text-gray-700 border-gray-200';
     }
   };
-  
-  if (loading) {
+
+  if (queue.length === 0) {
     return (
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <div className="animate-pulse space-y-3">
-          <div className="h-4 bg-gray-200 rounded w-2/3"></div>
-          <div className="h-8 bg-gray-200 rounded w-1/2"></div>
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 h-full">
+        <div className="flex items-center gap-3 mb-4">
+          <ListChecks className="w-5 h-5 text-green-600" />
+          <h3 className="font-semibold text-gray-900">Verification Queue</h3>
+        </div>
+        <div className="flex flex-col items-center justify-center py-8">
+          <CheckCircle className="w-12 h-12 text-green-500 mb-3" />
+          <p className="text-gray-500 text-sm">All sites verified!</p>
+          <p className="text-gray-400 text-xs">No pending verifications</p>
         </div>
       </div>
     );
   }
-  
-  const pendingCount = stats?.pending_review || 0;
-  const needsAttention = pendingCount > 10;
-  
+
   return (
-    <div
-      onClick={() => navigate('/unverified-sites')}
-      className={`bg-white rounded-xl shadow-sm border-2 ${
-        needsAttention ? 'border-orange-200' : 'border-gray-200'
-      } p-6 cursor-pointer hover:shadow-md transition-all group`}
-    >
-      {/* Icon and Status */}
-      <div className="flex items-start justify-between mb-4">
-        <div className={`p-3 rounded-lg ${
-          needsAttention ? 'bg-orange-100' : 'bg-gray-100'
-        }`}>
-          {needsAttention ? (
-            <AlertCircle className="w-6 h-6 text-orange-600" />
-          ) : (
-            <CheckCircle className="w-6 h-6 text-green-600" />
-          )}
+    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 h-full">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <ListChecks className="w-5 h-5 text-violet-600" />
+          <h3 className="font-semibold text-gray-900">Verification Queue</h3>
         </div>
-        
-        {needsAttention && (
-          <span className="px-2 py-1 bg-orange-100 text-orange-700 text-xs font-semibold rounded-full animate-pulse">
-            Action Required
-          </span>
-        )}
+        <span className="text-xs bg-violet-100 text-violet-700 px-2 py-1 rounded-full">
+          {queue.length} pending
+        </span>
       </div>
-      
-      {/* Main Stat */}
-      <div className="mb-2">
-        <p className="text-sm font-medium text-gray-600 mb-1">Verification Queue</p>
-        <div className="flex items-baseline gap-2">
-          <span className={`text-4xl font-bold ${
-            needsAttention ? 'text-orange-600' : 'text-gray-900'
-          }`}>
-            {pendingCount}
+
+      <div className="space-y-3 max-h-64 overflow-y-auto">
+        {queue.slice(0, 5).map((site, index) => (
+          <div
+            key={site.site_id || index}
+            className={`p-3 rounded-lg border ${getUrgencyStyles(site.urgency)}`}
+          >
+            <div className="flex items-start justify-between">
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-sm truncate">{site.company_name}</p>
+                <p className="text-xs opacity-75 mt-0.5">{site.category_display}</p>
+              </div>
+              <div className="flex items-center gap-1 text-xs">
+                <Clock className="w-3 h-3" />
+                <span>{site.days_pending}d</span>
+              </div>
+            </div>
+            <div className="flex items-center justify-between mt-2">
+              <span className="text-xs opacity-75">{site.project_name}</span>
+              <span className="text-xs opacity-75">{site.country}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {queue.length > 5 && (
+        <div className="mt-3 text-center">
+          <span className="text-xs text-gray-500">
+            +{queue.length - 5} more sites pending
           </span>
-          <span className="text-sm text-gray-500">pending</span>
         </div>
-      </div>
-      
-      {/* Sub Stats */}
-      <div className="flex items-center gap-4 pt-4 border-t border-gray-100">
-        <div className="flex items-center gap-1 text-sm">
-          <Clock className="w-4 h-4 text-blue-500" />
-          <span className="font-medium text-gray-700">
-            {stats?.by_status?.UNDER_REVIEW || 0}
-          </span>
-          <span className="text-gray-500 text-xs">in review</span>
-        </div>
-        
-        <div className="flex items-center gap-1 text-sm">
-          <TrendingUp className="w-4 h-4 text-green-500" />
-          <span className="font-medium text-gray-700">
-            {stats?.avg_quality_score || 0}%
-          </span>
-          <span className="text-gray-500 text-xs">quality</span>
-        </div>
-      </div>
-      
-      {/* Hover Action */}
-      <div className="mt-4 pt-4 border-t border-gray-100 opacity-0 group-hover:opacity-100 transition-opacity">
-        <p className="text-sm font-medium text-indigo-600">
-          View verification queue →
-        </p>
-      </div>
+      )}
     </div>
   );
 };

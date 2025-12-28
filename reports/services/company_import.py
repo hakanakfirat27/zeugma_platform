@@ -213,8 +213,8 @@ def normalize_header(header):
 # FIELD TYPE DETECTION
 # =============================================================================
 
-# Integer fields
-INTEGER_FIELDS = {
+# Integer and Float fields
+NUMERIC_FIELDS = {
     'minimal_lock_tonnes', 'maximum_lock_tonnes',
     'minimum_shot_grammes', 'maximum_shot_grammes',
     'number_of_machines',
@@ -231,7 +231,12 @@ INTEGER_FIELDS = {
     'twin_screw_extruders', 'single_screw_extruders', 'batch_mixers',
     'production_volume_number', 'polymer_range_number',
     'compounds_percentage', 'masterbatch_percentage',
+    # Additional numeric fields from model
+    'number_of_recycling_lines', 'single_screws', 'twin_screws',
 }
+
+# For backwards compatibility
+INTEGER_FIELDS = NUMERIC_FIELDS
 
 # Text fields (not boolean, not integer)
 TEXT_FIELDS = {
@@ -240,14 +245,23 @@ TEXT_FIELDS = {
     'medical_description', 'packaging_description',
     'other_products', 'main_applications', 'other_services',
     'tpes_type', 'machinery_brand',
-    'other_films', 'other_bags', 'other_sacks',
+    'other_films',  # This IS a text field
     'other_type_of_sheet', 'other_technologies',
     'other_pipes', 'other_printing',
     'compounds_applications', 'masterbatches_applications',
     'other_compounds', 'other_masterbatches',
     'other_bioresins', 'other_food_packaging', 'non_food_packaging',
     'construction_other', 'other_industrial_markets',
+    'other_welding', 'in_line_process', 'minimum_size', 'maximum_size',
+    # Recycler text fields
+    'other_contaminations', 'other_packaging', 'other_building',
+    'other_automotive', 'other_weee', 'other_markets', 'main_source',
+    'other_mechanical_process', 'finished_products', 'volume_of_recycled_product',
+    'minimum_volume_waste_accepted', 'maximum_capacity',
 }
+
+# NOTE: other_bags and other_sacks are BOOLEAN fields, not text!
+# They were incorrectly listed here before.
 
 
 def is_boolean_field(field_name):
@@ -256,7 +270,7 @@ def is_boolean_field(field_name):
 
 
 def parse_boolean(value):
-    """Parse a value as boolean."""
+    """Parse a value as boolean. PostgreSQL is strict, so we must return True/False only."""
     if value is None:
         return False
     if isinstance(value, bool):
@@ -265,7 +279,12 @@ def parse_boolean(value):
         return bool(value)
     if isinstance(value, str):
         value = value.strip().lower()
-        return value in ('yes', 'y', 'true', '1', 'x', '✓', '✔', 'checked')
+        if value in ('yes', 'y', 'true', '1', 'x', '✓', '✔', 'checked'):
+            return True
+        elif value in ('no', 'n', 'false', '0', '', 'none', 'null'):
+            return False
+        # Default to False for any other string
+        return False
     return False
 
 
@@ -277,6 +296,9 @@ def parse_integer(value):
         return int(value) if value else None
     if isinstance(value, str):
         value = value.strip()
+        # Handle Y/N which might be mistakenly in numeric columns
+        if value.lower() in ('y', 'yes', 'n', 'no', 'true', 'false', ''):
+            return None
         value = re.sub(r'[^\d-]', '', value)
         if value:
             try:
@@ -284,6 +306,48 @@ def parse_integer(value):
             except ValueError:
                 return None
     return None
+
+
+def clean_version_data_for_postgres(data, model_class):
+    """
+    Clean version data to ensure PostgreSQL compatibility.
+    Ensures all boolean fields are True/False, not strings.
+    """
+    from django.db import models
+    
+    cleaned = {}
+    
+    # Get field types from the model
+    field_types = {}
+    for field in model_class._meta.get_fields():
+        if hasattr(field, 'get_internal_type'):
+            field_types[field.name] = field.get_internal_type()
+    
+    for key, value in data.items():
+        field_type = field_types.get(key)
+        
+        if field_type == 'BooleanField':
+            # Force conversion to Python bool
+            cleaned[key] = parse_boolean(value)
+        elif field_type in ('IntegerField', 'PositiveIntegerField'):
+            # Force conversion to int or None
+            cleaned[key] = parse_integer(value)
+        elif field_type in ('FloatField', 'DecimalField'):
+            # Force conversion to float or None
+            if value is None or (isinstance(value, str) and value.strip() == ''):
+                cleaned[key] = None
+            elif isinstance(value, str) and value.strip().lower() in ('y', 'yes', 'n', 'no'):
+                cleaned[key] = None
+            else:
+                try:
+                    cleaned[key] = float(value) if value else None
+                except (ValueError, TypeError):
+                    cleaned[key] = None
+        else:
+            # Keep as-is for other field types
+            cleaned[key] = value
+    
+    return cleaned
 
 
 def normalize_value(value):
@@ -544,6 +608,10 @@ class CompanyImportService:
                                 )
                                 
                                 version_data = cls._extract_version_data(row_data, valid_version_fields)
+                                
+                                # CRITICAL: Clean data for PostgreSQL compatibility
+                                version_data = clean_version_data_for_postgres(version_data, ProductionSiteVersion)
+                                
                                 version_data['production_site'] = site
                                 version_data['version_number'] = 0  # Initial Version
                                 version_data['is_current'] = True
@@ -613,7 +681,8 @@ class CompanyImportService:
     
     @classmethod
     def _extract_version_data(cls, row_data, valid_fields):
-        """Extract version-level fields from row data, only for valid fields."""
+        """Extract version-level fields from row data, only for valid fields.
+        CRITICAL: Properly handles all field types for PostgreSQL compatibility."""
         data = {}
         for field, value in row_data.items():
             # Skip company fields
@@ -633,7 +702,8 @@ class CompanyImportService:
                 if value is not None and str(value).strip():
                     data[field] = str(value).strip()
             else:
-                # Boolean field
+                # Boolean field - ALWAYS convert to True/False
+                # This is critical for PostgreSQL
                 data[field] = parse_boolean(value)
         
         return data

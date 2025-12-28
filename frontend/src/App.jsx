@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from './contexts/AuthContext';
 import { AnnouncementProvider } from './contexts/AnnouncementContext';
 import { TourProvider } from './contexts/TourContext';
-import { ThemeProvider } from './contexts/ThemeContext';
+import { UserSettingsProvider } from './contexts/UserSettingsContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import { ToastProvider, useToast } from './contexts/ToastContext';
 import { ToastContainer } from './components/Toast';
@@ -30,7 +30,8 @@ import ResetPasswordPage from './pages/auth/ResetPasswordPage';
 import VerifyEmailPage from '././pages/auth/VerifyEmailPage';
 import MyProfilePage from './pages/profile/MyProfilePage';
 import ProfileUpdatePage from './pages/profile/ProfileUpdatePage';
-import ProfileSettingsPage from './pages/profile/ProfileSettingsPage';
+// ProfileSettingsPage has been consolidated into UserSettingsPage
+import UserSettingsPage from './pages/settings/UserSettingsPage';
 
 import UserActivityDashboard from './components/userActivity/UserActivityDashboard';
 import UserActivityPage from './pages/users/UserActivityPage';
@@ -88,7 +89,6 @@ import AdminProjectDetailPage from './pages/admin/AdminProjectDetailPage';
 import AdminAddSiteToProjectPage from './pages/admin/AdminAddSiteToProjectPage';
 import AdminViewSitePage from './pages/admin/AdminViewSitePage';
 import AdminEditSitePage from './pages/admin/AdminEditSitePage';
-import AdminThemeSettingsPage from './pages/admin/AdminThemeSettingsPage';
 import AdminSettingsPage from './pages/admin/AdminSettingsPage';
 
 // Other Pages
@@ -102,6 +102,10 @@ import CompanyDatabasePage from './pages/database/CompanyDatabasePage';
 import CompanyDetailPage from './pages/database/CompanyDetailPage';
 import AddCompanyPage from './pages/database/AddCompanyPage';
 import VersionsPage from './pages/database/VersionsPage';
+
+// Legal Pages
+import PrivacyPolicyPage from './pages/legal/PrivacyPolicyPage';
+import TermsOfServicePage from './pages/legal/TermsOfServicePage';
 
 
 
@@ -123,12 +127,12 @@ const ToastRenderer = () => {
 
 function App() {
   return (
-    <ThemeProvider>
-      <QueryClientProvider client={queryClient}> 
-        <AuthProvider>
-          <ToastProvider>
-            <TourProvider>
-            <ToastRenderer />
+    <QueryClientProvider client={queryClient}> 
+      <AuthProvider>
+        <UserSettingsProvider>
+        <ToastProvider>
+          <TourProvider>
+          <ToastRenderer />
             <Routes>
             {/* Public routes */}
             <Route path="/" element={<HomePage />} />
@@ -150,7 +154,8 @@ function App() {
             <Route path="/user-management" element={<ProtectedRoute><UserManagementPage /></ProtectedRoute>} />
             <Route path="/create-password/:uidb64/:token" element={<CreatePasswordPage />} />
             <Route path="/update-profile" element={<ProfileUpdatePage />} />
-            <Route path="/profile-settings" element={<ProtectedRoute><ProfileSettingsPage /></ProtectedRoute>} />
+            <Route path="/profile-settings" element={<Navigate to="/settings" replace />} />
+            <Route path="/settings" element={<ProtectedRoute><UserSettingsPage /></ProtectedRoute>} />
             <Route path="/my-profile" element={<ProtectedRoute><MyProfilePage /></ProtectedRoute>} />
             <Route path="/dashboard/user-activity" element={<ProtectedRoute><DashboardLayout><UserActivityDashboard /></DashboardLayout></ProtectedRoute>} />
             <Route path="/user-activity" element={<UserActivityPage />} />
@@ -217,8 +222,7 @@ function App() {
             <Route path="/admin/projects/:projectId/sites/:siteId/view" element={<ProtectedRoute allowedRoles={['SUPERADMIN', 'STAFF_ADMIN']}><AdminViewSitePage /></ProtectedRoute>} />
             <Route path="/admin/projects/:projectId/sites/:siteId/edit" element={<ProtectedRoute allowedRoles={['SUPERADMIN', 'STAFF_ADMIN']}><AdminEditSitePage /></ProtectedRoute>} />
 
-            {/* Admin Theme Settings Route */}
-            <Route path="/admin/settings/theme" element={<ProtectedRoute allowedRoles={['SUPERADMIN', 'STAFF_ADMIN']}><AdminThemeSettingsPage /></ProtectedRoute>} />
+            {/* Admin Theme Settings Route - Removed, theme is user-controlled */}
             
             {/* Admin Settings Hub Route */}
             <Route path="/admin/settings" element={<ProtectedRoute allowedRoles={['SUPERADMIN', 'STAFF_ADMIN']}><AdminSettingsPage /></ProtectedRoute>} />
@@ -242,15 +246,19 @@ function App() {
             <Route path="/company-reports/create" element={<ProtectedRoute><CreateCompanyReportPage /></ProtectedRoute>} />
             <Route path="/company-reports/:reportId/edit" element={<ProtectedRoute><CreateCompanyReportPage /></ProtectedRoute>} />
 
+            {/* Legal Pages */}
+            <Route path="/privacy-policy" element={<ProtectedRoute><PrivacyPolicyPage /></ProtectedRoute>} />
+            <Route path="/terms-of-service" element={<ProtectedRoute><TermsOfServicePage /></ProtectedRoute>} />
+
             {/* Catch all */}
             <Route path="*" element={<Navigate to="/" replace />} />
 
             </Routes>
             </TourProvider>
           </ToastProvider>
+          </UserSettingsProvider>
         </AuthProvider>
       </QueryClientProvider>
-    </ThemeProvider>
   );
 }
 

@@ -49,6 +49,44 @@ from .import_export_views import (
     import_confirm,
 )
 
+# Dashboard stats views (real data for widgets)
+from .dashboard_stats_views import (
+    comprehensive_dashboard_stats,
+    widget_top_countries,
+    widget_top_materials,
+    widget_monthly_trend,
+    widget_subscription_expiry,
+    widget_verification_queue,
+    widget_recent_activity,
+    widget_system_health,
+    # User tracking widgets
+    widget_most_active_users,
+    widget_login_activity_trend,
+    widget_online_users,
+    widget_user_activity_timeline,
+    widget_new_registrations,
+    widget_inactive_users,
+    widget_session_stats,
+    # Security & analytics widgets
+    widget_geographic_distribution,
+    widget_2fa_adoption,
+    widget_device_browser_stats,
+    widget_login_failure_rate,
+    widget_active_sessions_detail,
+    widget_successful_logins,
+    widget_failed_logins_detail,
+    widget_blocked_ips,
+    widget_suspicious_activity,
+)
+
+# Management API (for running commands)
+from .management_api import (
+    sync_widgets_api,
+    build_frontend_api,
+    clear_cache_api,
+    collect_static_api,
+)
+
 # Create a router for ViewSets
 router = DefaultRouter()
 router.register(r'widgets', DashboardWidgetViewSet, basename='widget')
@@ -123,6 +161,46 @@ urlpatterns = [
     
     # Report Feedback Admin
     path('report-feedback/', ReportFeedbackAdminAPIView.as_view(), name='report-feedback-admin'),
+    
+    # =========================================================================
+    # DASHBOARD WIDGET DATA ENDPOINTS (Real Data)
+    # =========================================================================
+    path('dashboard/comprehensive/', comprehensive_dashboard_stats, name='comprehensive-dashboard-stats'),
+    path('dashboard/widgets/top-countries/', widget_top_countries, name='widget-top-countries'),
+    path('dashboard/widgets/top-materials/', widget_top_materials, name='widget-top-materials'),
+    path('dashboard/widgets/monthly-trend/', widget_monthly_trend, name='widget-monthly-trend'),
+    path('dashboard/widgets/subscription-expiry/', widget_subscription_expiry, name='widget-subscription-expiry'),
+    path('dashboard/widgets/verification-queue/', widget_verification_queue, name='widget-verification-queue'),
+    path('dashboard/widgets/recent-activity/', widget_recent_activity, name='widget-recent-activity'),
+    path('dashboard/widgets/system-health/', widget_system_health, name='widget-system-health'),
+    
+    # User tracking widget endpoints
+    path('dashboard/widgets/most-active-users/', widget_most_active_users, name='widget-most-active-users'),
+    path('dashboard/widgets/login-activity-trend/', widget_login_activity_trend, name='widget-login-activity-trend'),
+    path('dashboard/widgets/online-users/', widget_online_users, name='widget-online-users'),
+    path('dashboard/widgets/user-activity-timeline/', widget_user_activity_timeline, name='widget-user-activity-timeline'),
+    path('dashboard/widgets/new-registrations/', widget_new_registrations, name='widget-new-registrations'),
+    path('dashboard/widgets/inactive-users/', widget_inactive_users, name='widget-inactive-users'),
+    path('dashboard/widgets/session-stats/', widget_session_stats, name='widget-session-stats'),
+    
+    # Security & analytics widget endpoints
+    path('dashboard/widgets/geographic-distribution/', widget_geographic_distribution, name='widget-geographic-distribution'),
+    path('dashboard/widgets/2fa-adoption/', widget_2fa_adoption, name='widget-2fa-adoption'),
+    path('dashboard/widgets/device-browser-stats/', widget_device_browser_stats, name='widget-device-browser-stats'),
+    path('dashboard/widgets/login-failure-rate/', widget_login_failure_rate, name='widget-login-failure-rate'),
+    path('dashboard/widgets/active-sessions/', widget_active_sessions_detail, name='widget-active-sessions'),
+    path('dashboard/widgets/successful-logins/', widget_successful_logins, name='widget-successful-logins'),
+    path('dashboard/widgets/failed-logins-detail/', widget_failed_logins_detail, name='widget-failed-logins-detail'),
+    path('dashboard/widgets/blocked-ips/', widget_blocked_ips, name='widget-blocked-ips'),
+    path('dashboard/widgets/suspicious-activity/', widget_suspicious_activity, name='widget-suspicious-activity'),
+    
+    # =========================================================================
+    # MANAGEMENT API ENDPOINTS (Superadmin only)
+    # =========================================================================
+    path('management/sync-widgets/', sync_widgets_api, name='sync-widgets-api'),
+    path('management/build-frontend/', build_frontend_api, name='build-frontend-api'),
+    path('management/clear-cache/', clear_cache_api, name='clear-cache-api'),
+    path('management/collect-static/', collect_static_api, name='collect-static-api'),
 ]
 
 # The router automatically creates these endpoints:

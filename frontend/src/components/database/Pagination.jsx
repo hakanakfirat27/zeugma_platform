@@ -8,7 +8,8 @@ const Pagination = ({
   pageSize,
   onPageChange,
   onPageSizeChange,
-  showFirstLast = true
+  showFirstLast = true,
+  pageSizeOptions = [25, 50, 75, 100]
 }) => {
   const pages = [];
   const maxVisiblePages = 5;
@@ -57,10 +58,9 @@ const Pagination = ({
           onChange={handlePageSizeChange}
           className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-1 text-sm focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 dark:text-gray-200"
         >
-          <option value={10}>10 per page</option>
-          <option value={25}>25 per page</option>
-          <option value={75}>75 per page</option>
-          <option value={100}>100 per page</option>
+          {pageSizeOptions.map(size => (
+            <option key={size} value={size}>{size} per page</option>
+          ))}
         </select>
       </div>
 

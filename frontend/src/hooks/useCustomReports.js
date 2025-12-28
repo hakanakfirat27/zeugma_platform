@@ -22,7 +22,9 @@ export const useCustomReportDetail = (reportId) => {
  * Hook to fetch custom report records with pagination and filters
  * NOW SUPPORTS: filter_groups with OR logic within groups, AND logic between groups
  */
-export const useCustomReportRecords = (reportId, filters) => {
+export const useCustomReportRecords = (reportId, filters, options = {}) => {
+  const { enabled = true } = options;
+  
   return useQuery({
     queryKey: ['custom-report-records', reportId, filters],
     queryFn: async () => {
@@ -87,7 +89,7 @@ export const useCustomReportRecords = (reportId, filters) => {
       console.log('Response count:', response.data?.count || 0);
       return response.data;
     },
-    enabled: !!reportId,
+    enabled: !!reportId && enabled,
     placeholderData: keepPreviousData,
     staleTime: 30000,
   });

@@ -24,17 +24,16 @@ def reverse_project_codes(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('reports', '0019_productionsiteversion_technical_data_snapshot'),  # Update this to your actual previous migration
+        ('reports', '0019_productionsiteversion_technical_data_snapshot'),
     ]
 
     operations = [
-        # Step 1: Add project_code field to DataCollectionProject (without unique constraint)
+        # Step 1: Add project_code field to DataCollectionProject (NO db_index yet)
         migrations.AddField(
             model_name='datacollectionproject',
             name='project_code',
             field=models.CharField(
                 blank=True,
-                db_index=True,
                 default='',
                 editable=False,
                 help_text='Auto-generated project code (e.g., PRJ-000001)',
@@ -45,7 +44,7 @@ class Migration(migrations.Migration):
         # Step 2: Generate unique project codes for existing projects
         migrations.RunPython(generate_project_codes, reverse_project_codes),
         
-        # Step 3: Now add the unique constraint
+        # Step 3: Now add the unique constraint AND db_index
         migrations.AlterField(
             model_name='datacollectionproject',
             name='project_code',
@@ -71,7 +70,7 @@ class Migration(migrations.Migration):
             ),
         ),
         
-        # Step 5: Add source_project ForeignKey to ProductionSite (if not already exists)
+        # Step 5: Add source_project ForeignKey to ProductionSite
         migrations.AddField(
             model_name='productionsite',
             name='source_project',

@@ -8,7 +8,7 @@ import {
   ArrowLeft, Download, Search, X, Filter, CheckCircle, MinusCircle,
   ChevronLeft, ChevronRight, Maximize2, Minimize2, Columns,
   Eye, EyeOff, Settings, RefreshCw, FileSpreadsheet, ChevronDown,
-  CheckSquare, Square, Minus, FileDown, Users, Table, BarChart2
+  CheckSquare, Square, Minus, FileDown, Users, Table, BarChart2, StickyNote
 } from 'lucide-react';
 import ClientDashboardLayout from '../../components/layout/ClientDashboardLayout';
 import LoadingSpinner from '../../components/LoadingSpinner';
@@ -16,11 +16,16 @@ import Pagination from '../../components/database/Pagination';
 import CompanyFilterSidebar from '../../components/database/CompanyFilterSidebar';
 import RecordDetailModal from '../../components/database/RecordDetailModal';
 import ReportFeedbackModal from '../../components/client/ReportFeedbackModal';
+import ReportNotesModal from '../../components/client/ReportNotesModal';
+import useClientNotes from '../../hooks/useClientNotes';
+import { useToast } from '../../contexts/ToastContext';
 import api from '../../utils/api';
 import {
   useClientReportAccess,
   useClientReportStats,
   useClientReportCountries,
+  useClientReportCountriesWithCounts,
+  useClientReportCategoriesWithCounts,
   useClientReportFilterOptions,
   useClientReportTechnicalFilterOptions
 } from '../../hooks/useClientReports';
@@ -59,6 +64,7 @@ const ALL_CATEGORIES = ['INJECTION', 'BLOW', 'ROTO', 'PE_FILM', 'SHEET', 'PIPE',
 // Company info fields (always shown first)
 const COMPANY_INFO_FIELDS = [
   { key: 'company_name', label: 'Company Name', group: 'Company' },
+  { key: 'category_display', label: 'Category', group: 'Company' },
   { key: 'address_1', label: 'Address 1', group: 'Company' },
   { key: 'address_2', label: 'Address 2', group: 'Company' },
   { key: 'address_3', label: 'Address 3', group: 'Company' },
@@ -118,13 +124,23 @@ const ClientReportFocusViewPage = () => {
   const breadcrumbs = getBreadcrumbs(location.pathname);
   const tableRef = useRef(null);
   const metadataFetchedRef = useRef(false);
+  const hasInitiallyLoadedRef = useRef(false);  // Track if initial data load completed
+  const toast = useToast();
+
+  // Notes hook
+  const { fetchNotesStats, stats: notesStats } = useClientNotes(reportId);
+  
+  // Report Notes state
+  const [showReportNotesModal, setShowReportNotesModal] = useState(false);
+  const [reportNotesCount, setReportNotesCount] = useState(0);
 
   // Get filters from URL query params (passed from main report page)
   const queryParams = new URLSearchParams(location.search);
   
   // State
   const [data, setData] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true);  // Initial load
+  const [isFetching, setIsFetching] = useState(false);  // Background fetch (keeps data visible)
   const [metadataLoading, setMetadataLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(50);
@@ -176,10 +192,19 @@ const ClientReportFocusViewPage = () => {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
+  // Sync reportNotesCount from hook stats
+  useEffect(() => {
+    if (notesStats?.report_notes !== undefined) {
+      setReportNotesCount(notesStats.report_notes);
+    }
+  }, [notesStats]);
+
   // React Query hooks
   const { data: reportAccess, isLoading: accessLoading } = useClientReportAccess(reportId);
-  const { data: stats } = useClientReportStats(reportId, {});
+  const { data: stats, isLoading: statsLoading } = useClientReportStats(reportId, {});
   const { data: allCountries = [] } = useClientReportCountries(reportId);
+  const { data: countriesWithCounts = [] } = useClientReportCountriesWithCounts(reportId);
+  const { data: categoriesWithCounts = [] } = useClientReportCategoriesWithCounts(reportId);
   const { data: filterOptions = [] } = useClientReportFilterOptions(reportId);
   const { data: technicalFilterOptions = [] } = useClientReportTechnicalFilterOptions(reportId);
 
@@ -436,7 +461,13 @@ const ClientReportFocusViewPage = () => {
 
   // Fetch data with all filters
   const fetchData = useCallback(async () => {
-    setLoading(true);
+    // Use loading spinner only for initial load, isFetching for subsequent fetches
+    if (!hasInitiallyLoadedRef.current) {
+      setLoading(true);
+    } else {
+      setIsFetching(true);
+    }
+    
     try {
       const params = new URLSearchParams({
         report_id: reportId,
@@ -458,10 +489,12 @@ const ClientReportFocusViewPage = () => {
       
       setData(results);
       setTotalCount(response.data.count || 0);
+      hasInitiallyLoadedRef.current = true;  // Mark initial load as complete
     } catch (error) {
       console.error('Error fetching focus view data:', error);
     } finally {
       setLoading(false);
+      setIsFetching(false);
     }
   }, [reportId, currentPage, pageSize, debouncedSearch, queryFilters]);
 
@@ -715,6 +748,14 @@ const ClientReportFocusViewPage = () => {
 
         categoryData.forEach((record, rowIdx) => {
           const row = columns.map((col, colIdx) => {
+            // Special handling for category_display column
+            if (col.key === 'category_display') {
+              const categories = record.categories && record.categories.length > 0 
+                ? record.categories 
+                : (record.category ? [record.category] : []);
+              return categories.map(cat => CATEGORY_SHORT_LABELS[cat] || cat).join(', ');
+            }
+            
             const value = record[col.key];
             if (value === true) {
               booleanCells.push({ row: rowIdx + 1, col: colIdx, value: true });
@@ -858,6 +899,53 @@ const ClientReportFocusViewPage = () => {
   const renderCellValue = (record, column) => {
     const value = record[column.key];
     
+    // Special handling for category display
+    if (column.key === 'category_display') {
+      // Get categories from either 'categories' array or single 'category' field
+      const categories = record.categories && record.categories.length > 0 
+        ? record.categories 
+        : (record.category ? [record.category] : []);
+      
+      if (categories.length === 0) {
+        return <span className="text-gray-400 dark:text-gray-500">-</span>;
+      }
+      
+      // Category badge colors
+      const categoryColors = {
+        INJECTION: 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300',
+        BLOW: 'bg-pink-100 text-pink-800 dark:bg-pink-900/40 dark:text-pink-300',
+        ROTO: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300',
+        PE_FILM: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300',
+        SHEET: 'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300',
+        PIPE: 'bg-teal-100 text-teal-800 dark:bg-teal-900/40 dark:text-teal-300',
+        TUBE_HOSE: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/40 dark:text-cyan-300',
+        PROFILE: 'bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-300',
+        CABLE: 'bg-lime-100 text-lime-800 dark:bg-lime-900/40 dark:text-lime-300',
+        COMPOUNDER: 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300',
+      };
+      
+      return (
+        <div className="flex flex-wrap gap-1">
+          {categories.map((cat, idx) => (
+            <span
+              key={idx}
+              className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium whitespace-nowrap ${
+                categoryColors[cat] || 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+              }`}
+            >
+              {CATEGORY_SHORT_LABELS[cat] || cat}
+            </span>
+          ))}
+        </div>
+      );
+    }
+    
+    // For technical fields (which have a category), check if the field belongs to this record's category
+    // If the column has a category and it doesn't match the record's category, show dash
+    if (column.category && record.category !== column.category) {
+      return <span className="text-gray-400 dark:text-gray-500">-</span>;
+    }
+    
     if (column.type === 'checkbox' || typeof value === 'boolean') {
       if (value === true) {
         return (
@@ -952,144 +1040,55 @@ const ClientReportFocusViewPage = () => {
       pageTitle={reportAccess?.report_title || 'Focus View'}
       pageSubtitleBottom={reportAccess?.report_description || 'All Fields View'}
       breadcrumbs={customBreadcrumbs}
+      fullHeight={false}
     >
-      <div className={`p-6 ${isFullscreen ? 'fixed inset-0 z-50 bg-white dark:bg-gray-900 overflow-auto' : ''}`}>
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <button
-            onClick={() => navigate(`/client/reports/${reportId}`)}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-          >
-            <ArrowLeft className="w-5 h-5" />
-            Back to Report
-          </button>
-        </div>
-
-        {/* Active Filters Display */}
-        {(debouncedSearch || activeFiltersCount > 0) && (
-          <div className="mb-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Active filters:</span>
-              <button
-                onClick={clearAllFilters}
-                className="text-sm text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 font-medium"
-              >
-                Clear all
-              </button>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {/* Search Badge */}
-              {debouncedSearch && (
-                <span className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-200 rounded-full text-sm">
-                  Search: "{debouncedSearch}"
-                  <button onClick={clearSearch} className="hover:bg-blue-200 dark:hover:bg-blue-800 rounded-full p-0.5">
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                </span>
-              )}
-              
-              {/* Category Filters */}
-              {!isCategoriesAtDefault && categoryFilters.length > 0 && categoryFilters.map(cat => (
-                <span
-                  key={cat}
-                  className="inline-flex items-center gap-2 px-3 py-1.5 bg-purple-100 dark:bg-purple-900/40 text-purple-800 dark:text-purple-200 border border-purple-300 dark:border-purple-700 rounded-full text-sm font-medium"
-                >
-                  {CATEGORY_SHORT_LABELS[cat] || cat}
-                  <button onClick={() => removeCategoryFilter(cat)} className="hover:opacity-70">
-                    <X className="w-4 h-4" />
-                  </button>
-                </span>
-              ))}
-              
-              {/* Country Filters (show count if too many) */}
-              {!isCountriesAtDefault && countryFilters.length > 0 && (
-                countryFilters.length <= 3 ? (
-                  countryFilters.map(country => (
-                    <span
-                      key={country}
-                      className="inline-flex items-center gap-2 px-3 py-1.5 bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-200 border border-green-300 dark:border-green-700 rounded-full text-sm font-medium"
-                    >
-                      {country}
-                      <button onClick={() => removeCountryFilter(country)} className="hover:opacity-70">
-                        <X className="w-4 h-4" />
-                      </button>
-                    </span>
-                  ))
-                ) : (
-                  <span className="inline-flex items-center gap-2 px-3 py-1.5 bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-200 border border-green-300 dark:border-green-700 rounded-full text-sm font-medium">
-                    {countryFilters.length} countries selected
-                  </span>
-                )
-              )}
-              
-              {/* Filter Groups */}
-              {!isFilterGroupsAtDefault && filterGroups.length > 0 && (
-                <span className="inline-flex items-center gap-2 px-3 py-1.5 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-800 dark:text-indigo-200 border border-indigo-300 dark:border-indigo-700 rounded-full text-sm font-medium">
-                  {groupFilterCount} material/technical filters
-                </span>
-              )}
-            </div>
+      <div className={`flex flex-col ${isFullscreen ? 'fixed inset-0 z-50 bg-white dark:bg-gray-900 overflow-auto' : ''}`}>
+        {/* Header - Fixed height */}
+        <div className="flex-shrink-0 px-6 pt-4 pb-2">
+          <div className="flex items-center justify-between mb-4">
+            <button
+              onClick={() => navigate(`/client/reports/${reportId}`)}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            >
+              <ArrowLeft className="w-5 h-5" />
+              Back to Report
+            </button>
           </div>
-        )}
 
-        {/* Toolbar - Search, Filters, Export, Columns, etc. */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-4 mb-4">
+        {/* Toolbar - Search & Action Buttons */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-3 mb-3">
           <div className="flex items-center justify-between gap-4 flex-wrap">
-            {/* Left side - Stats */}
-            <div className="flex items-center gap-3">
-              <div className="inline-flex items-center gap-2 px-4 py-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg">
-                <span className="text-sm font-medium text-green-800 dark:text-green-300">
-                  {totalCount.toLocaleString()} companies
-                </span>
-              </div>
-              {selectedCount > 0 && (
-                <div className="inline-flex items-center gap-3 px-4 py-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg">
-                  <span className="text-sm font-medium text-blue-800 dark:text-blue-300">
-                    {selectedCount} selected
-                  </span>
-                  <button
-                    onClick={clearSelection}
-                    className="text-sm text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 font-medium"
-                  >
-                    Clear
-                  </button>
-                </div>
+            {/* Left side - Search */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search companies..."
+                className="pl-10 pr-8 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-96"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2"
+                >
+                  <X className="w-4 h-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" />
+                </button>
               )}
             </div>
 
-            {/* Right side - Controls */}
+            {/* Right side - Action Buttons */}
             <div className="flex items-center gap-3 flex-wrap">
-              {/* Search */}
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search companies..."
-                  className="pl-10 pr-8 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-64"
-                />
-                {searchQuery && (
-                  <button
-                    onClick={() => setSearchQuery('')}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2"
-                  >
-                    <X className="w-4 h-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" />
-                  </button>
-                )}
-              </div>
-
               {/* Visualization Button */}
               <button
                 onClick={() => {
-                  // Build URL with current filters
                   const params = new URLSearchParams();
                   if (countryFilters.length > 0) params.set('countries', countryFilters.join(','));
                   if (categoryFilters.length > 0) params.set('categories', categoryFilters.join(','));
                   if (statusFilters.length > 0) params.set('status', statusFilters.join(','));
                   if (filterGroups.length > 0) params.set('filter_groups', JSON.stringify(filterGroups));
                   if (debouncedSearch) params.set('search', debouncedSearch);
-                  
                   const queryString = params.toString();
                   navigate(`/client/reports/${reportId}/visualization${queryString ? `?${queryString}` : ''}`);
                 }}
@@ -1106,7 +1105,7 @@ const ClientReportFocusViewPage = () => {
               >
                 <Filter className="w-4 h-4" />
                 Filters
-                {activeFiltersCount > 0 && (
+                {!loading && !metadataLoading && !statsLoading && filtersInitialized && allCountries.length > 0 && availableCategories.length > 0 && activeFiltersCount > 0 && (
                   <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
                     {activeFiltersCount}
                   </span>
@@ -1122,17 +1121,63 @@ const ClientReportFocusViewPage = () => {
                 Export
               </button>
 
-              {/* Column Selector */}
-              <div className="relative">
+              {/* Report Notes Button */}
+              <button
+                onClick={() => setShowReportNotesModal(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 relative"
+                title="View and manage report notes"
+              >
+                <StickyNote className="w-4 h-4" />
+                Report Notes
+                {reportNotesCount > 0 && (
+                  <span className="absolute -top-2 -right-2 bg-purple-600 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                    {reportNotesCount > 99 ? '99+' : reportNotesCount}
+                  </span>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Results Count & Table Controls */}
+        <div className="flex items-center justify-between mb-3">
+          {/* Left side - Results count & Selection */}
+          <div className="flex items-center gap-3">
+            <div className="inline-flex items-center gap-3 px-4 py-2 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border-2 border-green-200 dark:border-green-700 rounded-xl">
+              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+              <span className="text-sm font-bold text-green-900 dark:text-green-300">
+                {totalCount.toLocaleString()} companies
+              </span>
+            </div>
+            {selectedCount > 0 && (
+              <div className="inline-flex items-center gap-3 px-4 py-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg">
+                <span className="text-sm font-medium text-blue-800 dark:text-blue-300">
+                  {selectedCount} selected
+                </span>
                 <button
-                  onClick={() => setShowColumnSelector(!showColumnSelector)}
-                  className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600"
+                  onClick={clearSelection}
+                  className="text-sm text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 font-medium"
                 >
-                  <Columns className="w-4 h-4" />
-                  Columns ({displayColumns.length}/{allColumns.length})
+                  Clear
                 </button>
-                
-                {showColumnSelector && (
+              </div>
+            )}
+          </div>
+
+          {/* Right side - Column Selector, Refresh, Fullscreen */}
+          <div className="flex items-center gap-2">
+            {/* Column Selector */}
+            <div className="relative">
+              <button
+                onClick={() => setShowColumnSelector(!showColumnSelector)}
+                disabled={!columnsInitialized}
+                className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Columns className="w-4 h-4" />
+                {columnsInitialized ? `Columns (${displayColumns.length}/${allColumns.length})` : 'Columns (loading...)'}
+              </button>
+              
+              {showColumnSelector && (
                   <div className="absolute right-0 top-full mt-2 w-96 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl z-50 max-h-[600px] overflow-hidden flex flex-col">
                     <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
                       <h3 className="font-semibold text-gray-900 dark:text-white">Toggle Columns</h3>
@@ -1226,7 +1271,7 @@ const ClientReportFocusViewPage = () => {
                 className="p-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600"
                 title="Refresh data"
               >
-                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`w-4 h-4 ${loading || isFetching ? 'animate-spin' : ''}`} />
               </button>
 
               {/* Fullscreen toggle */}
@@ -1237,12 +1282,15 @@ const ClientReportFocusViewPage = () => {
               >
                 {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
               </button>
-            </div>
           </div>
         </div>
+        </div>
+        {/* End of Header Section */}
 
+        {/* Table Section */}
+        <div className="pl-6 pr-6 pb-2">
         {/* Excel-like Table */}
-        {loading ? (
+        {(loading || metadataLoading || !columnsInitialized) ? (
           <div className="flex items-center justify-center py-16">
             <LoadingSpinner />
           </div>
@@ -1253,11 +1301,20 @@ const ClientReportFocusViewPage = () => {
             <p className="text-gray-600 dark:text-gray-400">Try adjusting your filters or search terms</p>
           </div>
         ) : (
-          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+          <div className="relative bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+            {/* Loading overlay for background fetches */}
+            {isFetching && (
+              <div className="absolute inset-0 bg-white/50 dark:bg-gray-800/50 z-10 flex items-center justify-center">
+                <div className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-700 rounded-lg shadow-lg border border-gray-200 dark:border-gray-600">
+                  <RefreshCw className="w-4 h-4 animate-spin text-indigo-600" />
+                  <span className="text-sm text-gray-600 dark:text-gray-300">Loading...</span>
+                </div>
+              </div>
+            )}
             <div 
               ref={tableRef}
               className={`overflow-auto focus:outline-none select-none ${isDragging ? 'cursor-grabbing' : ''}`}
-              style={{ maxHeight: isFullscreen ? 'calc(100vh - 280px)' : '600px' }}
+              style={{ maxHeight: '60vh', minHeight: '300px' }}
               tabIndex={0}
               onMouseDown={(e) => {
                 // Don't start drag if clicking on interactive elements
@@ -1369,7 +1426,7 @@ const ClientReportFocusViewPage = () => {
                         className={`px-3 py-3 text-sm font-semibold text-gray-700 dark:text-gray-300 border-b border-r border-gray-200 dark:border-gray-600 whitespace-nowrap ${getGroupColor(col.group)} ${
                           col.key === 'company_name' ? 'sticky left-12 z-20 text-left' : ''
                         } ${col.type === 'checkbox' ? 'text-center' : 'text-left'}`}
-                        style={{ minWidth: col.key === 'company_name' ? '250px' : col.type === 'checkbox' ? '100px' : '120px' }}
+                        style={{ minWidth: col.key === 'company_name' ? '250px' : col.key === 'category_display' ? '150px' : col.type === 'checkbox' ? '100px' : '120px' }}
                         title={col.label}
                       >
                         {col.label}
@@ -1427,10 +1484,12 @@ const ClientReportFocusViewPage = () => {
             </div>
           </div>
         )}
+        </div>
+        {/* End of Table Section */}
 
         {/* Pagination */}
-        {!loading && data.length > 0 && (
-          <div className="mt-6">
+        {!loading && !metadataLoading && columnsInitialized && data.length > 0 && (
+          <div className="pl-6 pr-6 pt-2 pb-4">
             <Pagination
               currentPage={currentPage}
               totalPages={totalPages}
@@ -1442,7 +1501,7 @@ const ClientReportFocusViewPage = () => {
                 setCurrentPage(1);
               }}
               showFirstLast={true}
-              pageSizeOptions={[25, 50, 100, 200]}
+              pageSizeOptions={[25, 50, 75, 100]}
             />
           </div>
         )}
@@ -1475,10 +1534,12 @@ const ClientReportFocusViewPage = () => {
           countryFilters={countryFilters}
           onCountryFilterChange={setCountryFilters}
           allCountries={allCountries}
+          countriesWithCounts={countriesWithCounts}
           // Category filters
           categoryFilters={categoryFilters}
           onCategoryFilterChange={setCategoryFilters}
           availableCategories={availableCategories}
+          categoriesWithCounts={categoriesWithCounts}
           // Actions
           onApply={handleApplyFilterGroups}
           onReset={handleResetFilters}
@@ -1493,6 +1554,10 @@ const ClientReportFocusViewPage = () => {
             setShowCompanyModal(false);
             setSelectedCompany(null);
           }}
+          isGuest={false}
+          reportId={reportId}
+          toast={toast}
+          onNotesChanged={fetchNotesStats}
         />
       )}
 
@@ -1652,6 +1717,14 @@ const ClientReportFocusViewPage = () => {
           </div>
         </div>
       )}
+
+      {/* REPORT NOTES MODAL */}
+      <ReportNotesModal
+        reportId={reportId}
+        reportTitle={reportAccess?.report_title}
+        isOpen={showReportNotesModal}
+        onClose={() => setShowReportNotesModal(false)}
+      />
 
       {/* FLOATING FEEDBACK BUTTON & MODAL */}
       <ReportFeedbackModal 

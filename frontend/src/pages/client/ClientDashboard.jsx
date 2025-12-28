@@ -279,11 +279,7 @@ const ClientDashboard = () => {
     <ClientDashboardLayout
       pageTitle="Dashboard Overview"
       breadcrumbs={breadcrumbs}
-      pageSubtitleBottom={
-        <p className="text-gray-600 dark:text-gray-400">
-          Welcome back, <span className="font-semibold text-purple-950 dark:text-purple-300">{getDisplayName()}</span>! Here's your subscription summary
-        </p>
-      }
+      pageSubtitleBottom={`Welcome back, ${getDisplayName()}! Here's your subscription summary`}
     >
       <div className="p-6">
         {/* Pinned Reports Section */}

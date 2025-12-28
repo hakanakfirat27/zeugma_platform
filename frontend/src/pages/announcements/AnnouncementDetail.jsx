@@ -156,7 +156,7 @@ const AnnouncementDetail = () => {
     >
       <ToastContainer toasts={toasts} removeToast={removeToast} />
 
-      <div className="max-w-7xl mx-auto p-8">
+      <div className="p-6">
 
         {/* Header Card */}
         <div className={`bg-gradient-to-r ${getTypeColor(announcement.announcement_type)} text-white rounded-xl p-8 mb-6 shadow-lg`}>

@@ -179,7 +179,7 @@ const AdminProjectManagementPage = () => {
     pageSubtitleBottom="Manage all data collection projects across the platform" 
     breadcrumbs={breadcrumbs}
     >
-      <div className="p-6 max-w-7xl mx-auto">
+      <div className="p-6">
         <ToastContainer toasts={toasts} removeToast={removeToast} />
 
         {/* Header */}

@@ -125,6 +125,32 @@ export const useClientReportCountries = (reportId) => {
   });
 };
 
+// NEW: Hook for countries with counts (for filter sidebar)
+export const useClientReportCountriesWithCounts = (reportId) => {
+  return useQuery({
+    queryKey: ['client-report-countries-with-counts', reportId],
+    queryFn: async () => {
+      const response = await api.get(`/api/client/report-stats/?report_id=${reportId}`);
+      return response.data.all_countries_with_counts_for_sidebar || [];
+    },
+    enabled: !!reportId,
+    staleTime: 300000,
+  });
+};
+
+// NEW: Hook for categories with counts (for filter sidebar)
+export const useClientReportCategoriesWithCounts = (reportId) => {
+  return useQuery({
+    queryKey: ['client-report-categories-with-counts', reportId],
+    queryFn: async () => {
+      const response = await api.get(`/api/client/report-stats/?report_id=${reportId}`);
+      return response.data.available_categories_with_counts || [];
+    },
+    enabled: !!reportId,
+    staleTime: 300000,
+  });
+};
+
 export const useClientReportFilterOptions = (reportId) => {
   return useQuery({
     queryKey: ['client-report-filters', reportId],

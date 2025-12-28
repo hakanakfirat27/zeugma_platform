@@ -6,7 +6,7 @@ import { getBreadcrumbs } from '../../utils/breadcrumbConfig';
 import {
   Database, Search, X, Filter, Download, ArrowLeft, FileText,
   Globe, BarChart3, PieChart, TrendingUp, Calendar, AlertCircle,
-  Users, Package, MapPin, Clock, TableProperties, StickyNote, Star, FolderPlus
+  Users, Package, MapPin, Clock, TableProperties, StickyNote, Star, FolderPlus, RefreshCw
 } from 'lucide-react';
 import {
   BarChart, Bar, PieChart as RechartsPie, Pie, Cell,
@@ -33,6 +33,8 @@ import {
   useClientReportData,
   useClientReportStats,
   useClientReportCountries,
+  useClientReportCountriesWithCounts,
+  useClientReportCategoriesWithCounts,
   useClientReportFilterOptions,
   useClientReportTechnicalFilterOptions,
   useClientReportAccess,
@@ -47,7 +49,6 @@ const ClientReportViewPage = () => {
   const toast = useToast();
 
   // STATE DECLARATIONS
-  const [selectedRecords, setSelectedRecords] = useState(new Set());
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [searchQuery, setSearchQuery] = useState('');
@@ -98,7 +99,7 @@ const ClientReportViewPage = () => {
       ...filters
     }), [currentPage, pageSize, searchQuery, ordering, countryFilters, categoryFilters, statusFilters, filterGroups, filters]);
 
-  const { data: reportData, isLoading: dataLoading } = useClientReportData(
+  const { data: reportData, isLoading: dataLoading, isFetching: dataFetching, refetch: refetchData } = useClientReportData(
     reportId,
     queryFilters
   );
@@ -123,6 +124,8 @@ const ClientReportViewPage = () => {
   );
 
   const { data: allCountries = [] } = useClientReportCountries(reportId);
+  const { data: countriesWithCounts = [] } = useClientReportCountriesWithCounts(reportId);
+  const { data: categoriesWithCounts = [] } = useClientReportCategoriesWithCounts(reportId);
   const { data: filterOptions = [] } = useClientReportFilterOptions(reportId);
   const { data: technicalFilterOptions = [] } = useClientReportTechnicalFilterOptions(reportId);
 
@@ -183,7 +186,8 @@ const ClientReportViewPage = () => {
     {
       accessorKey: 'country',
       header: 'COUNTRY',
-      size: 120,
+      size: 130,
+      minSize: 100,
       cell: ({ row }) => (
         <div className="text-gray-700 dark:text-gray-300 text-sm">
           {row.original.country || '-'}
@@ -768,25 +772,6 @@ const ClientReportViewPage = () => {
     console.log('✅ Saved search loaded successfully!');
   };
 
-  const toggleRecordSelection = (factoryId) => {
-    const newSelection = new Set(selectedRecords);
-    if (newSelection.has(factoryId)) {
-      newSelection.delete(factoryId);
-    } else {
-      newSelection.add(factoryId);
-    }
-    setSelectedRecords(newSelection);
-  };
-
-  const selectAllRecords = (checked) => {
-    if (checked) {
-      const allIds = records.map(r => r.id);
-      setSelectedRecords(new Set(allIds));
-    } else {
-      setSelectedRecords(new Set());
-    }
-  };
-
   const handleClearSearch = () => {
     setSearchQuery('');
     setCurrentPage(1);
@@ -915,7 +900,7 @@ const ClientReportViewPage = () => {
     >
       <div className="p-6">
         {/* STATS CARDS */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
           {/* Total Records Card */}
           <div className="relative overflow-hidden bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl shadow-lg p-6 text-white">
             <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16"></div>
@@ -1024,7 +1009,7 @@ const ClientReportViewPage = () => {
         </div>
 
         {/* SAVED SEARCH MANAGER */}
-        <div className="mb-6">
+        <div className="mb-4">
           <SavedSearchManager
             reportId={reportId}
             currentFilters={{
@@ -1039,7 +1024,7 @@ const ClientReportViewPage = () => {
         </div>
 
         {/* SEARCH & FILTERS */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-6 mb-6 border border-gray-100 dark:border-gray-700">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-4 mb-4 border border-gray-100 dark:border-gray-700">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
               <Database className="w-6 h-6 text-purple-600 dark:text-purple-400" />
@@ -1074,7 +1059,7 @@ const ClientReportViewPage = () => {
             >
               <Filter className="w-5 h-5" />
               Filters
-              {activeFiltersCount > 0 && (
+              {!dataLoading && !statsLoading && filtersInitialized && allCountries.length > 0 && availableCategories.length > 0 && activeFiltersCount > 0 && (
                 <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center">
                   {activeFiltersCount}
                 </span>
@@ -1082,14 +1067,14 @@ const ClientReportViewPage = () => {
             </button>
               <button
               onClick={navigateToVisualization}
-              className="px-6 py-3 bg-purple-600 text-white rounded-xl hover:bg-purple-700 flex items-center gap-2 shadow-lg"
+              className="px-6 py-3 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 flex items-center gap-2 shadow-lg"
               >
               <BarChart3 className="w-5 h-5" />
               Visualization
               </button>
             <button
               onClick={navigateToFocusView}
-              className="px-6 py-3 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 flex items-center gap-2 shadow-lg"
+              className="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 flex items-center gap-2 shadow-lg"
               title="View all companies with all fields in Excel-like format"
             >
               <TableProperties className="w-5 h-5" />
@@ -1122,7 +1107,7 @@ const ClientReportViewPage = () => {
           </div>
 
           {/* Active Filters Display */}
-          {activeFiltersCount > 0 && (
+          {!dataLoading && !statsLoading && filtersInitialized && allCountries.length > 0 && availableCategories.length > 0 && activeFiltersCount > 0 && (
             <div className="mt-4 pt-4 border-t dark:border-gray-700">
               <div className="flex items-center gap-2 mb-2">
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Active filters:</span>
@@ -1431,19 +1416,30 @@ if (filterGroups.length > 0) {
           )}
 
         </div>
-        {/* RESULTS COUNT */}
-        <div className="mb-6">
-          <div className="inline-flex items-center gap-3 px-5 py-3 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border-2 border-green-200 dark:border-green-700 rounded-xl">
+        {/* RESULTS COUNT & REFRESH */}
+        <div className="mb-4 flex items-center justify-between">
+          <div className="inline-flex items-center gap-3 px-4 py-2 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border-2 border-green-200 dark:border-green-700 rounded-xl">
             <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
             <span className="text-sm font-bold text-green-900 dark:text-green-300">
               {totalCount.toLocaleString()} companies found
             </span>
           </div>
+          
+          {/* Refresh Button */}
+          <button
+            onClick={() => refetchData()}
+            disabled={dataFetching}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-indigo-300 dark:hover:border-indigo-500 transition-all duration-200 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Refresh data"
+          >
+            <RefreshCw className={`w-4 h-4 ${dataFetching ? 'animate-spin text-indigo-600' : ''}`} />
+            <span>{dataFetching ? 'Refreshing...' : 'Refresh'}</span>
+          </button>
         </div>
 
         {/* DATA TABLE */}
         {dataLoading ? (
-          <div className="flex justify-center py-16">
+          <div className="flex items-center justify-center py-16">
             <LoadingSpinner />
           </div>
         ) : records.length === 0 ? (
@@ -1463,11 +1459,8 @@ if (filterGroups.length > 0) {
                 isGuest={false}
                 onSort={setOrdering}
                 currentSort={ordering}
-                selectedRecords={selectedRecords}
-                onSelectRecord={toggleRecordSelection}
-                onSelectAll={selectAllRecords}
-                customColumns={customColumns}  // ADD THIS
-                idField="id"  // ADD THIS
+                customColumns={customColumns}
+                idField="id"
               />
             </div>
 
@@ -1515,10 +1508,12 @@ if (filterGroups.length > 0) {
             countryFilters={countryFilters}
             onCountryFilterChange={setCountryFilters}
             allCountries={allCountries}
+            countriesWithCounts={countriesWithCounts}
             // Category filters
             categoryFilters={categoryFilters}
             onCategoryFilterChange={setCategoryFilters}
             availableCategories={availableCategories}
+            categoriesWithCounts={categoriesWithCounts}
             // Actions
             onApply={handleApplyFilterGroups}
             onReset={handleResetFilterGroups}

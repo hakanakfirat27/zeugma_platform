@@ -415,7 +415,7 @@ const ClientChatPage = () => {
 
   return (
     <ClientDashboardLayout
-    breadcrumbs={breadcrumbs}
+      pageTitle="Chat"
     >
       <div className="flex h-[calc(100vh-4rem)] bg-gray-100 dark:bg-gray-900">
         {/* Sidebar */}

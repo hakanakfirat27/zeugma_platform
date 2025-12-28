@@ -35,6 +35,9 @@ export const getBreadcrumbs = (pathname, dynamicData = {}) => {
     '/profile-settings': [
       { label: 'Profile Settings', path: '/profile-settings' }
     ],
+    '/settings': [
+      { label: 'Settings', path: '/settings' }
+    ],
     '/update-profile': [
       { label: 'Update Profile', path: '/update-profile' }
     ],
@@ -114,6 +117,14 @@ export const getBreadcrumbs = (pathname, dynamicData = {}) => {
     '/client/announcements': [
       { label: 'Client Dashboard', path: '/client-dashboard' },
       { label: 'Announcements', path: '/client/announcements' }
+    ],
+
+    // Legal Pages
+    '/privacy-policy': [
+      { label: 'Privacy Policy', path: '/privacy-policy' }
+    ],
+    '/terms-of-service': [
+      { label: 'Terms of Service', path: '/terms-of-service' }
     ],
 
     // Projects - Data Collector

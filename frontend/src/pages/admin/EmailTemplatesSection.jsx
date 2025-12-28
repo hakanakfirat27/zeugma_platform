@@ -1,7 +1,7 @@
 // frontend/src/pages/admin/EmailTemplatesSection.jsx
 // Email Templates and Branding Management Section
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Mail, Palette, Eye, Edit2, RotateCcw, Send, Check, X,
   RefreshCw, ChevronDown, ChevronRight, Save, AlertTriangle,
@@ -186,7 +186,7 @@ const EmailTemplatesSection = () => {
       </div>
 
       {/* Tab Navigation */}
-      <div className="flex gap-2 p-1 bg-gray-100 dark:bg-gray-800 rounded-xl">
+      <div className="flex gap-1 p-1.5 bg-gray-100 dark:bg-gray-800 rounded-xl">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           return (
@@ -195,8 +195,8 @@ const EmailTemplatesSection = () => {
               onClick={() => setActiveTab(tab.id)}
               className={`flex-1 px-4 py-2.5 rounded-lg font-medium text-sm transition-all flex items-center justify-center gap-2 ${
                 activeTab === tab.id
-                  ? 'bg-white dark:bg-gray-700 shadow-sm text-gray-900 dark:text-white'
-                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                  ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg shadow-green-500/25'
+                  : 'text-gray-600 dark:text-gray-400 hover:bg-white/60 dark:hover:bg-gray-700/60 hover:text-gray-900 dark:hover:text-white'
               }`}
             >
               <Icon className="w-4 h-4" />
@@ -312,6 +312,7 @@ const TemplatesList = ({
   setPreviewHtml, setPreviewSubject, onRecreateAll, onEditTemplate, toast 
 }) => {
   const [toggling, setToggling] = useState(null);
+  const categoryRefs = useRef({});
   // Start with first category open (Account & Security)
   const [expandedCategories, setExpandedCategories] = useState(
     Object.keys(templateCategories).reduce((acc, key, index) => ({ ...acc, [key]: index === 0 }), {})
@@ -412,6 +413,13 @@ const TemplatesList = ({
       const newState = Object.keys(prev).reduce((acc, key) => ({ ...acc, [key]: false }), {});
       if (!isCurrentlyOpen) {
         newState[category] = true;
+        // Scroll to the beginning of the category when expanding
+        setTimeout(() => {
+          categoryRefs.current[category]?.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'start' 
+          });
+        }, 100);
       }
       return newState;
     });
@@ -493,11 +501,22 @@ const TemplatesList = ({
             if (categoryTemplates.length === 0) return null;
 
             return (
-              <div key={category} className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+              <div 
+                key={category} 
+                ref={el => categoryRefs.current[category] = el}
+                className={`rounded-2xl shadow-sm overflow-hidden transition-all duration-300 ${
+                  expandedCategories[category]
+                    ? 'bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border-2 border-green-300 dark:border-green-700 ring-2 ring-green-200 dark:ring-green-800/50'
+                    : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700'
+                }`}>
                 {/* Category Header */}
                 <button
                   onClick={() => toggleCategory(category)}
-                  className="w-full px-6 py-4 flex items-center justify-between bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  className={`w-full px-6 py-4 flex items-center justify-between transition-colors ${
+                    expandedCategories[category]
+                      ? 'bg-white/60 dark:bg-gray-800/60'
+                      : 'bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700'
+                  }`}
                 >
                   <div className="flex items-center gap-3">
                     <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${

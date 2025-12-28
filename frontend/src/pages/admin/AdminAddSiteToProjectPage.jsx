@@ -285,7 +285,7 @@ const AdminAddSiteToProjectPage = () => {
       pageSubtitleBottom={`Adding site to: ${project.project_name}`}
       breadcrumbs={breadcrumbs}
     >
-      <div className="p-6 max-w-7xl mx-auto">
+      <div className="p-6">
         {/* Header */}
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
           <div className="flex items-center justify-between">

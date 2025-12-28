@@ -279,7 +279,7 @@ const AdminProjectDetailPage = () => {
       breadcrumbs={breadcrumbs}
     >
 
-      <div className="p-6 max-w-7xl mx-auto">
+      <div className="p-6">
         <ToastContainer toasts={toasts} removeToast={removeToast} />
 
         {/* Header with Action Buttons */}

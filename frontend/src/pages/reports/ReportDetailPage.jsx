@@ -56,8 +56,10 @@ const ReportDetailPage = () => {
   // Filter options
   const [filterOptions, setFilterOptions] = useState([]);
   const [allCountries, setAllCountries] = useState([]);
+  const [availableCategories, setAvailableCategories] = useState([]);
 
-  const availableCategories = CATEGORIES
+  // Fallback to hardcoded categories if backend doesn't return any
+  const fallbackCategories = CATEGORIES
     .filter(cat => cat.value !== 'ALL')
     .map(cat => cat.value);
 
@@ -215,6 +217,23 @@ const ReportDetailPage = () => {
     }
   }, [filtersInitialized, reportCountries, allCountries, countryFilters.length]);
 
+  // Auto-select all categories when report doesn't specify any
+  // This ensures UI matches data (all categories selected = showing all categories' records)
+  useEffect(() => {
+    // Only run when:
+    // 1. Filters have been initialized
+    // 2. Report doesn't specify categories (reportCategories is empty)
+    // 3. Available categories have been fetched (availableCategories has items)
+    // 4. No categories are currently selected
+    if (filtersInitialized && 
+        reportCategories.length === 0 && 
+        availableCategories.length > 0 &&
+        categoryFilters.length === 0) {
+      console.log('Auto-selecting all categories:', availableCategories.length);
+      setCategoryFilters([...availableCategories]);
+    }
+  }, [filtersInitialized, reportCategories, availableCategories, categoryFilters.length]);
+
 
   const location = useLocation();
   const breadcrumbs = getBreadcrumbs(location.pathname, {
@@ -223,8 +242,9 @@ const ReportDetailPage = () => {
 
   // Build query filters for React Query
   // Logic for when to send filters:
-  // - Status & Categories: Always send (report always has these)
-  // - Countries: Only send if report specifies countries (otherwise show all)
+  // - Status: Always send (report always has a default status)
+  // - Categories: Only send if report specifies categories OR user has selected some
+  // - Countries: Only send if report specifies countries OR user has selected some
   // - Empty array = user explicitly deselected all = 0 results
   const queryFilters = useMemo(() => {
     console.log('Building queryFilters:', {
@@ -232,6 +252,7 @@ const ReportDetailPage = () => {
       categories: categoryFilters,
       countries: countryFilters,
       reportCountries,
+      reportCategories,
       filterGroups,
       filtersInitialized
     });
@@ -254,13 +275,21 @@ const ReportDetailPage = () => {
       page_size: pageSize,
       search: searchQuery,
       ordering: ordering,
-      // Categories and status are always defined in reports
-      categories: categoryFilters,
+      // Status is always defined
       status: statusFilters,
       // Always include filter_groups
       filter_groups: JSON.stringify(filterGroups),
       ...filters
     };
+    
+    // Only include categories filter if:
+    // 1. The report originally specified categories (reportCategories.length > 0), OR
+    // 2. The user has explicitly selected categories (categoryFilters.length > 0)
+    // If report doesn't specify categories and user hasn't selected any, don't filter by category
+    if (reportCategories.length > 0 || categoryFilters.length > 0) {
+      query.categories = categoryFilters;
+    }
+    // If neither, DON'T send categories parameter - backend will return all
     
     // Only include countries filter if:
     // 1. The report originally specified countries (reportCountries.length > 0), OR
@@ -271,10 +300,14 @@ const ReportDetailPage = () => {
     }
     
     return query;
-  }, [currentPage, pageSize, searchQuery, ordering, countryFilters, categoryFilters, statusFilters, filterGroups, filters, filtersInitialized, reportCountries]);
+  }, [currentPage, pageSize, searchQuery, ordering, countryFilters, categoryFilters, statusFilters, filterGroups, filters, filtersInitialized, reportCountries, reportCategories]);
 
-  // Fetch records using React Query
-  const { data: recordsData, isLoading: recordsLoading } = useCustomReportRecords(reportId, queryFilters);
+  // Fetch records using React Query - only when filters are initialized
+  const { data: recordsData, isLoading: recordsLoading } = useCustomReportRecords(
+    reportId, 
+    queryFilters,
+    { enabled: filtersInitialized }
+  );
 
   // Extract data from React Query responses
   const records = recordsData?.results || [];
@@ -313,14 +346,18 @@ const ReportDetailPage = () => {
 
   const fetchFilterOptionsForCategories = async (categories) => {
     try {
-      console.log('Fetching filter options for:', categories);
+      console.log('Fetching filter options for:', categories, 'report_id:', reportId);
       // Fetch filter options for all categories and combine
+      // CRITICAL: Include report_id to get counts filtered by report criteria
       const allOptions = [];
       const seenFields = new Set();
       
       for (const category of categories) {
         const response = await api.get('/api/filter-options/', {
-          params: { category: category || 'ALL' }
+          params: { 
+            category: category || 'ALL',
+            report_id: reportId  // Filter counts by report criteria
+          }
         });
         
         console.log(`Filter options for ${category}:`, response.data?.length);
@@ -343,14 +380,18 @@ const ReportDetailPage = () => {
 
   const fetchTechnicalOptionsForCategories = async (categories) => {
     try {
-      console.log('Fetching technical options for:', categories);
+      console.log('Fetching technical options for:', categories, 'report_id:', reportId);
       // Fetch technical filter options for all categories and combine
+      // CRITICAL: Include report_id to get values filtered by report criteria
       const allOptions = [];
       const seenFields = new Set();
       
       for (const category of categories) {
         const response = await api.get('/api/technical-filter-options/', {
-          params: { category: category || 'ALL' }
+          params: { 
+            category: category || 'ALL',
+            report_id: reportId  // Filter values by report criteria
+          }
         });
         
         console.log(`Technical options for ${category}:`, response.data?.length);
@@ -373,33 +414,47 @@ const ReportDetailPage = () => {
 
   const fetchAllCountriesForCategories = async (categories) => {
     try {
-      console.log('Fetching countries for categories:', categories);
+      console.log('Fetching countries and categories for:', categories);
       
       // Build params for the API call
-      // Note: The backend may support filtering by categories parameter
       const params = {};
       if (categories.length > 0 && categories[0] !== 'ALL') {
         params.categories = categories.join(',');
-        // Also try with 'category' param for backward compatibility
         params.category = categories.join(',');
       }
       
       const response = await api.get('/api/database-stats/', { params });
       console.log('Database stats response:', response.data);
       
-      // Try different ways to extract countries from response
+      // Extract countries from response
       let countries = [];
-      
       if (response.data.all_countries && response.data.all_countries.length > 0) {
         countries = response.data.all_countries;
       } else if (response.data.by_country && response.data.by_country.length > 0) {
         countries = response.data.by_country.map(c => c.country).filter(Boolean).sort();
       }
-      
       console.log('Fetched countries:', countries.length);
       setAllCountries(countries);
+      
+      // Extract available categories from response (like client portal does)
+      // This returns only categories that actually have data in the database
+      if (response.data.available_categories && response.data.available_categories.length > 0) {
+        console.log('Fetched available categories from backend:', response.data.available_categories);
+        setAvailableCategories(response.data.available_categories);
+      } else if (response.data.by_category && response.data.by_category.length > 0) {
+        // Fallback: extract from by_category if available_categories not provided
+        const cats = response.data.by_category.map(c => c.category).filter(Boolean);
+        console.log('Extracted categories from by_category:', cats);
+        setAvailableCategories(cats);
+      } else {
+        // Use fallback hardcoded categories if backend doesn't return any
+        console.log('Using fallback categories:', fallbackCategories.length);
+        setAvailableCategories(fallbackCategories);
+      }
     } catch (error) {
-      console.error('Error fetching countries:', error);
+      console.error('Error fetching database stats:', error);
+      // Set fallback categories on error
+      setAvailableCategories(fallbackCategories);
     }
   };
 
@@ -806,8 +861,8 @@ const ReportDetailPage = () => {
       } else if (criteria.category) {
         setCategoryFilters([criteria.category]);
       } else {
-        // If report doesn't specify categories, keep the reportCategories (scope)
-        setCategoryFilters([...reportCategories]);
+        // If report doesn't specify categories, select ALL available categories
+        setCategoryFilters([...availableCategories]);
       }
       
       // Reset to report's original status
@@ -847,8 +902,13 @@ const ReportDetailPage = () => {
   const statusDiffersFromReport = reportStatusFilters.length !== statusFilters.length || 
     !statusFilters.every(s => reportStatusSet.has(s));
   
-  // Check if categories differ from report default (all report categories selected)
-  const categoriesDifferFromReport = categoryFilters.length !== reportCategories.length;
+  // Check if categories differ from report default
+  // If report specifies categories, compare against those
+  // If report doesn't specify categories, compare against all categories (the default)
+  const defaultCategories = reportCategories.length > 0 ? reportCategories : availableCategories;
+  const allCategoriesSelected = categoryFilters.length === defaultCategories.length &&
+    categoryFilters.every(c => defaultCategories.includes(c));
+  const categoriesDifferFromReport = !allCategoriesSelected;
   
   // Check if countries differ from report default (all countries selected)
   const allCountriesSelected = allCountries.length > 0 && countryFilters.length === allCountries.length;
@@ -914,7 +974,7 @@ const ReportDetailPage = () => {
     >
       {/* Content */}
       <div className="flex-1 overflow-auto bg-white">
-        <div className="max-w-7xl mx-auto px-8 py-6">
+        <div className="px-6 py-6">
           {/* Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
             <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-4 border border-blue-200">
@@ -1123,10 +1183,10 @@ const ReportDetailPage = () => {
           onCountryFilterChange={setCountryFilters}
           allCountries={reportCountries.length > 0 ? reportCountries : allCountries}
 
-          // Categories - report's categories only
+          // Categories - if report specifies categories, use those; otherwise use all categories
           categoryFilters={categoryFilters}
           onCategoryFilterChange={setCategoryFilters}
-          availableCategories={reportCategories}
+          availableCategories={reportCategories.length > 0 ? reportCategories : availableCategories}
 
           // Actions - pass memoized handler directly to avoid new function references
           onApply={handleApplyFilterGroups}

@@ -1,6 +1,15 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from . import views
+from .user_settings_views import (
+    UserSettingsView,
+    UserSettingsChoicesView,
+    UserSettingsResetView,
+    DefaultUserSettingsListView,
+    DefaultUserSettingsDetailView,
+    ApplyDefaultsToAllUsersView,
+    UserActivityView,
+)
 
 router = DefaultRouter()
 router.register(r'users', views.UserViewSet)
@@ -52,4 +61,17 @@ urlpatterns = [
     
     # Integrations
     path('integrations/', include('accounts.integrations_urls')),
+    
+    # User Settings endpoints (for all users)
+    path('user/settings/', UserSettingsView.as_view(), name='user-settings'),
+    path('user/settings/choices/', UserSettingsChoicesView.as_view(), name='user-settings-choices'),
+    path('user/settings/reset/', UserSettingsResetView.as_view(), name='user-settings-reset'),
+    
+    # User Activity endpoint
+    path('user/activity/', UserActivityView.as_view(), name='user-activity'),
+    
+    # Admin Default Settings endpoints
+    path('admin/default-settings/', DefaultUserSettingsListView.as_view(), name='admin-default-settings-list'),
+    path('admin/default-settings/<str:role>/', DefaultUserSettingsDetailView.as_view(), name='admin-default-settings-detail'),
+    path('admin/default-settings/<str:role>/apply-all/', ApplyDefaultsToAllUsersView.as_view(), name='admin-apply-defaults'),
 ]

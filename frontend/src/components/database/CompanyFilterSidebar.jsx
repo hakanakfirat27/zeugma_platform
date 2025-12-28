@@ -63,10 +63,12 @@ const CompanyFilterSidebar = ({
   countryFilters = [],
   onCountryFilterChange,
   allCountries: externalCountries = [],
+  countriesWithCounts = [],  // NEW: Array of {country, count} for displaying counts
   // Category filters
   categoryFilters = [],
   onCategoryFilterChange = () => {},
   availableCategories = [],
+  categoriesWithCounts = [],  // NEW: Array of {category, count} for displaying counts
   onApply,
   onReset
 }) => {
@@ -94,6 +96,17 @@ const CompanyFilterSidebar = ({
 
   // Active tab state - for vertical tabs navigation
   const [activeTab, setActiveTab] = useState('status');
+
+  // Track if user is in "individual status selection" mode vs "All Statuses" mode
+  // When true: show individual checkboxes as checked based on statusFilters
+  // When false: show "All Statuses" checked, individuals unchecked (default/reset state)
+  const [isIndividualStatusMode, setIsIndividualStatusMode] = useState(false);
+  
+  // Same mode tracking for Categories
+  const [isIndividualCategoryMode, setIsIndividualCategoryMode] = useState(false);
+  
+  // Same mode tracking for Countries
+  const [isIndividualCountryMode, setIsIndividualCountryMode] = useState(false);
 
   // Get active group - MUST be defined before using it in useMemo
   const activeGroup = groups.find(g => g.id === activeGroupId) || groups[0];
@@ -123,6 +136,33 @@ const CompanyFilterSidebar = ({
     }
     return dynamicCountries.length > 0 ? dynamicCountries : externalCountries;
   }, [isReportContext, externalCountries, dynamicCountries]);
+
+  // NEW: Create lookup maps for counts
+  const countryCountsMap = useMemo(() => {
+    const map = {};
+    (countriesWithCounts || []).forEach(item => {
+      if (item.country) {
+        map[item.country] = item.count || 0;
+      }
+    });
+    return map;
+  }, [countriesWithCounts]);
+
+  const categoryCountsMap = useMemo(() => {
+    const map = {};
+    (categoriesWithCounts || []).forEach(item => {
+      if (item.category) {
+        map[item.category] = item.count || 0;
+      }
+    });
+    return map;
+  }, [categoriesWithCounts]);
+
+  // Helper functions to get counts
+  const getCountryCount = (country) => countryCountsMap[country] || 0;
+  const getCategoryCount = (category) => categoryCountsMap[category] || 0;
+  const getTotalCountryCount = () => Object.values(countryCountsMap).reduce((sum, c) => sum + c, 0);
+  const getTotalCategoryCount = () => Object.values(categoryCountsMap).reduce((sum, c) => sum + c, 0);
 
   // Fetch filter options when categories change
   const fetchFilterOptions = useCallback(async (categories) => {
@@ -389,27 +429,89 @@ const CompanyFilterSidebar = ({
 
   // Toggle functions
   const toggleStatus = (status) => {
-    const newStatusFilters = statusFilters.includes(status)
-      ? statusFilters.filter(s => s !== status)
-      : [...statusFilters, status];
-    onStatusFilterChange(newStatusFilters);
+    const isCurrentlySelected = statusFilters.includes(status);
+    
+    if (isCurrentlySelected) {
+      // Unchecking a status
+      const newStatusFilters = statusFilters.filter(s => s !== status);
+      
+      // If no statuses remain selected, auto-select ALL available statuses and exit individual mode
+      if (newStatusFilters.length === 0) {
+        const allStatuses = availableStatusOptions.map(opt => opt.value);
+        onStatusFilterChange(allStatuses);
+        setIsIndividualStatusMode(false); // Back to "All Statuses" mode
+      } else {
+        onStatusFilterChange(newStatusFilters);
+        // Stay in individual mode
+      }
+    } else {
+      // Checking a status - add it to the list
+      onStatusFilterChange([...statusFilters, status]);
+      // Stay in individual mode (user is manually selecting)
+    }
   };
 
   const toggleCountry = (country) => {
-    const newCountryFilters = countryFilters.includes(country)
-      ? countryFilters.filter(c => c !== country)
-      : [...countryFilters, country];
-    onCountryFilterChange(newCountryFilters);
+    const isCurrentlySelected = countryFilters.includes(country);
+    
+    if (isCurrentlySelected) {
+      // Unchecking a country
+      const newCountryFilters = countryFilters.filter(c => c !== country);
+      
+      // If no countries remain selected, auto-select "All Countries" and exit individual mode
+      if (newCountryFilters.length === 0) {
+        if (isReportContext) {
+          // In report context: "All Countries" = all available countries
+          onCountryFilterChange([...allCountries]);
+        } else {
+          // In normal mode: "All Countries" = empty array (no filter = all)
+          onCountryFilterChange([]);
+        }
+        setIsIndividualCountryMode(false); // Back to "All Countries" mode
+      } else {
+        onCountryFilterChange(newCountryFilters);
+        // Stay in individual mode
+      }
+    } else {
+      // Checking a country - add it to the list
+      onCountryFilterChange([...countryFilters, country]);
+      // Stay in individual mode (user is manually selecting)
+    }
   };
 
   const toggleCategory = (category) => {
     if (category === 'All Categories') {
-      onCategoryFilterChange([]);
+      // Clicking "All Categories" selects all and exits individual mode
+      if (isReportContext) {
+        onCategoryFilterChange([...availableCategories]);
+      } else {
+        onCategoryFilterChange([]);
+      }
+      setIsIndividualCategoryMode(false);
     } else {
-      const newCategoryFilters = categoryFilters.includes(category)
-        ? categoryFilters.filter(c => c !== category)
-        : [...categoryFilters, category];
-      onCategoryFilterChange(newCategoryFilters);
+      const isCurrentlySelected = categoryFilters.includes(category);
+      
+      if (isCurrentlySelected) {
+        // Unchecking a category
+        const newCategoryFilters = categoryFilters.filter(c => c !== category);
+        
+        // If no categories remain selected, auto-select "All Categories" and exit individual mode
+        if (newCategoryFilters.length === 0) {
+          if (isReportContext) {
+            onCategoryFilterChange([...availableCategories]);
+          } else {
+            onCategoryFilterChange([]);
+          }
+          setIsIndividualCategoryMode(false); // Back to "All Categories" mode
+        } else {
+          onCategoryFilterChange(newCategoryFilters);
+          // Stay in individual mode
+        }
+      } else {
+        // Checking a category - add it to the list
+        onCategoryFilterChange([...categoryFilters, category]);
+        // Stay in individual mode (user is manually selecting)
+      }
     }
   };
 
@@ -473,11 +575,17 @@ const CompanyFilterSidebar = ({
       // Reset countries to report's countries (all selected)
       onCountryFilterChange([...externalCountries]);
     } else {
-      // Normal mode - reset to defaults (Complete only)
-      onStatusFilterChange(['COMPLETE']);
+      // Normal mode - reset to defaults (all statuses selected)
+      const allStatuses = STATUS_OPTIONS.map(opt => opt.value);
+      onStatusFilterChange(allStatuses);
       onCategoryFilterChange([]);
       onCountryFilterChange([]);
     }
+    
+    // Reset to "All Statuses" mode (not individual selection mode)
+    setIsIndividualStatusMode(false);
+    setIsIndividualCategoryMode(false);
+    setIsIndividualCountryMode(false);
   };
 
   const handleClearAll = () => {
@@ -488,15 +596,15 @@ const CompanyFilterSidebar = ({
     setCountrySearch('');
     setCategorySearchQuery('');
     setTechnicalSearchQuery('');
+    setIsIndividualStatusMode(false); // Reset to "All Statuses" mode
+    setIsIndividualCategoryMode(false); // Reset to "All Categories" mode
+    setIsIndividualCountryMode(false); // Reset to "All Countries" mode
     onReset();
   };
 
-  // Normal mode defaults
-  const NORMAL_MODE_DEFAULT_STATUS = ['COMPLETE'];
-  
   // Count active filters
   // Only count filters that DIFFER from defaults
-  // Normal mode defaults: status=['COMPLETE'], categories=[], countries=[]
+  // Normal mode defaults: status=ALL statuses, categories=[], countries=[]
   // Report mode defaults: all categories, all countries, report's status
   const getUserAppliedFilterCount = () => {
     let count = 0;
@@ -538,8 +646,8 @@ const CompanyFilterSidebar = ({
       }
     } else {
       // Normal mode - only count deviations from defaults
-      // Default status is ['COMPLETE'] - only count if different
-      const isDefaultStatus = statusFilters.length === 1 && statusFilters[0] === 'COMPLETE';
+      // Default status is ALL statuses - only count if different
+      const isDefaultStatus = statusFilters.length === STATUS_OPTIONS.length;
       if (!isDefaultStatus) {
         count += statusFilters.length;
       }
@@ -567,8 +675,8 @@ const CompanyFilterSidebar = ({
             !statusFilters.every(s => reportStatusSet.has(s));
           return statusDiffers ? statusFilters.length : 0;
         }
-        // In normal mode, only count if different from default ['COMPLETE']
-        const isDefaultStatus = statusFilters.length === 1 && statusFilters[0] === 'COMPLETE';
+        // In normal mode, only count if different from default (all statuses)
+        const isDefaultStatus = statusFilters.length === STATUS_OPTIONS.length;
         return isDefaultStatus ? 0 : statusFilters.length;
       case 'categories': 
         // In report context, only count if not all categories selected
@@ -665,7 +773,7 @@ const CompanyFilterSidebar = ({
   const isAllCategoriesSelected = categoryFilters.length === 0;
 
   // Only show Active Filters bar when user has deviated from defaults
-  // Normal mode default: status=['COMPLETE'], categories=[], countries=[]
+  // Normal mode default: status=ALL statuses, categories=[], countries=[]
   // Report mode default: report's status, all categories, all countries
   const hasUserAppliedFilters = totalActiveFilters > 0;  // Already calculates only user deviations for both modes
 
@@ -686,6 +794,11 @@ const CompanyFilterSidebar = ({
   const renderTabContent = () => {
     switch (activeTab) {
       case 'status':
+        // Check if all statuses are selected
+        const isAllStatusesSelected = statusFilters.length === availableStatusOptions.length;
+        // In "All Statuses" mode (not individual), show individuals as unchecked
+        const showAllStatusesMode = isAllStatusesSelected && !isIndividualStatusMode;
+        
         return (
           <div>
             <div className="flex items-center gap-2 mb-2">
@@ -712,7 +825,7 @@ const CompanyFilterSidebar = ({
                       <span className="w-2 h-2 mt-1 rounded-full bg-gray-300 flex-shrink-0"></span>
                       <p className="text-gray-700 dark:text-gray-300"><strong>None:</strong> No status assigned</p>
                     </div>
-                    <p className="text-red-600 mt-2">⚠️ Unchecking all statuses will show 0 results</p>
+                    <p className="text-indigo-600 mt-2">💡 Unchecking the last status will auto-select all statuses</p>
                   </div>
                   <div className="absolute -top-2 left-2 w-3 h-3 bg-white dark:bg-gray-800 border-l border-t border-gray-200 dark:border-gray-700 transform rotate-45"></div>
                 </div>
@@ -720,39 +833,73 @@ const CompanyFilterSidebar = ({
             </div>
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
               {isReportContext 
-                ? `This report includes ${availableStatusOptions.length} status type${availableStatusOptions.length !== 1 ? 's' : ''}. ${statusFilters.length === 0 ? '(None selected - showing 0 results)' : ''}`
+                ? `This report includes ${availableStatusOptions.length} status type${availableStatusOptions.length !== 1 ? 's' : ''}. ${statusFilters.length} selected`
                 : 'Select one or more statuses to filter companies'
               }
             </p>
             
-            {/* Warning when no status selected */}
-            {statusFilters.length === 0 && (
-              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-                <p className="text-sm text-red-700 font-medium">⚠️ No status selected - results will be empty</p>
-              </div>
-            )}
-            
             <div className="space-y-2">
+              {/* All Statuses checkbox */}
+              {availableStatusOptions.length > 0 && (
+                <label
+                  className={`flex items-center gap-3 p-3 rounded-lg border-2 transition-all cursor-pointer border-b-2 border-gray-200 mb-2 pb-4 ${
+                    showAllStatusesMode ? 'bg-green-50 border-green-300' : 'bg-gray-50 border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={showAllStatusesMode}
+                    onChange={() => {
+                      // Clicking "All Statuses" always selects all and exits individual mode
+                      const allStatuses = availableStatusOptions.map(opt => opt.value);
+                      onStatusFilterChange(allStatuses);
+                      setIsIndividualStatusMode(false);
+                    }}
+                    className="w-4 h-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
+                  />
+                  <span className={`text-sm font-bold ${showAllStatusesMode ? 'text-green-800 dark:text-green-300' : 'text-gray-900 dark:text-gray-100'}`}>
+                    All Statuses ({availableStatusOptions.length})
+                  </span>
+                </label>
+              )}
+              
+              {/* Individual status checkboxes */}
               {availableStatusOptions.map(option => {
-                const isChecked = statusFilters.includes(option.value);
+                // In "All Statuses" mode, show individuals as unchecked
+                // In individual mode, show actual selection state
+                const isChecked = showAllStatusesMode ? false : statusFilters.includes(option.value);
                 const Icon = option.icon;
                 return (
                   <label
                     key={option.value}
-                    className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer border-2 transition-all ${
-                      isChecked ? `${option.color} border-current` : 'bg-gray-50 border-gray-200 hover:border-gray-300'
+                    className={`flex items-center gap-3 p-3 rounded-lg border-2 transition-all cursor-pointer ${
+                      isChecked 
+                        ? `${option.color} border-current` 
+                        : 'bg-gray-50 border-gray-200 hover:border-gray-300'
                     }`}
                   >
                     <input
                       type="checkbox"
                       checked={isChecked}
-                      onChange={() => toggleStatus(option.value)}
+                      onChange={() => {
+                        if (showAllStatusesMode) {
+                          // Clicking individual while "All Statuses" is selected:
+                          // Enter individual mode and select only this status
+                          setIsIndividualStatusMode(true);
+                          onStatusFilterChange([option.value]);
+                        } else {
+                          // Already in individual mode, toggle normally
+                          toggleStatus(option.value);
+                        }
+                      }}
                       className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                     />
                     <div className={`w-7 h-7 ${option.bgColor} rounded-md flex items-center justify-center`}>
                       <Icon className="w-3.5 h-3.5 text-white" />
                     </div>
-                    <span className={`text-sm font-medium ${isChecked ? '' : 'text-gray-700'}`}>{option.label}</span>
+                    <span className={`text-sm font-medium ${isChecked ? '' : 'text-gray-700'}`}>
+                      {option.label}
+                    </span>
                   </label>
                 );
               })}
@@ -761,11 +908,12 @@ const CompanyFilterSidebar = ({
         );
 
       case 'categories':
-        // In report context: categoryFilters = availableCategories means "All Categories" selected
-        // In normal mode: categoryFilters = [] means "All Categories" (no filter = all)
-        const isAllCategoriesSelectedForDisplay = isReportContext 
+        // Check if all categories are selected
+        const isAllCategoriesSelectedCheck = isReportContext 
           ? (availableCategories.length > 0 && categoryFilters.length === availableCategories.length)
           : (categoryFilters.length === 0);
+        // In "All Categories" mode (not individual), show individuals as unchecked
+        const showAllCategoriesMode = isAllCategoriesSelectedCheck && !isIndividualCategoryMode;
         
         return (
           <div>
@@ -780,7 +928,7 @@ const CompanyFilterSidebar = ({
                     <p>Categories represent the types of production processes a company has.</p>
                     <p><strong>Multi-select:</strong> Choose multiple categories to see companies with any of those processes.</p>
                     <p className="text-indigo-600">💡 Selecting categories updates available Countries and Technical Filters</p>
-                    {isReportContext && <p className="text-red-600">⚠️ Unchecking all categories will show 0 results</p>}
+                    <p className="text-indigo-600">💡 Unchecking the last category will auto-select all categories</p>
                   </div>
                   <div className="absolute -top-2 left-2 w-3 h-3 bg-white border-l border-t border-gray-200 transform rotate-45"></div>
                 </div>
@@ -810,77 +958,79 @@ const CompanyFilterSidebar = ({
               )}
             </div>
 
-            {/* Warning when no categories selected */}
-            {isReportContext && categoryFilters.length === 0 && (
-              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-                <p className="text-sm text-red-700 font-medium">⚠️ No categories selected - results will be empty</p>
-              </div>
-            )}
-
             <div className="max-h-80 overflow-y-auto space-y-1">
-              {/* All Categories checkbox - show when not searching and in report context */}
+              {/* All Categories checkbox */}
               {!categorySearchQuery && availableCategories.length > 0 && (
                 <label
                   className={`flex items-center gap-3 cursor-pointer p-3 rounded-lg transition-colors border-b-2 border-gray-200 mb-2 pb-4 ${
-                    isAllCategoriesSelectedForDisplay ? 'bg-purple-50 border-2 border-purple-300' : 'hover:bg-gray-50 border-2 border-transparent'
+                    showAllCategoriesMode ? 'bg-purple-50 border-2 border-purple-300' : 'hover:bg-gray-50 border-2 border-transparent'
                   }`}
                 >
                   <input
                     type="checkbox"
-                    checked={isAllCategoriesSelectedForDisplay}
+                    checked={showAllCategoriesMode}
                     onChange={() => {
+                      // Clicking "All Categories" always selects all and exits individual mode
                       if (isReportContext) {
-                        // Report mode: toggle between all selected and none
-                        if (categoryFilters.length === availableCategories.length) {
-                          onCategoryFilterChange([]);
-                        } else {
-                          onCategoryFilterChange([...availableCategories]);
-                        }
+                        onCategoryFilterChange([...availableCategories]);
                       } else {
-                        // Normal mode: "All Categories" means clear filter (categoryFilters = [])
-                        if (categoryFilters.length > 0) {
-                          onCategoryFilterChange([]);
-                        }
+                        onCategoryFilterChange([]);
                       }
+                      setIsIndividualCategoryMode(false);
                     }}
                     className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
                   />
-                  <span className={`text-sm font-bold ${isAllCategoriesSelectedForDisplay ? 'text-purple-800 dark:text-purple-300' : 'text-gray-900 dark:text-gray-100'}`}>
+                  <span className={`text-sm font-bold ${showAllCategoriesMode ? 'text-purple-800 dark:text-purple-300' : 'text-gray-900 dark:text-gray-100'}`}>
                     All Categories ({availableCategories.length})
                   </span>
+                  {getTotalCategoryCount() > 0 && (
+                    <span className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-full ml-auto">
+                      {getTotalCategoryCount()} companies
+                    </span>
+                  )}
                 </label>
               )}
               
               {/* Individual category checkboxes */}
               {(categorySearchQuery ? filteredCategories.filter(c => c !== 'All Categories') : availableCategories).map(category => {
-                // When all categories are selected, don't show individual checks
-                const isChecked = !isAllCategoriesSelectedForDisplay && categoryFilters.includes(category);
+                // In "All Categories" mode, show individuals as unchecked
+                // In individual mode, show actual selection state
+                const isChecked = showAllCategoriesMode ? false : categoryFilters.includes(category);
                 const categoryLabel = CATEGORIES.find(cat => cat.value === category)?.label || category;
 
                 return (
                   <label
                     key={category}
-                    className={`flex items-center gap-3 cursor-pointer p-3 rounded-lg transition-colors ${
-                      isChecked ? 'bg-purple-50 border-2 border-purple-300' : 'hover:bg-gray-50 border-2 border-transparent'
+                    className={`flex items-center gap-3 p-3 rounded-lg transition-colors cursor-pointer ${
+                      isChecked 
+                        ? 'bg-purple-50 border-2 border-purple-300' 
+                        : 'hover:bg-gray-50 border-2 border-transparent'
                     }`}
                   >
                     <input
                       type="checkbox"
                       checked={isChecked}
                       onChange={() => {
-                        if (isAllCategoriesSelectedForDisplay) {
-                          // When clicking individual category while "All" is selected,
-                          // select only this category
+                        if (showAllCategoriesMode) {
+                          // Clicking individual while "All Categories" is selected:
+                          // Enter individual mode and select only this category
+                          setIsIndividualCategoryMode(true);
                           onCategoryFilterChange([category]);
                         } else {
+                          // Already in individual mode, toggle normally
                           toggleCategory(category);
                         }
                       }}
                       className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
                     />
-                    <span className={`text-sm ${isChecked ? 'font-medium text-purple-800 dark:text-purple-300' : 'text-gray-700 dark:text-gray-300'}`}>
+                    <span className={`text-sm flex-1 ${isChecked ? 'font-medium text-purple-800 dark:text-purple-300' : 'text-gray-700 dark:text-gray-300'}`}>
                       {categoryLabel}
                     </span>
+                    {getCategoryCount(category) > 0 && (
+                      <span className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-full">
+                        {getCategoryCount(category)}
+                      </span>
+                    )}
                   </label>
                 );
               })}
@@ -889,11 +1039,12 @@ const CompanyFilterSidebar = ({
         );
 
       case 'countries':
-        // In normal mode: countryFilters = [] means "All Countries" (no filter = all)
-        // In report mode: countryFilters = allCountries means "All Countries" (all report countries selected)
-        const isAllCountriesSelectedForDisplay = isReportContext 
+        // Check if all countries are selected
+        const isAllCountriesSelectedCheck = isReportContext 
           ? (allCountries.length > 0 && countryFilters.length === allCountries.length)
           : (countryFilters.length === 0);
+        // In "All Countries" mode (not individual), show individuals as unchecked
+        const showAllCountriesMode = isAllCountriesSelectedCheck && !isIndividualCountryMode;
         
         return (
           <div>
@@ -908,7 +1059,7 @@ const CompanyFilterSidebar = ({
                     <p>Filter companies by their registered country location.</p>
                     <p><strong>Multi-select:</strong> Choose multiple countries to see companies from any of them.</p>
                     <p className="text-indigo-600">💡 List updates based on selected categories</p>
-                    {isReportContext && <p className="text-red-600">⚠️ Unchecking all countries will show 0 results</p>}
+                    <p className="text-indigo-600">💡 Unchecking the last country will auto-select all countries</p>
                   </div>
                   <div className="absolute -top-2 left-2 w-3 h-3 bg-white border-l border-t border-gray-200 transform rotate-45"></div>
                 </div>
@@ -916,17 +1067,10 @@ const CompanyFilterSidebar = ({
             </div>
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
               {isReportContext 
-                ? `${allCountries.length} countries in this report's scope. ${countryFilters.length === 0 ? '(None selected - showing 0 results)' : `${countryFilters.length} selected`}`
+                ? `${allCountries.length} countries in this report's scope. ${countryFilters.length} selected`
                 : `${allCountries.length} countries available`
               }
             </p>
-            
-            {/* Warning when no countries selected - only in report context */}
-            {isReportContext && countryFilters.length === 0 && (
-              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-                <p className="text-sm text-red-700 font-medium">⚠️ No countries selected - results will be empty</p>
-              </div>
-            )}
             
             <div className="relative mb-4">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
@@ -949,68 +1093,76 @@ const CompanyFilterSidebar = ({
                 <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-8">No countries found</p>
               ) : (
                 <>
-                  {/* All Countries checkbox - only show when not searching */}
+                  {/* All Countries checkbox */}
                   {!countrySearch && allCountries.length > 0 && (
                     <label
                       className={`flex items-center gap-3 cursor-pointer p-3 rounded-lg transition-colors border-b-2 border-gray-200 mb-2 pb-4 ${
-                        isAllCountriesSelectedForDisplay ? 'bg-teal-50 border-2 border-teal-300' : 'hover:bg-gray-50 border-2 border-transparent'
+                        showAllCountriesMode ? 'bg-teal-50 border-2 border-teal-300' : 'hover:bg-gray-50 border-2 border-transparent'
                       }`}
                     >
                       <input
                         type="checkbox"
-                        checked={isAllCountriesSelectedForDisplay}
+                        checked={showAllCountriesMode}
                         onChange={() => {
+                          // Clicking "All Countries" always selects all and exits individual mode
                           if (isReportContext) {
-                            // Report mode: toggle between all selected and none
-                            if (countryFilters.length === allCountries.length) {
-                              onCountryFilterChange([]);
-                            } else {
-                              onCountryFilterChange([...allCountries]);
-                            }
+                            onCountryFilterChange([...allCountries]);
                           } else {
-                            // Normal mode: "All Countries" means clear filter (countryFilters = [])
-                            // Clicking when already "All" does nothing (can't uncheck "All" to select none)
-                            if (countryFilters.length > 0) {
-                              onCountryFilterChange([]);
-                            }
+                            onCountryFilterChange([]);
                           }
+                          setIsIndividualCountryMode(false);
                         }}
                         className="w-4 h-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500"
                       />
-                      <span className={`text-sm font-bold ${isAllCountriesSelectedForDisplay ? 'text-teal-800 dark:text-teal-300' : 'text-gray-900 dark:text-gray-100'}`}>
+                      <span className={`text-sm font-bold ${showAllCountriesMode ? 'text-teal-800 dark:text-teal-300' : 'text-gray-900 dark:text-gray-100'}`}>
                         All Countries ({allCountries.length})
                       </span>
+                      {getTotalCountryCount() > 0 && (
+                        <span className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-full ml-auto">
+                          {getTotalCountryCount()} companies
+                        </span>
+                      )}
                     </label>
                   )}
-                  {/* Individual country checkboxes - NOT checked when "All Countries" is selected */}
+                  {/* Individual country checkboxes */}
                   {filteredCountries.map(country => {
-                    // When all countries are selected, don't show individual checks
-                    const isChecked = !isAllCountriesSelectedForDisplay && countryFilters.includes(country);
+                    // In "All Countries" mode, show individuals as unchecked
+                    // In individual mode, show actual selection state
+                    const isChecked = showAllCountriesMode ? false : countryFilters.includes(country);
                     
                     return (
                       <label
                         key={country}
-                        className={`flex items-center gap-3 cursor-pointer p-3 rounded-lg transition-colors ${
-                          isChecked ? 'bg-teal-50 border-2 border-teal-300' : 'hover:bg-gray-50 border-2 border-transparent'
+                        className={`flex items-center gap-3 p-3 rounded-lg transition-colors cursor-pointer ${
+                          isChecked 
+                            ? 'bg-teal-50 border-2 border-teal-300' 
+                            : 'hover:bg-gray-50 border-2 border-transparent'
                         }`}
                       >
                         <input
                           type="checkbox"
                           checked={isChecked}
                           onChange={() => {
-                            if (isAllCountriesSelectedForDisplay) {
-                              // When clicking individual country while "All" is selected,
-                              // select only this country
+                            if (showAllCountriesMode) {
+                              // Clicking individual while "All Countries" is selected:
+                              // Enter individual mode and select only this country
+                              setIsIndividualCountryMode(true);
                               onCountryFilterChange([country]);
                             } else {
+                              // Already in individual mode, toggle normally
                               toggleCountry(country);
                             }
                           }}
                           className="w-4 h-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500"
                         />
-                        <span className={`text-sm ${isChecked ? 'font-medium text-teal-800 dark:text-teal-300' : 'text-gray-700 dark:text-gray-300'}`}>
+                        <span className={`text-sm flex-1 ${isChecked ? 'font-medium text-teal-800 dark:text-teal-300' : 'text-gray-700 dark:text-gray-300'}`}>
                           {country}
                         </span>
+                        {getCountryCount(country) > 0 && (
+                          <span className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-full">
+                            {getCountryCount(country)}
+                          </span>
+                        )}
                       </label>
                     );
                   })}
@@ -1469,8 +1621,8 @@ const CompanyFilterSidebar = ({
                   </button>
                 </div>
                 <div className="flex flex-wrap gap-2 max-h-20 overflow-y-auto">
-                  {/* Status chips - only show if different from default (Complete only in normal mode, report's status in report mode) */}
-                  {(isReportContext ? statusDiffersFromReport : !(statusFilters.length === 1 && statusFilters[0] === 'COMPLETE')) && statusFilters.map(status => {
+                  {/* Status chips - only show if different from default (all statuses in normal mode, report's status in report mode) */}
+                  {(isReportContext ? statusDiffersFromReport : statusFilters.length !== STATUS_OPTIONS.length) && statusFilters.map(status => {
                     const opt = STATUS_OPTIONS.find(s => s.value === status);
                     return (
                       <span key={status} className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${opt?.color || 'bg-gray-100'}`}>

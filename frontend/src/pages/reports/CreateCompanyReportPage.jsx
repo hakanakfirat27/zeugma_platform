@@ -616,7 +616,7 @@ const CreateCompanyReportPage = () => {
       )}
 
       <div className="flex-1 overflow-auto bg-gray-50">
-        <div className="max-w-7xl mx-auto px-8 py-6">
+        <div className="px-6 py-6">
           <form onSubmit={handleSubmit}>
             {/* Step Progress Indicator */}
             <div className="mb-8">

@@ -170,7 +170,7 @@ const UserAnnouncements = () => {
       pageSubtitleBottom="Stay updated with the latest news and updates"
       breadcrumbs={breadcrumbs}
     >
-      <div className="p-6 max-w-7xl mx-auto">
+      <div className="p-6">
         <ToastContainer toasts={toasts} removeToast={removeToast} />
 
         {/* Stats Cards */}

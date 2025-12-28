@@ -1240,12 +1240,12 @@ Best regards,
         severity='info'
     )
 
-    # Check if this is a new device and send notification
-    try:
-        if is_new_device(user, user_agent):
-            send_new_device_login_email(user, ip_address, user_agent)
-    except Exception as e:
-        print(f"Failed to send new device login email: {e}")
+    # New device login email disabled - was sending on every login
+    # try:
+    #     if is_new_device(user, user_agent):
+    #         send_new_device_login_email(user, ip_address, user_agent)
+    # except Exception as e:
+    #     print(f"Failed to send new device login email: {e}")
 
     serializer = UserSerializer(user)
 
@@ -1644,12 +1644,12 @@ def verify_2fa_login(request):
             severity='info'
         )
 
-        # Check if this is a new device and send notification
-        try:
-            if is_new_device(user, user_agent):
-                send_new_device_login_email(user, ip_address, user_agent)
-        except Exception as e:
-            print(f"Failed to send new device login email: {e}")
+        # New device login email disabled - was sending on every login
+        # try:
+        #     if is_new_device(user, user_agent):
+        #         send_new_device_login_email(user, ip_address, user_agent)
+        # except Exception as e:
+        #     print(f"Failed to send new device login email: {e}")
 
         return Response({
             'success': True,

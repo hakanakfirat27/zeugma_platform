@@ -19,7 +19,7 @@ from .company_serializers import CompanyListSerializer
 from .pagination import CustomPagination
 import csv
 import json
-from .client_serializers import ClientReportRecordSerializer
+from .client_serializers import ClientReportRecordSerializer, ClientReportRecordListSerializer
 from .company_models import Company, ProductionSite, ProductionSiteVersion, CompanyStatus
 from .models import HelpArticleFeedback
 import datetime
@@ -35,7 +35,8 @@ from .fields import (
     TUBE_HOSE_FIELDS,
     PROFILE_FIELDS,
     CABLE_FIELDS,
-    COMPOUNDER_FIELDS
+    COMPOUNDER_FIELDS,
+    RECYCLER_FIELDS
 )
 
 
@@ -89,11 +90,15 @@ class ClientReportDataAPIView(generics.ListAPIView):
     Returns filtered database records based on the client's purchased report criteria.
     NOW USES: Company Database (Company model with ProductionSiteVersion)
     Supports filter_groups with OR logic within groups, AND logic between groups
+    
+    OPTIMIZED for PostgreSQL with:
+    - Prefetch for versions to avoid N+1 queries
+    - Lightweight serializer for list views
+    - select_related for company data
     """
-    permission_classes = [IsAuthenticated]  # Removed IsClientUser, we check role manually below
-    serializer_class = ClientReportRecordSerializer  # CHANGED from SuperdatabaseRecordSerializer
-    filter_backends = [SearchFilter]  # Removed OrderingFilter - we handle ordering manually
-    # FIXED: Use related lookup for ProductionSite -> Company fields
+    permission_classes = [IsAuthenticated]
+    serializer_class = ClientReportRecordListSerializer  # OPTIMIZED: Use lightweight serializer
+    filter_backends = [SearchFilter]
     search_fields = ['company__company_name', 'company__country', 'company__address_1']
     pagination_class = CustomPagination
 
@@ -105,6 +110,8 @@ class ClientReportDataAPIView(generics.ListAPIView):
         Each ProductionSite represents one category for one company.
         The serializer expects ProductionSite objects.
         """
+        from django.db.models import Prefetch
+        
         # Only allow clients to access this
         if self.request.user.role != UserRole.CLIENT:
             from .company_models import ProductionSite
@@ -135,12 +142,56 @@ class ClientReportDataAPIView(generics.ListAPIView):
         report = subscription.report
         filter_criteria = report.filter_criteria or {}
 
-        # ✅ KEY CHANGE: Start with ProductionSite objects, not Company objects!
-        # Filter out production sites whose parent company is deleted
+        # ✅ KEY OPTIMIZATION: Start with ProductionSite objects with prefetch
         from .company_models import ProductionSite
+        
+        # Prefetch current versions - fetch ALL fields for Focus View
+        current_version_prefetch = Prefetch(
+            'versions',
+            queryset=ProductionSiteVersion.objects.filter(is_current=True),
+            to_attr='prefetched_current_version'
+        )
+        
         queryset = ProductionSite.objects.exclude(
             company__status=CompanyStatus.DELETED
-        ).select_related('company')  # Optimize query
+        ).select_related('company').prefetch_related(
+            current_version_prefetch
+        )
+
+        # ========================================
+        # CRITICAL FIX: Only include ACTIVE production sites
+        # Filter out production sites where current version is_active=False
+        # ========================================
+        queryset = queryset.filter(
+            versions__is_current=True,
+            versions__is_active=True
+        )
+
+        # ========================================
+        # Apply report's STATUS filter (Company status like COMPLETE/INCOMPLETE)
+        # ========================================
+        if 'status' in filter_criteria:
+            status_filter = filter_criteria['status']
+            if isinstance(status_filter, list) and len(status_filter) > 0:
+                queryset = queryset.filter(company__status__in=status_filter)
+            elif isinstance(status_filter, str) and status_filter:
+                queryset = queryset.filter(company__status=status_filter)
+
+        # ========================================
+        # Apply report's CATEGORY filter with active check
+        # Note: This is done FIRST because category + active are linked
+        # ========================================
+        report_categories = None
+        if 'categories' in filter_criteria:
+            report_categories = filter_criteria['categories']
+        elif 'category' in filter_criteria:
+            report_categories = filter_criteria['category']
+        
+        if report_categories:
+            if isinstance(report_categories, list) and len(report_categories) > 0:
+                queryset = queryset.filter(category__in=report_categories)
+            elif isinstance(report_categories, str) and report_categories:
+                queryset = queryset.filter(category=report_categories)
 
         # ========================================
         # STEP 1: Apply report's FILTER GROUPS (if exists)
@@ -481,6 +532,16 @@ class ClientReportStatsAPIView(APIView):
         # Build BASE queryset with ONLY report criteria (not user filters)
         base_queryset = Company.objects.exclude(status=CompanyStatus.DELETED)
 
+        # ========================================
+        # CRITICAL FIX: Apply report's STATUS filter first
+        # ========================================
+        if 'status' in filter_criteria:
+            status_filter = filter_criteria['status']
+            if isinstance(status_filter, list) and len(status_filter) > 0:
+                base_queryset = base_queryset.filter(status__in=status_filter)
+            elif isinstance(status_filter, str) and status_filter:
+                base_queryset = base_queryset.filter(status=status_filter)
+
         # Apply report's filter groups
         if 'filter_groups' in filter_criteria:
             filter_groups = filter_criteria['filter_groups']
@@ -577,6 +638,7 @@ class ClientReportStatsAPIView(APIView):
                         base_queryset = base_queryset.filter(group_query).distinct()
 
         # Apply report's category filters (handle both singular 'category' and plural 'categories' keys)
+        # CRITICAL FIX: Also filter for ACTIVE production sites in the specified categories
         report_categories = None
         if 'categories' in filter_criteria:
             report_categories = filter_criteria['categories']
@@ -585,13 +647,24 @@ class ClientReportStatsAPIView(APIView):
         
         if report_categories:
             if isinstance(report_categories, list) and len(report_categories) > 0:
+                # Only include companies with ACTIVE production sites in the specified categories
                 base_queryset = base_queryset.filter(
-                    production_sites__category__in=report_categories
+                    production_sites__category__in=report_categories,
+                    production_sites__versions__is_current=True,
+                    production_sites__versions__is_active=True
                 ).distinct()
             elif isinstance(report_categories, str) and report_categories:
                 base_queryset = base_queryset.filter(
-                    production_sites__category=report_categories
+                    production_sites__category=report_categories,
+                    production_sites__versions__is_current=True,
+                    production_sites__versions__is_active=True
                 ).distinct()
+        else:
+            # No category filter - still require at least one active production site
+            base_queryset = base_queryset.filter(
+                production_sites__versions__is_current=True,
+                production_sites__versions__is_active=True
+            ).distinct()
 
         # Apply report's country filters
         if 'country' in filter_criteria:
@@ -632,6 +705,38 @@ class ClientReportStatsAPIView(APIView):
                 .exclude(production_sites__category='')
                 .order_by('production_sites__category')
             )
+
+        # ===== NEW: Get category counts from base queryset (before user filters) =====
+        # This provides counts for the filter sidebar checkboxes
+        category_counts_raw = list(
+            base_queryset.filter(production_sites__versions__is_current=True)
+            .values('production_sites__category')
+            .annotate(count=Count('id', distinct=True))
+            .order_by('production_sites__category')
+        )
+        category_counts_map = {
+            item['production_sites__category']: item['count']
+            for item in category_counts_raw if item['production_sites__category']
+        }
+        
+        # Build available_categories_with_counts maintaining the configured order
+        available_categories_with_counts = [
+            {'category': cat, 'count': category_counts_map.get(cat, 0)}
+            for cat in available_categories
+        ]
+
+        # ===== NEW: Get country counts from base queryset (before user filters) =====
+        # This provides counts for the filter sidebar checkboxes
+        country_counts_raw = list(
+            base_queryset.values('country')
+            .annotate(count=Count('id'))
+            .filter(country__isnull=False, country__gt='')
+            .order_by('country')
+        )
+        all_countries_with_counts_for_sidebar = [
+            {'country': item['country'], 'count': item['count']}
+            for item in country_counts_raw
+        ]
 
         # ========================================
         # Now apply USER FILTERS on top of base queryset for filtered stats
@@ -830,9 +935,11 @@ class ClientReportStatsAPIView(APIView):
             'total_count': total_count,
             'countries_count': countries_count,
             'top_countries': top_countries,
-            'all_countries_with_counts': all_countries_with_counts,  # All countries for map
+            'all_countries_with_counts': all_countries_with_counts,  # All countries for map (filtered)
             'all_countries': all_countries,
+            'all_countries_with_counts_for_sidebar': all_countries_with_counts_for_sidebar,  # For sidebar checkboxes (base)
             'available_categories': available_categories,
+            'available_categories_with_counts': available_categories_with_counts,  # For sidebar checkboxes (base)
             'categories': categories,
         })
 
@@ -880,8 +987,19 @@ class ClientFilterOptionsAPIView(APIView):
         report = subscription.report
         filter_criteria = report.filter_criteria or {}
 
-        # Build queryset - start with current versions
-        queryset = ProductionSiteVersion.objects.filter(is_current=True)
+        # Build queryset - start with current AND active versions
+        queryset = ProductionSiteVersion.objects.filter(is_current=True, is_active=True)
+
+        # Exclude deleted companies
+        queryset = queryset.exclude(production_site__company__status=CompanyStatus.DELETED)
+
+        # Apply report's status filter
+        if 'status' in filter_criteria:
+            status_filter = filter_criteria['status']
+            if isinstance(status_filter, list) and len(status_filter) > 0:
+                queryset = queryset.filter(production_site__company__status__in=status_filter)
+            elif isinstance(status_filter, str) and status_filter:
+                queryset = queryset.filter(production_site__company__status=status_filter)
 
         # Apply report's filter groups
         if 'filter_groups' in filter_criteria:
@@ -986,9 +1104,9 @@ class ClientFilterOptionsAPIView(APIView):
                 queryset = queryset.filter(production_site__company__country=countries)
 
         # Get categories from the filtered queryset
-        categories = queryset.values_list('production_site__category', flat=True).distinct()
+        categories = list(queryset.values_list('production_site__category', flat=True).distinct())
 
-        # Map categories to their fields
+        # Map categories to their fields (ordered lists)
         category_fields_map = {
             'INJECTION': INJECTION_FIELDS,
             'BLOW': BLOW_FIELDS,
@@ -1000,13 +1118,27 @@ class ClientFilterOptionsAPIView(APIView):
             'PROFILE': PROFILE_FIELDS,
             'CABLE': CABLE_FIELDS,
             'COMPOUNDER': COMPOUNDER_FIELDS,
+            'RECYCLER': RECYCLER_FIELDS,
         }
 
-        # Collect all unique fields
-        all_fields = set(COMMON_FIELDS)
+        # Build ORDERED list of fields - preserving fields.py order
+        # Start with common fields, then add category-specific fields in order
+        ordered_fields = []
+        seen_fields = set()
+        
+        # First add COMMON_FIELDS in order
+        for field in COMMON_FIELDS:
+            if field not in seen_fields:
+                ordered_fields.append(field)
+                seen_fields.add(field)
+        
+        # Then add category-specific fields in order (for each category present)
         for category in categories:
             if category in category_fields_map:
-                all_fields.update(category_fields_map[category])
+                for field in category_fields_map[category]:
+                    if field not in seen_fields:
+                        ordered_fields.append(field)
+                        seen_fields.add(field)
 
         # Get field labels from ProductionSiteVersion
         field_labels = {
@@ -1014,8 +1146,11 @@ class ClientFilterOptionsAPIView(APIView):
             for field in ProductionSiteVersion._meta.fields
         }
 
+        # Build filter options in the order defined by fields.py
+        # IMPORTANT: Include ALL fields for the category, even if count is 0
+        # This matches Admin Portal behavior where all category fields are shown
         filter_options = []
-        for field in all_fields:
+        for field in ordered_fields:
             # Skip non-boolean fields
             try:
                 field_obj = ProductionSiteVersion._meta.get_field(field)
@@ -1025,16 +1160,14 @@ class ClientFilterOptionsAPIView(APIView):
                 continue
 
             count = queryset.filter(**{field: True}).count()
-            if count > 0:
-                filter_options.append({
-                    'field': field,
-                    'label': field_labels.get(field, field.replace('_', ' ').title()),
-                    'count': count
-                })
+            # Include ALL fields regardless of count (matching Admin Portal behavior)
+            filter_options.append({
+                'field': field,
+                'label': field_labels.get(field, field.replace('_', ' ').title()),
+                'count': count
+            })
 
-        # Sort by count (descending)
-        filter_options.sort(key=lambda x: x['count'], reverse=True)
-
+        # NOTE: Do NOT sort by count - maintain fields.py order
         return Response(filter_options)
 
 
@@ -1042,8 +1175,87 @@ class ClientTechnicalFilterOptionsAPIView(APIView):
     """
     Returns available technical filter options (numeric/integer fields) for a specific report.
     NOW USES: Company Database (ProductionSiteVersion)
+    
+    NOTE: Uses the same TECHNICAL_FIELDS order as Admin Portal's TechnicalFilterOptionsAPIView
+    to ensure consistent field ordering across both portals.
+    
+    IMPORTANT: Only returns technical fields relevant to the report's categories.
     """
     permission_classes = [IsAuthenticated]
+    
+    # Map categories to their fields (from fields.py)
+    CATEGORY_FIELD_MAP = {
+        'INJECTION': INJECTION_FIELDS,
+        'BLOW': BLOW_FIELDS,
+        'ROTO': ROTO_FIELDS,
+        'PE_FILM': PE_FILM_FIELDS,
+        'SHEET': SHEET_FIELDS,
+        'PIPE': PIPE_FIELDS,
+        'TUBE_HOSE': TUBE_HOSE_FIELDS,
+        'PROFILE': PROFILE_FIELDS,
+        'CABLE': CABLE_FIELDS,
+        'COMPOUNDER': COMPOUNDER_FIELDS,
+        'RECYCLER': RECYCLER_FIELDS,
+    }
+    
+    # Complete list of all technical fields (IntegerField AND FloatField)
+    # Order matches Admin Portal's TechnicalFilterOptionsAPIView for consistency
+    TECHNICAL_FIELDS = [
+        # General/Common
+        'polymer_range_number',
+
+        # Injection Moulding
+        'minimal_lock_tonnes',
+        'maximum_lock_tonnes',
+        'minimum_shot_grammes',
+        'maximum_shot_grammes',
+        'number_of_machines',
+
+        # Blow Moulding
+        'extrusion_blow_moulding_machines',
+        'injection_blow_moulding_machines',
+        'injection_stretch_blow_moulding_stage_1_machines',
+        'injection_stretch_blow_moulding_stage_2_machines',
+        'buy_in_preform_percentage',
+        'number_of_colours',
+
+        # PE Film Extrusion
+        'minimum_width_mm',
+        'maximum_width_mm',
+        'number_of_layers',
+        'cast_lines',
+        'blown_lines',
+
+        # Sheet Extrusion
+        'minimum_gauge_mm',
+        'maximum_gauge_mm',
+        'number_of_extrusion_lines',
+        'number_of_coextrusion_lines',
+        'number_of_calendering_lines',
+        'number_of_pressed_lines',
+        'number_of_lcc_line',
+
+        # Pipe/Tube/Profile Extrusion
+        'minimum_diameter_mm',
+        'maximum_diameter_mm',
+
+        # Compounding
+        'compounds_percentage',
+        'masterbatch_percentage',
+        'twin_screw_extruders',
+        'single_screw_extruders',
+        'batch_mixers',
+        'production_volume_number',
+
+        # Roto Moulding
+        'minimum_size',
+        'maximum_size',
+
+        # Recycling
+        'number_of_recycling_lines',
+        'single_screws',
+        'twin_screws',
+    ]
 
     def get(self, request):
         # Only allow clients to access this
@@ -1081,8 +1293,19 @@ class ClientTechnicalFilterOptionsAPIView(APIView):
         report = subscription.report
         filter_criteria = report.filter_criteria or {}
 
-        # Build queryset - start with current versions
-        queryset = ProductionSiteVersion.objects.filter(is_current=True)
+        # Build queryset - start with current AND active versions
+        queryset = ProductionSiteVersion.objects.filter(is_current=True, is_active=True)
+
+        # Exclude deleted companies
+        queryset = queryset.exclude(production_site__company__status=CompanyStatus.DELETED)
+
+        # Apply report's status filter
+        if 'status' in filter_criteria:
+            status_filter = filter_criteria['status']
+            if isinstance(status_filter, list) and len(status_filter) > 0:
+                queryset = queryset.filter(production_site__company__status__in=status_filter)
+            elif isinstance(status_filter, str) and status_filter:
+                queryset = queryset.filter(production_site__company__status=status_filter)
 
         # Apply report's filter groups
         if 'filter_groups' in filter_criteria:
@@ -1181,37 +1404,49 @@ class ClientTechnicalFilterOptionsAPIView(APIView):
             elif isinstance(countries, str) and countries:
                 queryset = queryset.filter(production_site__company__country=countries)
 
-        # Get categories from the filtered queryset
-        categories = queryset.values_list('production_site__category', flat=True).distinct()
-
-        # Map categories to their fields
-        category_fields_map = {
-            'INJECTION': INJECTION_FIELDS,
-            'BLOW': BLOW_FIELDS,
-            'ROTO': ROTO_FIELDS,
-            'PE_FILM': PE_FILM_FIELDS,
-            'SHEET': SHEET_FIELDS,
-            'PIPE': PIPE_FIELDS,
-            'TUBE_HOSE': TUBE_HOSE_FIELDS,
-            'PROFILE': PROFILE_FIELDS,
-            'CABLE': CABLE_FIELDS,
-            'COMPOUNDER': COMPOUNDER_FIELDS,
-        }
-
-        # Collect all unique fields
-        all_fields = set(COMMON_FIELDS)
-        for category in categories:
-            if category in category_fields_map:
-                all_fields.update(category_fields_map[category])
-
         # Get field labels
         field_labels = {
             field.name: field.verbose_name
             for field in ProductionSiteVersion._meta.fields
         }
 
+        # ========================================
+        # CRITICAL: Filter technical fields by report's categories
+        # Only show fields relevant to the categories in this report
+        # ========================================
+        report_categories = []
+        if 'categories' in filter_criteria:
+            cats = filter_criteria['categories']
+            if isinstance(cats, list):
+                report_categories = cats
+            elif isinstance(cats, str) and cats:
+                report_categories = [cats]
+        elif 'category' in filter_criteria:
+            cat = filter_criteria['category']
+            if cat:
+                report_categories = [cat]
+        
+        # Build set of valid fields from report's categories
+        valid_category_fields = set()
+        if report_categories:
+            for category in report_categories:
+                category_fields = self.CATEGORY_FIELD_MAP.get(category, [])
+                valid_category_fields.update(category_fields)
+        else:
+            # If no categories specified, include all fields
+            for fields_list in self.CATEGORY_FIELD_MAP.values():
+                valid_category_fields.update(fields_list)
+        
+        # Filter TECHNICAL_FIELDS to only include relevant fields for the report's categories
+        relevant_technical_fields = [
+            field for field in self.TECHNICAL_FIELDS
+            if field in valid_category_fields
+        ]
+
+        # Build technical filter options using filtered TECHNICAL_FIELDS order
+        # This ensures consistent ordering with Admin Portal (polymer_range_number first)
         technical_filter_options = []
-        for field in all_fields:
+        for field in relevant_technical_fields:
             # Only include IntegerField and FloatField
             try:
                 field_obj = ProductionSiteVersion._meta.get_field(field)
@@ -1236,9 +1471,7 @@ class ClientTechnicalFilterOptionsAPIView(APIView):
                 'max': aggregation['max_value'],
             })
 
-        # Sort by label
-        technical_filter_options.sort(key=lambda x: x['label'])
-
+        # NOTE: Do NOT sort by label - maintain fields.py order
         return Response(technical_filter_options)
 
 
@@ -1285,6 +1518,14 @@ class ClientReportExportAPIView(APIView):
         # Build queryset using Company Database
         filter_criteria = report.filter_criteria or {}
         queryset = Company.objects.exclude(status=CompanyStatus.DELETED)
+
+        # Apply report's status filter
+        if 'status' in filter_criteria:
+            status_filter = filter_criteria['status']
+            if isinstance(status_filter, list) and len(status_filter) > 0:
+                queryset = queryset.filter(status__in=status_filter)
+            elif isinstance(status_filter, str) and status_filter:
+                queryset = queryset.filter(status=status_filter)
 
         # Apply report's filter groups
         if 'filter_groups' in filter_criteria:
@@ -1381,17 +1622,27 @@ class ClientReportExportAPIView(APIView):
                     if group_query:
                         queryset = queryset.filter(group_query).distinct()
 
-        # Apply report's category filters
+        # Apply report's category filters with active site check
         if 'categories' in filter_criteria:
             categories = filter_criteria['categories']
             if isinstance(categories, list) and len(categories) > 0:
                 queryset = queryset.filter(
-                    production_sites__category__in=categories
+                    production_sites__category__in=categories,
+                    production_sites__versions__is_current=True,
+                    production_sites__versions__is_active=True
                 ).distinct()
             elif isinstance(categories, str) and categories:
                 queryset = queryset.filter(
-                    production_sites__category=categories
+                    production_sites__category=categories,
+                    production_sites__versions__is_current=True,
+                    production_sites__versions__is_active=True
                 ).distinct()
+        else:
+            # No category filter - still require at least one active production site
+            queryset = queryset.filter(
+                production_sites__versions__is_current=True,
+                production_sites__versions__is_active=True
+            ).distinct()
 
         # Apply report's country filters
         if 'country' in filter_criteria:
@@ -1696,11 +1947,21 @@ class ClientMaterialStatsAPIView(APIView):
         report = subscription.report
         filter_criteria = report.filter_criteria or {}
 
-        # Start with ProductionSiteVersion (current versions only)
-        queryset = ProductionSiteVersion.objects.filter(is_current=True)
+        # Start with ProductionSiteVersion (current versions only AND active sites)
+        queryset = ProductionSiteVersion.objects.filter(is_current=True, is_active=True)
 
         # Exclude deleted companies
         queryset = queryset.exclude(production_site__company__status=CompanyStatus.DELETED)
+
+        # ========================================
+        # CRITICAL FIX: Apply report's STATUS filter first
+        # ========================================
+        if 'status' in filter_criteria:
+            status_filter = filter_criteria['status']
+            if isinstance(status_filter, list) and len(status_filter) > 0:
+                queryset = queryset.filter(production_site__company__status__in=status_filter)
+            elif isinstance(status_filter, str) and status_filter:
+                queryset = queryset.filter(production_site__company__status=status_filter)
 
         # ========================================
         # Apply report's filter groups

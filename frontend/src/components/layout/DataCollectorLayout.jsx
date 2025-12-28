@@ -1,59 +1,96 @@
 // frontend/src/components/layout/DataCollectorLayout.jsx
+// Data Collector layout using unified design from ClientDashboardLayout
 
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { useToast } from '../../contexts/ToastContext';
+import { useUserSettings } from '../../contexts/UserSettingsContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import useChatUnreadCount from '../../hooks/useChatUnreadCount';
 import Breadcrumb from '../Breadcrumb';
+import ThemeToggle from '../common/ThemeToggle';
 import {
-  LayoutDashboard, FolderOpen, AlertCircle, Plus, LogOut, ChevronDown, 
-  Menu, X, User, Settings, Bell, Calendar, MapPin, Phone, Mail, Building,
-  Shield, Clock, RefreshCw, Lock, Unlock, Database, ArrowRight, Maximize,
-  Minimize, CheckCheck, Trash2, Check, ChevronRight, MessageCircle
+  LayoutDashboard, FolderOpen, AlertCircle, LogOut, ChevronDown, 
+  User, Settings, Bell, Database, Maximize, ChevronRight,
+  MessageCircle, Check, X, Trash2, CheckCheck, Search
 } from 'lucide-react';
 
 const DataCollectorLayout = ({ children, pageTitle, headerActions, pageSubtitleTop, pageSubtitleBottom, breadcrumbs }) => {
   const { user, logout } = useAuth();
-  const toast = useToast();
+  const { 
+    sidebarGradient, 
+    headerGradient,
+    headerIsLight,
+    sidebarIsLight,
+    isDarkMode,
+    sidebarCollapsed: savedCollapsed,
+    updateSetting,
+    initialized: userSettingsLoaded
+  } = useUserSettings();
   const navigate = useNavigate();
   const location = useLocation();
-    
-  const getSavedSidebarState = () => {
-    const saved = localStorage.getItem('dataCollectorSidebarLocked');
-    return saved === 'true';
-  };
+  const { unreadCount: chatUnreadCount, clearCount: clearChatBadge } = useChatUnreadCount();
 
-  const [isSidebarLocked, setIsSidebarLocked] = useState(getSavedSidebarState());
-  const [isSidebarOpen, setIsSidebarOpen] = useState(!getSavedSidebarState());
-
-  const [isFullscreen, setIsFullscreen] = useState(false);
+  // Sidebar state
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  
+  // Notifications state
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const notificationRef = useRef(null);
-  const { unreadCount: chatUnreadCount, clearCount: clearChatBadge } = useChatUnreadCount();
+  const [notifLoading, setNotifLoading] = useState(false);
+  
+  // User menu and fullscreen state
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
-  const [showAvatarMenu, setShowAvatarMenu] = useState(false);
-  const avatarMenuRef = useRef(null);
+  const notificationRef = useRef(null);
+  const userMenuRef = useRef(null);
 
   // DATA COLLECTOR NAVIGATION
   const navLinks = [
-    { name: 'Dashboard', path: '/data-collector-dashboard', icon: LayoutDashboard, color: 'text-blue-500' },
-    { name: 'My Projects', path: '/projects', icon: FolderOpen, color: 'text-teal-500' },
-    { name: 'My Tasks', path: '/my-tasks', icon: AlertCircle, color: 'text-orange-500' },
-    { name: 'Company Research', path: '/company-research', icon: AlertCircle, color: 'text-orange-500' },
-    { name: 'Chat', path: '/data-collector-chat', icon: MessageCircle, color: 'text-purple-500' },    
+    { name: 'Dashboard', path: '/data-collector-dashboard', icon: LayoutDashboard },
+    { name: 'My Projects', path: '/projects', icon: FolderOpen },
+    { name: 'My Tasks', path: '/my-tasks', icon: AlertCircle },
+    { name: 'Company Research', path: '/company-research', icon: Search },
+    { name: 'Chat', path: '/data-collector-chat', icon: MessageCircle, badge: chatUnreadCount },
+    { name: 'Settings', path: '/settings', icon: Settings },
   ];
 
-  // Dropdown menu links
-  const dropdownLinks = [
-    { name: 'My Profile', path: '/my-profile', icon: User, color: 'text-blue-600', bg: 'bg-blue-50', description: 'View your profile'},
-    { name: 'Profile Settings', path: '/profile-settings', icon: Settings, color: 'text-pink-600', bg: 'bg-pink-50', description: 'Update your settings'}
-  ];
+  // Sync sidebar state with settings when loaded
+  useEffect(() => {
+    if (userSettingsLoaded) {
+      setIsSidebarCollapsed(savedCollapsed);
+    }
+  }, [savedCollapsed, userSettingsLoaded]);
+
+  // Handle click outside for dropdowns
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (notificationRef.current && !notificationRef.current.contains(event.target)) {
+        setShowNotifications(false);
+      }
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
+        setShowUserMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Fullscreen handling
+  useEffect(() => {
+    const handleFullscreenChange = () => setIsFullscreen(Boolean(document.fullscreenElement));
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
+
+  // Configure axios
+  useEffect(() => {
+    axios.defaults.withCredentials = true;
+    axios.defaults.xsrfCookieName = 'csrftoken';
+    axios.defaults.xsrfHeaderName = 'X-CSRFToken';
+  }, []);
 
   // CSRF token helper
   const getCSRFToken = () => {
@@ -72,79 +109,33 @@ const DataCollectorLayout = ({ children, pageTitle, headerActions, pageSubtitleT
     return cookieValue;
   };
 
-  // Save sidebar state
-  useEffect(() => {
-    localStorage.setItem('dataCollectorSidebarLocked', isSidebarLocked.toString());
-  }, [isSidebarLocked]);
-
-  // Handle clicks outside
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (avatarMenuRef.current && !avatarMenuRef.current.contains(event.target)) {
-        setShowAvatarMenu(false);
-      }
-      if (notificationRef.current && !notificationRef.current.contains(event.target)) {
-        setShowNotifications(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  // Configure axios
-  useEffect(() => {
-    axios.defaults.withCredentials = true;
-    axios.defaults.xsrfCookieName = 'csrftoken';
-    axios.defaults.xsrfHeaderName = 'X-CSRFToken';
-  }, []);
-
-  // Fetch notifications from API
+  // Fetch notifications
   const fetchNotifications = async () => {
     try {
-      setLoading(true);
-      setError(null);
-      const response = await axios.get('http://localhost:8000/api/notifications/', {
-        withCredentials: true,
-      });
+      setNotifLoading(true);
+      const response = await axios.get('http://localhost:8000/api/notifications/', { withCredentials: true });
       setNotifications(response.data.notifications || []);
       setUnreadCount(response.data.unread_count || 0);
     } catch (error) {
       console.error('Error fetching notifications:', error);
-      setError(error.response?.data?.detail || 'Failed to load notifications');
     } finally {
-      setLoading(false);
+      setNotifLoading(false);
     }
   };
 
-  // Fetch notifications on component mount and set up WebSocket
   useEffect(() => {
     fetchNotifications();
 
-    // Connect to notification WebSocket for INSTANT updates
+    // WebSocket for real-time notifications
     const wsScheme = window.location.protocol === 'https:' ? 'wss' : 'ws';
     const notifWsUrl = `${wsScheme}://${window.location.hostname}:8000/ws/notifications/`;
-
     const notifWs = new WebSocket(notifWsUrl);
-
-    notifWs.onopen = () => {
-      console.log('✅ Notification WebSocket connected');
-    };
 
     notifWs.onmessage = (event) => {
       const data = JSON.parse(event.data);
-
       if (data.type === 'notification') {
         fetchNotifications();
       }
-    };
-
-    notifWs.onerror = (error) => {
-      console.error('❌ Notification WebSocket error:', error);
-    };
-
-    notifWs.onclose = () => {
-      console.log('🔴 Notification WebSocket disconnected');
     };
 
     return () => {
@@ -154,15 +145,11 @@ const DataCollectorLayout = ({ children, pageTitle, headerActions, pageSubtitleT
     };
   }, []);
 
-
   const markAsRead = async (id) => {
     try {
       const csrfToken = getCSRFToken();
-      await axios.post(
-        `http://localhost:8000/api/notifications/${id}/mark_as_read/`,
-        {},
-        { withCredentials: true, headers: { 'X-CSRFToken': csrfToken } }
-      );
+      await axios.post(`http://localhost:8000/api/notifications/${id}/mark_as_read/`, {}, 
+        { withCredentials: true, headers: { 'X-CSRFToken': csrfToken } });
       setNotifications(notifications.map(n => n.id === id ? { ...n, is_read: true } : n));
       setUnreadCount(prev => Math.max(0, prev - 1));
     } catch (error) {
@@ -173,11 +160,8 @@ const DataCollectorLayout = ({ children, pageTitle, headerActions, pageSubtitleT
   const markAllAsRead = async () => {
     try {
       const csrfToken = getCSRFToken();
-      await axios.post(
-        'http://localhost:8000/api/notifications/mark_all_as_read/',
-        {},
-        { withCredentials: true, headers: { 'X-CSRFToken': csrfToken } }
-      );
+      await axios.post('http://localhost:8000/api/notifications/mark_all_as_read/', {},
+        { withCredentials: true, headers: { 'X-CSRFToken': csrfToken } });
       setNotifications(notifications.map(n => ({ ...n, is_read: true })));
       setUnreadCount(0);
     } catch (error) {
@@ -185,35 +169,12 @@ const DataCollectorLayout = ({ children, pageTitle, headerActions, pageSubtitleT
     }
   };
 
-  const clearAll = async () => {
-    if (!window.confirm('Are you sure you want to clear all notifications?')) return;
-
-    try {
-      const csrfToken = getCSRFToken();
-      await axios.delete(
-        'http://localhost:8000/api/notifications/clear_all/',
-        {
-          withCredentials: true,
-          headers: { 'X-CSRFToken': csrfToken }
-        }
-      );
-      setNotifications([]);
-      setUnreadCount(0);
-      fetchNotifications();
-    } catch (error) {
-      console.error('Error clearing all notifications:', error);
-      alert('Failed to clear notifications. Please try again.');
-    }
-  };
-
   const deleteNotification = async (id, event) => {
     event?.stopPropagation();
     try {
       const csrfToken = getCSRFToken();
-      await axios.delete(
-        `http://localhost:8000/api/notifications/${id}/delete_notification/`,
-        { withCredentials: true, headers: { 'X-CSRFToken': csrfToken } }
-      );
+      await axios.delete(`http://localhost:8000/api/notifications/${id}/delete_notification/`,
+        { withCredentials: true, headers: { 'X-CSRFToken': csrfToken } });
       const notification = notifications.find(n => n.id === id);
       setNotifications(notifications.filter(n => n.id !== id));
       if (notification && !notification.is_read) {
@@ -224,26 +185,14 @@ const DataCollectorLayout = ({ children, pageTitle, headerActions, pageSubtitleT
     }
   };
 
-
-  // Notification handler functions
   const handleNotificationClick = async (notification) => {
     try {
-      if (!notification.is_read) {
-        await markAsRead(notification.id);
-      }
+      if (!notification.is_read) await markAsRead(notification.id);
       switch (notification.notification_type) {
-        case 'PROJECT_ASSIGNED':
-          navigate('/projects');
-          break;
-        case 'message':
-          navigate(notification.related_message_id ? `/data-collector-chat?message_id=${notification.related_message_id}` : '/data-collector-chat');
-          break;
-        case 'announcement':
-          navigate(notification.related_announcement_id ? `/data-collector-dashboard?announcement_id=${notification.related_announcement_id}` : '/data-collector-dashboard');
-          break;
-        default:
-          navigate('/data-collector-dashboard');
-          break;
+        case 'PROJECT_ASSIGNED': navigate('/projects'); break;
+        case 'message': navigate(notification.related_message_id ? `/data-collector-chat?message_id=${notification.related_message_id}` : '/data-collector-chat'); break;
+        case 'announcement': navigate(notification.related_announcement_id ? `/data-collector-dashboard?announcement_id=${notification.related_announcement_id}` : '/data-collector-dashboard'); break;
+        default: navigate('/data-collector-dashboard'); break;
       }
       setShowNotifications(false);
     } catch (error) {
@@ -251,35 +200,18 @@ const DataCollectorLayout = ({ children, pageTitle, headerActions, pageSubtitleT
     }
   };
 
-
-  const getNotificationIcon = (type) => {
-    const iconProps = { className: "w-5 h-5" };
-    switch (type) {
-      case 'PROJECT_ASSIGNED':
-        return <FolderOpen {...iconProps} className="w-5 h-5 text-blue-600" />;
-      case 'TASK_UPDATE':
-        return <AlertCircle {...iconProps} className="w-5 h-5 text-orange-600" />;
-      case 'SYSTEM':
-        return <Settings {...iconProps} className="w-5 h-5 text-gray-600" />;
-      default:
-        return <Bell {...iconProps} className="w-5 h-5 text-purple-600" />;
-    }
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+    else document.exitFullscreen();
   };
 
-  const toggleFullscreen = () => {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen();
-      setIsFullscreen(true);
-    } else {
-      if (document.exitFullscreen) {
-        document.exitFullscreen();
-        setIsFullscreen(false);
-      }
-    }
+  const toggleSidebar = () => {
+    const newState = !isSidebarCollapsed;
+    setIsSidebarCollapsed(newState);
+    updateSetting('sidebar_collapsed', newState);
   };
 
   const isActive = (path) => {
-    // For paths like /projects, also match child routes like /projects/123
     if (path === '/projects') {
       return location.pathname === path || location.pathname.startsWith('/projects/');
     }
@@ -300,115 +232,100 @@ const DataCollectorLayout = ({ children, pageTitle, headerActions, pageSubtitleT
     return user?.username || 'Data Collector';
   };
 
-  const getUserRole = () => {
-    return 'Data Collector';
-  };
-
-  const sidebarWidth = isSidebarOpen ? 'w-64' : 'w-20';
-
-  // Handle logout
   const handleLogout = async () => {
     await logout();
   };
 
-  return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
-      {/* Bell animation CSS */}
-      <style>{`
-        @keyframes ring {
-          0% { transform: rotate(0); }
-          1% { transform: rotate(30deg); }
-          3% { transform: rotate(-28deg); }
-          5% { transform: rotate(34deg); }
-          7% { transform: rotate(-32deg); }
-          9% { transform: rotate(30deg); }
-          11% { transform: rotate(-28deg); }
-          13% { transform: rotate(26deg); }
-          15% { transform: rotate(-24deg); }
-          17% { transform: rotate(22deg); }
-          19% { transform: rotate(-20deg); }
-          21% { transform: rotate(18deg); }
-          23% { transform: rotate(-16deg); }
-          25% { transform: rotate(14deg); }
-          27% { transform: rotate(-12deg); }
-          29% { transform: rotate(10deg); }
-          31% { transform: rotate(-8deg); }
-          33% { transform: rotate(6deg); }
-          35% { transform: rotate(-4deg); }
-          37% { transform: rotate(2deg); }
-          39% { transform: rotate(-1deg); }
-          41% { transform: rotate(1deg); }
-          43% { transform: rotate(0); }
-          100% { transform: rotate(0); }
-        }
+  const getNotificationIcon = (type) => {
+    switch(type) {
+      case 'PROJECT_ASSIGNED': return <FolderOpen className="w-4 h-4 text-blue-500" />;
+      case 'TASK_UPDATE': return <AlertCircle className="w-4 h-4 text-orange-500" />;
+      case 'message': return <MessageCircle className="w-4 h-4 text-purple-500" />;
+      default: return <Bell className="w-4 h-4 text-gray-500" />;
+    }
+  };
 
-        .bell-ring {
-          animation: ring 4s ease-in-out infinite;
-          transform-origin: 50% 4px;
-        }
+  const showExpanded = !isSidebarCollapsed;
+  
+  // Header text color logic: in dark mode, always use light text
+  const headerTextIsLight = isDarkMode ? false : headerIsLight;
+
+  return (
+    <div className="flex h-screen bg-gray-100 dark:bg-gray-900 overflow-hidden transition-colors duration-300">
+      {/* CSS for animations */}
+      <style>{`
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.3); }
       `}</style>
 
+      {/* Sidebar */}
       <aside
-        className={`${sidebarWidth} transition-all duration-300 ease-in-out bg-gradient-to-b from-slate-800 via-slate-900 to-slate-900 text-white flex flex-col shadow-2xl relative z-50`}
+        className={`${showExpanded ? 'w-56' : 'w-16'} flex flex-col shadow-xl relative z-50 transition-all duration-300 ease-in-out`}
+        style={{ background: sidebarGradient }}
       >
         {/* Logo Section */}
-        <div className="p-6 border-b border-slate-700/50">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-purple-600 via-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
-                <Database className="w-6 h-6 text-white" />
-              </div>
-              {(isSidebarOpen) && (
-                <div className="transition-opacity duration-200">
-                  <h2 className="text-lg font-bold text-white">A Data</h2>
-                  <p className="text-xs text-slate-400">Data Collector Portal</p>
-                </div>
-              )}
+        <div className="h-16 px-4 flex items-center">
+          <div className="flex items-center gap-3 overflow-hidden">
+            <div className={`w-10 h-10 ${sidebarIsLight ? 'bg-black/10' : 'bg-white/20'} rounded-xl flex items-center justify-center flex-shrink-0 backdrop-blur-sm`}>
+              <Database className={`w-6 h-6 ${sidebarIsLight ? 'text-gray-800' : 'text-white'}`} />
+            </div>
+            <div className={`transition-all duration-300 ${showExpanded ? 'opacity-100 w-auto' : 'opacity-0 w-0'} overflow-hidden`}>
+              <h2 className={`text-lg font-bold whitespace-nowrap ${sidebarIsLight ? 'text-gray-900' : 'text-white'}`}>A Data</h2>
+              <p className={`text-xs whitespace-nowrap ${sidebarIsLight ? 'text-gray-600' : 'text-white/60'}`}>Data Collector</p>
             </div>
           </div>
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 p-4 overflow-y-auto">
+        <nav className="flex-1 p-3 overflow-y-auto overflow-x-hidden custom-scrollbar">
           <div className="space-y-1">
             {navLinks.map((link) => {
               const Icon = link.icon;
               const active = isActive(link.path);
               const isChatLink = link.name === 'Chat';
+              
               return (
                 <button
                   key={link.name}
                   onClick={() => {
                     navigate(link.path);
-                    // Clear chat badge immediately when clicking Chat
-                    if (isChatLink) {
-                      clearChatBadge();
-                    }
+                    if (isChatLink) clearChatBadge();
                   }}
-                  title={link.name}
-                  className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all group relative ${
+                  title={!showExpanded ? link.name : undefined}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group relative ${
                     active
-                      ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg'
-                      : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                      ? sidebarIsLight 
+                        ? 'bg-black/20 text-gray-900 shadow-lg'
+                        : 'bg-white/25 text-white shadow-lg'
+                      : sidebarIsLight
+                        ? 'text-gray-700 hover:bg-black/10 hover:text-gray-900'
+                        : 'text-white/70 hover:bg-white/10 hover:text-white'
                   }`}
                 >
-                  <Icon className={`w-5 h-5 flex-shrink-0 ${active ? 'text-white' : link.color}`} />
-                  {(isSidebarOpen) && (
-                    <span className="font-medium text-sm transition-opacity duration-200 truncate">{link.name}</span>
-                  )}
-                  {/* Chat Badge */}
-                  {isChatLink && chatUnreadCount > 0 && (
-                    <span className={`absolute min-w-[20px] h-5 px-1.5 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-200 ${
-                      active ? 'bg-white text-purple-600' : 'bg-red-500 text-white'
-                    } ${
-                      isSidebarOpen
-                        ? 'right-3 top-1/2 -translate-y-1/2' // Centered when open
-                        : 'scale-75 top-1 right-1' // Top-right corner when collapsed
-                    }`}>
-                      {chatUnreadCount > 99 ? '99+' : chatUnreadCount}
+                  <Icon className={`w-5 h-5 flex-shrink-0 transition-transform duration-200 ${
+                    active ? 'scale-110' : 'group-hover:scale-110'
+                  }`} />
+                  
+                  <span className={`text-sm font-medium whitespace-nowrap transition-all duration-300 ${
+                    showExpanded ? 'opacity-100 w-auto' : 'opacity-0 w-0'
+                  } overflow-hidden`}>
+                    {link.name}
+                  </span>
+                  
+                  {/* Badge */}
+                  {link.badge > 0 && (
+                    <span className={`absolute flex items-center justify-center min-w-[18px] h-4.5 px-1 rounded-full text-xs font-bold ${
+                      active 
+                        ? sidebarIsLight ? 'bg-gray-800 text-white' : 'bg-white text-gray-800' 
+                        : 'bg-red-500 text-white'
+                    } ${showExpanded ? 'right-3' : 'top-0 right-0 scale-75'}`}>
+                      {link.badge > 99 ? '99+' : link.badge}
                     </span>
                   )}
-                  {active && (isSidebarOpen) && (
+                  
+                  {active && showExpanded && !link.badge && (
                     <ChevronRight className="w-4 h-4 ml-auto flex-shrink-0" />
                   )}
                 </button>
@@ -417,329 +334,254 @@ const DataCollectorLayout = ({ children, pageTitle, headerActions, pageSubtitleT
           </div>
         </nav>
 
-        {/* User Section (Sidebar bottom) */}
-        <div className="p-4 border-t border-slate-700/50">
-          <div className={`flex items-center gap-3 p-3 rounded-xl bg-slate-800/50 ${!(isSidebarOpen) && 'justify-center'}`}>
-            <div className="relative">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-blue-600 flex items-center justify-center text-sm font-bold shadow-lg">
+        {/* User Section */}
+        <div className={`p-3 border-t ${sidebarIsLight ? 'border-black/10' : 'border-white/10'}`}>
+          <div className={`flex items-center gap-3 p-2 rounded-xl ${sidebarIsLight ? 'bg-black/10' : 'bg-white/10'} backdrop-blur-sm ${!showExpanded && 'justify-center'}`}>
+            <div className="relative flex-shrink-0">
+              <div className={`w-9 h-9 rounded-full ${sidebarIsLight ? 'bg-black/20' : 'bg-white/20'} flex items-center justify-center text-sm font-bold ${sidebarIsLight ? 'text-gray-800' : 'text-white'}`}>
                 {getUserInitials()}
               </div>
-              <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-slate-800"></div>
+              <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-400 rounded-full border-2 ${sidebarIsLight ? 'border-black/20' : 'border-white/20'}`} />
             </div>
-            {(isSidebarOpen) && (
-              <div className="flex-1 transition-opacity duration-200">
-                <p className="text-sm font-semibold text-white truncate">{getUserDisplayName()}</p>
-                <p className="text-xs text-slate-400">{getUserRole()}</p>
-              </div>
-            )}
+            
+            <div className={`flex-1 min-w-0 transition-all duration-300 ${showExpanded ? 'opacity-100 w-auto' : 'opacity-0 w-0'} overflow-hidden`}>
+              <p className={`text-sm font-medium truncate ${sidebarIsLight ? 'text-gray-900' : 'text-white'}`}>
+                {getUserDisplayName()}
+              </p>
+              <p className={`text-xs truncate ${sidebarIsLight ? 'text-gray-600' : 'text-white/60'}`}>Data Collector</p>
+            </div>
           </div>
-          <div className="mt-3 space-y-2">
-            <button
-              onClick={handleLogout}
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-300 hover:bg-red-600/10 hover:text-red-400 transition-all"
-            >
-              <LogOut className="w-5 h-5" />
-              {(isSidebarOpen) && <span className="font-medium">Logout</span>}
-            </button>
-          </div>
+          
+          {/* Logout button */}
+          <button
+            onClick={handleLogout}
+            className={`w-full flex items-center gap-3 px-3 py-2 mt-2 rounded-xl transition-all ${
+              sidebarIsLight 
+                ? 'text-gray-600 hover:bg-red-100 hover:text-red-600'
+                : 'text-white/70 hover:bg-red-500/20 hover:text-red-300'
+            } ${!showExpanded && 'justify-center'}`}
+          >
+            <LogOut className="w-5 h-5 flex-shrink-0" />
+            <span className={`text-sm transition-all duration-300 ${showExpanded ? 'opacity-100 w-auto' : 'opacity-0 w-0'} overflow-hidden whitespace-nowrap`}>
+              Logout
+            </span>
+          </button>
         </div>
       </aside>
 
-      {/* MAIN CONTENT */}
+      {/* Main Content Area */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* --- TOP HEADER --- */}
-        <header className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white shadow-lg">
-          <div className="flex items-center px-6 py-4">
-            {/* Left Section */}
-            <div className="flex flex-shrink-0 items-center gap-4">
+        {/* Header */}
+        <header 
+          className={`h-16 border-b shadow-sm flex items-center justify-between px-6 flex-shrink-0 transition-all duration-300 ${
+            isDarkMode 
+              ? 'bg-gray-800 border-gray-700' 
+              : 'border-white/10'
+          }`}
+          style={isDarkMode ? {} : { background: headerGradient }}
+        >
+          {/* Left: Menu toggle + Title */}
+          <div className="flex items-center gap-4">
+            {/* Hamburger to X animated button */}
+            <button
+              onClick={toggleSidebar}
+              className={`w-8 h-8 rounded-lg transition-all duration-300 flex items-center justify-center ${headerTextIsLight ? 'bg-black/10 hover:bg-black/20' : 'bg-white/10 hover:bg-white/20'}`}
+              title={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            >
+              <div className="relative w-4 h-4 flex items-center justify-center">
+                <span className={`absolute h-0.5 ${headerTextIsLight ? 'bg-gray-800' : 'bg-white'} rounded-full transition-all duration-300 ease-in-out ${
+                  isSidebarCollapsed ? 'w-4 rotate-45 translate-y-0' : 'w-4 -translate-y-1.5 rotate-0'
+                }`} />
+                <span className={`absolute h-0.5 w-4 ${headerTextIsLight ? 'bg-gray-800' : 'bg-white'} rounded-full transition-all duration-300 ease-in-out ${
+                  isSidebarCollapsed ? 'opacity-0 scale-0' : 'opacity-100 scale-100'
+                }`} />
+                <span className={`absolute h-0.5 ${headerTextIsLight ? 'bg-gray-800' : 'bg-white'} rounded-full transition-all duration-300 ease-in-out ${
+                  isSidebarCollapsed ? 'w-4 -rotate-45 translate-y-0' : 'w-4 translate-y-1.5 rotate-0'
+                }`} />
+              </div>
+            </button>
+            
+            <div>
+              {pageSubtitleTop && (
+                <p className={`text-xs ${headerTextIsLight ? 'text-gray-600' : 'text-white/60'}`}>{pageSubtitleTop}</p>
+              )}
+              <h1 className={`text-base font-semibold ${headerTextIsLight ? 'text-gray-900' : 'text-white'}`}>
+                {pageTitle || navLinks.find(link => isActive(link.path))?.name || 'Dashboard'}
+              </h1>
+              {pageSubtitleBottom && (
+                <p className={`text-xs ${headerTextIsLight ? 'text-gray-600' : 'text-white/70'}`}>{pageSubtitleBottom}</p>
+              )}
+            </div>
+          </div>
+
+          {/* Right: Actions */}
+          <div className="flex items-center gap-3">
+            {/* Header Actions */}
+            {headerActions && (
+              <div className={`flex items-center gap-2 border-r pr-3 mr-1 ${headerTextIsLight ? 'border-black/20' : 'border-white/20'}`}>
+                {headerActions}
+              </div>
+            )}
+
+            <ThemeToggle />
+            
+            <button
+              onClick={toggleFullscreen}
+              className={`p-2 rounded-xl transition-colors hidden sm:flex ${headerTextIsLight ? 'hover:bg-black/10' : 'hover:bg-white/10'}`}
+              title="Toggle Fullscreen"
+            >
+              <Maximize className={`w-5 h-5 ${headerTextIsLight ? 'text-gray-800' : 'text-white'}`} />
+            </button>
+
+            {/* Notifications */}
+            <div className="relative" ref={notificationRef}>
               <button
                 onClick={() => {
-                  if (isSidebarOpen) {
-                    setIsSidebarOpen(false);
-                    setIsSidebarLocked(true);
-                  } else {
-                    setIsSidebarOpen(true);
-                    setIsSidebarLocked(false);
-                  }
+                  setShowNotifications(!showNotifications);
+                  if (!showNotifications) fetchNotifications();
                 }}
-                className="p-2 hover:bg-white/20 rounded-xl transition-colors"
-                title={isSidebarOpen ? "Close and lock sidebar" : "Open sidebar"}
+                className={`relative p-2 rounded-xl transition-colors ${headerTextIsLight ? 'hover:bg-black/10' : 'hover:bg-white/10'}`}
               >
-                {isSidebarOpen ? (
-                  <Menu className="w-5 h-5 text-white" />
-                ) : (
-                  <ArrowRight className="w-5 h-5 text-white" />
+                <Bell className={`w-5 h-5 ${headerTextIsLight ? 'text-gray-800' : 'text-white'} ${unreadCount > 0 ? 'animate-pulse' : ''}`} />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[18px] h-4 bg-red-500 rounded-full flex items-center justify-center text-white text-xs font-bold px-1">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
                 )}
               </button>
-              {/* Page Title & Subtitle Area */}
-              <div className="min-w-0">
-                {pageSubtitleTop && (
-                  <div className="mb-1 text-white/80">
-                    {pageSubtitleTop}
-                  </div>
-                )}
-                <h1 className="text-xl font-bold text-white">
-                  {pageTitle || navLinks.find(link => isActive(link.path))?.name || 'Dashboard'}
-                </h1>
-                {pageSubtitleBottom && (
-                  <div className="mt-1 text-white/90">
-                    {pageSubtitleBottom}
-                  </div>
-                )}
-              </div>
-            </div>
 
-            {/* Right Section */}
-            <div className="flex items-center gap-3 ml-auto">
-              {/* --- Action Slot Divider --- */}
-              {headerActions && (
-                <div className="flex items-center gap-2 border-r border-white/30 pr-5 mr-1">
-                  {headerActions}
+              {/* Notification Dropdown */}
+              {showNotifications && (
+                <div className="absolute right-0 mt-2 w-80 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden z-50">
+                  <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/30 dark:to-blue-900/30">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="font-bold text-gray-900 dark:text-white">Notifications</h3>
+                        <p className="text-xs text-gray-500">{unreadCount} unread</p>
+                      </div>
+                      <div className="flex gap-2">
+                        {unreadCount > 0 && (
+                          <button onClick={markAllAsRead} className="text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1">
+                            <CheckCheck className="w-3 h-3" /> Mark all
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="max-h-64 overflow-y-auto">
+                    {notifLoading ? (
+                      <div className="p-8 text-center">
+                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-400 mx-auto" />
+                      </div>
+                    ) : notifications.length === 0 ? (
+                      <div className="p-8 text-center text-gray-500">
+                        <Bell className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                        <p>No notifications</p>
+                      </div>
+                    ) : (
+                      notifications.slice(0, 5).map((notif) => (
+                        <div
+                          key={notif.id}
+                          onClick={() => handleNotificationClick(notif)}
+                          className={`p-3 border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer ${
+                            !notif.is_read ? 'bg-blue-50/50 dark:bg-blue-900/20' : ''
+                          }`}
+                        >
+                          <div className="flex gap-3">
+                            {getNotificationIcon(notif.notification_type)}
+                            <div className="flex-1">
+                              <p className="text-sm font-medium text-gray-900 dark:text-white">{notif.title}</p>
+                              <p className="text-xs text-gray-500 mt-1">{notif.time}</p>
+                            </div>
+                            <button onClick={(e) => deleteNotification(notif.id, e)} className="text-gray-400 hover:text-red-500">
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                  <div className="p-2 border-t border-gray-200 dark:border-gray-700">
+                    <button
+                      onClick={() => { navigate('/notifications'); setShowNotifications(false); }}
+                      className="w-full text-center text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 font-medium py-2"
+                    >
+                      View All
+                    </button>
+                  </div>
                 </div>
               )}
+            </div>
 
-              {/* Fullscreen Toggle */}
+            {/* User Menu */}
+            <div className="relative" ref={userMenuRef}>
               <button
-                onClick={toggleFullscreen}
-                className="p-2 hover:bg-white/20 rounded-xl transition-colors"
-                title={isFullscreen ? "Exit Fullscreen" : "Toggle Fullscreen"}
+                onClick={() => setShowUserMenu(!showUserMenu)}
+                className={`flex items-center gap-2 p-1 pr-3 rounded-xl transition-colors ${headerTextIsLight ? 'hover:bg-black/10' : 'hover:bg-white/10'}`}
               >
-                {isFullscreen ? <Minimize className="w-5 h-5 text-white" /> : <Maximize className="w-5 h-5 text-white" />}
+                <div 
+                  className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold ring-2 ${
+                    headerTextIsLight ? 'bg-gray-700 text-white ring-gray-400/50' : 'ring-white/30 text-white'
+                  }`}
+                  style={!headerTextIsLight ? { background: isDarkMode ? 'linear-gradient(135deg, #374151 0%, #1f2937 100%)' : headerGradient } : undefined}
+                >
+                  {getUserInitials()}
+                </div>
+                <div className="hidden md:block text-left">
+                  <p className={`text-sm font-semibold leading-none ${headerTextIsLight ? 'text-gray-900' : 'text-white'}`}>
+                    {getUserDisplayName()}
+                  </p>
+                  <p className={`text-xs ${headerTextIsLight ? 'text-gray-600' : 'text-white/60'}`}>Data Collector</p>
+                </div>
+                <ChevronDown className={`w-4 h-4 transition-transform ${headerTextIsLight ? 'text-gray-600' : 'text-white/70'} ${showUserMenu ? 'rotate-180' : ''}`} />
               </button>
 
-              {/* Notifications */}
-              <div className="relative" ref={notificationRef}>
-                <button
-                  onClick={() => {
-                    setShowNotifications(!showNotifications);
-                    if (!showNotifications) fetchNotifications();
-                  }}
-                  className="relative p-2 hover:bg-white/20 rounded-xl transition-colors"
-                  title="Notifications"
-                >
-                  <Bell className={`w-5 h-5 text-white ${unreadCount > 0 ? 'bell-ring' : ''}`} />
-                  {unreadCount > 0 && (
-                    <span className="absolute -top-1 -right-1 min-w-[20px] h-5 bg-red-500 rounded-full flex items-center justify-center text-white text-xs font-bold px-1 shadow-md">
-                      {unreadCount > 9 ? '9+' : unreadCount}
-                    </span>
-                  )}
-                </button>
-
-                {/* Notification Dropdown */}
-                {showNotifications && (
-                  <div className="absolute right-0 mt-2 w-96 bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden z-50 text-gray-900">
-                    {/* Header */}
-                    <div className="p-4 border-b border-gray-200 bg-gradient-to-r from-purple-50 to-blue-50">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h3 className="font-bold text-gray-900">Notifications</h3>
-                          <p className="text-xs text-gray-600">{unreadCount} unread messages</p>
-                        </div>
-                        <div className="flex gap-2">
-                          {unreadCount > 0 && (
-                            <button
-                              onClick={markAllAsRead}
-                              className="text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
-                              title="Mark all as read"
-                            >
-                              <CheckCheck className="w-4 h-4" />
-                              Mark all
-                            </button>
-                          )}
-                          {notifications.length > 0 && (
-                            <button
-                              onClick={clearAll}
-                              className="text-xs text-red-600 hover:text-red-700 font-medium flex items-center gap-1"
-                              title="Clear all"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                              Clear
-                            </button>
-                          )}
-                        </div>
+              {showUserMenu && (
+                <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden z-50">
+                  <div className="p-4" style={{ background: isDarkMode ? 'linear-gradient(135deg, #374151 0%, #1f2937 100%)' : headerGradient }}>
+                    <div className="flex items-center gap-3">
+                      <div className={`w-12 h-12 rounded-full ${isDarkMode ? 'bg-white/20' : headerIsLight ? 'bg-black/10' : 'bg-white/20'} flex items-center justify-center text-lg font-bold ${isDarkMode ? 'text-white' : headerIsLight ? 'text-gray-800' : 'text-white'}`}>
+                        {getUserInitials()}
+                      </div>
+                      <div className="flex-1">
+                        <p className={`text-sm font-bold ${isDarkMode ? 'text-white' : headerIsLight ? 'text-gray-900' : 'text-white'}`}>{getUserDisplayName()}</p>
+                        <p className={`text-xs ${isDarkMode ? 'text-white/70' : headerIsLight ? 'text-gray-600' : 'text-white/70'}`}>{user?.email}</p>
                       </div>
                     </div>
-
-                    {/* Notifications List */}
-                    <div className="max-h-96 overflow-y-auto">
-                      {loading ? (
-                        <div className="p-8 text-center">
-                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mx-auto"></div>
-                          <p className="text-gray-500 mt-2">Loading...</p>
-                        </div>
-                      ) : error ? (
-                        <div className="p-8 text-center">
-                          <Bell className="w-12 h-12 text-red-300 mx-auto mb-3" />
-                          <p className="text-red-500 font-medium">Error loading notifications</p>
-                          <p className="text-xs text-gray-500 mt-1">{error}</p>
-                          <button
-                            onClick={fetchNotifications}
-                            className="mt-3 px-4 py-2 bg-purple-600 text-white rounded-lg text-sm hover:bg-purple-700"
-                          >
-                            Retry
-                          </button>
-                        </div>
-                      ) : notifications.length === 0 ? (
-                        <div className="p-8 text-center">
-                          <Bell className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                          <p className="text-gray-500 font-medium">No notifications</p>
-                          <p className="text-xs text-gray-400 mt-1">You're all caught up!</p>
-                        </div>
-                      ) : (
-                        notifications.map((notification) => (
-                          <div
-                            key={notification.id}
-                            onClick={() => handleNotificationClick(notification)}
-                            className={`p-4 border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer ${
-                              !notification.is_read ? 'bg-blue-50/50' : ''
-                            }`}
-                          >
-                            <div className="flex gap-3">
-                              <div className="flex-shrink-0 mt-1">
-                                {getNotificationIcon(notification.notification_type)}
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-start justify-between gap-2">
-                                  <h4 className={`font-semibold text-sm ${
-                                    !notification.is_read ? 'text-gray-900' : 'text-gray-700'
-                                  }`}>
-                                    {notification.title}
-                                  </h4>
-                                  {!notification.is_read && (
-                                    <span className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0 mt-1"></span>
-                                  )}
-                                </div>
-                                <p className="text-sm text-gray-600 mt-1">{notification.message}</p>
-                                <div className="flex items-center justify-between mt-2">
-                                  <span className="text-xs text-gray-500">{notification.time}</span>
-                                  <div className="flex gap-2">
-                                    {!notification.is_read && (
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          markAsRead(notification.id);
-                                        }}
-                                        className="text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
-                                        title="Mark as read"
-                                      >
-                                        <Check className="w-3 h-3" />
-                                        Mark read
-                                      </button>
-                                    )}
-                                    <button
-                                      onClick={(e) => deleteNotification(notification.id, e)}
-                                      className="text-xs text-red-600 hover:text-red-700 font-medium flex items-center gap-1"
-                                      title="Delete"
-                                    >
-                                      <X className="w-3 h-3" />
-                                      Delete
-                                    </button>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        ))
-                      )}
-                    </div>
-
-                    {/* Footer */}
-                    {notifications.length > 0 && (
-                      <div className="p-3 border-t border-gray-200 bg-gray-50">
-                        <button
-                          onClick={() => {
-                            navigate('/notifications');
-                            setShowNotifications(false);
-                          }}
-                          className="w-full text-center text-sm text-blue-600 hover:text-blue-700 font-medium"
-                        >
-                          View All Notifications
-                        </button>
-                      </div>
-                    )}                    
                   </div>
-                )}
-              </div>
-
-              {/* User Avatar Dropdown */}
-              <div className="relative" ref={avatarMenuRef}>
-                <button
-                  onClick={() => setShowAvatarMenu(!showAvatarMenu)}
-                  className="flex items-center gap-2 p-1 pr-3 hover:bg-white/20 rounded-xl transition-colors"
-                >
-                  <div className="w-9 h-9 rounded-full bg-gradient-to-br from-purple-500 to-blue-600 flex items-center justify-center text-sm font-bold text-white shadow-md ring-2 ring-white/30">
-                    {getUserInitials()}
+                  <div className="p-2">
+                    <button
+                      onClick={() => { navigate('/settings?section=profile'); setShowUserMenu(false); }}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors text-left"
+                    >
+                      <User className="w-4 h-4 text-gray-500" />
+                      <span className="text-sm text-gray-700 dark:text-gray-300">My Profile</span>
+                    </button>
                   </div>
-                  <ChevronDown className={`w-4 h-4 text-white transition-transform ${showAvatarMenu ? 'rotate-180' : ''}`} />
-                </button>
-
-                {/* Dropdown Menu */}
-                {showAvatarMenu && (
-                  <div className="absolute right-0 mt-2 w-64 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200 text-gray-900">
-                    {/* Menu Items */}
-                    <div className="p-2">
-                      {dropdownLinks.map((link) => {
-                        const Icon = link.icon;
-                        return (
-                          <button
-                            key={link.name}
-                            onClick={() => {
-                              navigate(link.path);
-                              setShowAvatarMenu(false);
-                            }}
-                            title={link.name}
-                            className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 rounded-xl transition-colors text-left group"
-                          >
-                            <div className={`w-9 h-9 rounded-lg ${link.bg} flex items-center justify-center group-hover:bg-gray-100 transition-colors`}>
-                              <Icon className={`w-4 h-4 ${link.color}`} />
-                            </div>
-                            <div className="flex-1">
-                              <p className="text-sm font-semibold text-gray-900">{link.name}</p>
-                              <p className="text-xs text-gray-500">{link.description}</p>
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    {/* Divider */}
-                    <div className="border-t border-gray-100 my-2"></div>
-
-                    {/* Logout */}
-                    <div className="p-2">
-                      <button
-                        onClick={() => {
-                          handleLogout();
-                          setShowAvatarMenu(false);
-                        }}
-                        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-red-50 rounded-xl transition-colors text-left group"
-                      >
-                        <div className="w-9 h-9 rounded-lg bg-red-50 flex items-center justify-center group-hover:bg-red-100 transition-colors">
-                          <LogOut className="w-4 h-4 text-red-600" />
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-sm font-semibold text-red-600">Logout</p>
-                          <p className="text-xs text-red-400">Sign out of your account</p>
-                        </div>
-                      </button>
-                    </div>
+                  <div className="p-2 border-t border-gray-200 dark:border-gray-700">
+                    <button
+                      onClick={handleLogout}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-colors text-left"
+                    >
+                      <LogOut className="w-4 h-4 text-red-500" />
+                      <span className="text-sm text-red-600 dark:text-red-400">Logout</span>
+                    </button>
                   </div>
-                )}
-              </div>
+                </div>
+              )}
             </div>
           </div>
         </header>
 
-        {/* MAIN CONTENT AREA */}
-        <main className="flex-1 overflow-y-auto bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50">
-          {/* Breadcrumb Section - Just below header */}
-          {breadcrumbs && breadcrumbs.length > 0 && (
-            <div className="bg-white border-b border-gray-200 px-6 py-3 shadow-sm">
-              <Breadcrumb items={breadcrumbs} showHome={true} />
-            </div>
-          )}
-          
-          {/* Page Content */}
+        {/* Breadcrumb */}
+        {breadcrumbs && breadcrumbs.length > 0 && (
+          <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-2 transition-colors duration-300">
+            <Breadcrumb items={breadcrumbs} showHome={true} />
+          </div>
+        )}
+
+        {/* Main Content */}
+        <main className="flex-1 overflow-y-auto bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800 transition-colors duration-300">
           {children}
         </main>
       </div>

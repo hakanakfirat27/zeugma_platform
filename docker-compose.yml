@@ -1,0 +1,101 @@
+# =============================================================================
+# ZEUGMA PLATFORM - Docker Compose for Development
+# =============================================================================
+#
+# This file provides easy setup for development dependencies:
+# - PostgreSQL (if you want to test with production database locally)
+# - Redis (for caching, Celery, and WebSockets)
+#
+# Usage:
+#   docker-compose up -d          # Start services
+#   docker-compose down           # Stop services
+#   docker-compose logs -f redis  # View Redis logs
+#
+# =============================================================================
+
+version: '3.8'
+
+services:
+  # ---------------------------------------------------------------------------
+  # Redis - Cache, Sessions, Celery Broker, WebSockets
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: zeugma_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ---------------------------------------------------------------------------
+  # PostgreSQL - Production Database (Optional for local testing)
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:15-alpine
+    container_name: zeugma_postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: zeugma_db
+      POSTGRES_USER: zeugma_user
+      POSTGRES_PASSWORD: zeugma_dev_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    # Increase max connections for development with many widgets
+    command: postgres -c max_connections=500 -c shared_buffers=256MB -c work_mem=4MB
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U zeugma_user -d zeugma_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ---------------------------------------------------------------------------
+  # Redis Commander - Web UI for Redis (Optional, for debugging)
+  # ---------------------------------------------------------------------------
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: zeugma_redis_ui
+    ports:
+      - "8081:8081"
+    environment:
+      REDIS_HOSTS: local:redis:6379
+    depends_on:
+      - redis
+    restart: unless-stopped
+    profiles:
+      - tools  # Only starts with: docker-compose --profile tools up
+
+  # ---------------------------------------------------------------------------
+  # pgAdmin - Web UI for PostgreSQL (Optional, for debugging)
+  # ---------------------------------------------------------------------------
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: zeugma_pgadmin
+    ports:
+      - "8082:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@zeugma.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      - postgres
+    restart: unless-stopped
+    profiles:
+      - tools  # Only starts with: docker-compose --profile tools up
+
+volumes:
+  redis_data:
+    name: zeugma_redis_data
+  postgres_data:
+    name: zeugma_postgres_data
+  pgadmin_data:
+    name: zeugma_pgadmin_data

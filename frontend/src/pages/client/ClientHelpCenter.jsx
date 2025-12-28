@@ -138,7 +138,7 @@ const ClientHelpCenter = () => {
       id: 'getting-started',
       title: 'Getting Started',
       icon: <Compass className="w-5 h-5" />,
-      color: 'bg-blue-100 text-blue-600',
+      color: 'bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400',
       articles: [
         {
           id: 'welcome',
@@ -198,7 +198,7 @@ The left sidebar provides quick access to all main sections:
       id: 'reports',
       title: 'Working with Reports',
       icon: <FileSpreadsheet className="w-5 h-5" />,
-      color: 'bg-purple-100 text-purple-600',
+      color: 'bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400',
       articles: [
         {
           id: 'viewing-reports',
@@ -255,7 +255,7 @@ Use the search bar to quickly find companies by name, location, or category.
       id: 'visualization',
       title: 'Data Visualization',
       icon: <PieChart className="w-5 h-5" />,
-      color: 'bg-green-100 text-green-600',
+      color: 'bg-green-100 dark:bg-green-900/40 text-green-600 dark:text-green-400',
       articles: [
         {
           id: 'visualization-overview',
@@ -291,7 +291,7 @@ Filter map data by country, region, category, and company type.`
       id: 'focus-view',
       title: 'Focus View',
       icon: <Grid className="w-5 h-5" />,
-      color: 'bg-orange-100 text-orange-600',
+      color: 'bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-400',
       articles: [
         {
           id: 'focus-view-intro',
@@ -324,7 +324,7 @@ Focus View provides an Excel-like interface for detailed data analysis.
       id: 'account',
       title: 'Account & Settings',
       icon: <Settings className="w-5 h-5" />,
-      color: 'bg-pink-100 text-pink-600',
+      color: 'bg-pink-100 dark:bg-pink-900/40 text-pink-600 dark:text-pink-400',
       articles: [
         {
           id: 'profile-settings',
@@ -403,14 +403,14 @@ Access Settings > Notifications to configure your preferences.`
     if (feedback) {
       // User has already given feedback
       return (
-        <div className="mt-8 pt-6 border-t border-gray-200">
-          <div className="flex items-center gap-3 p-4 bg-green-50 rounded-xl border border-green-200">
-            <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-              <CheckCircle className="w-5 h-5 text-green-600" />
+        <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
+          <div className="flex items-center gap-3 p-4 bg-green-50 dark:bg-green-900/30 rounded-xl border border-green-200 dark:border-green-800">
+            <div className="w-10 h-10 bg-green-100 dark:bg-green-900/50 rounded-full flex items-center justify-center">
+              <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />
             </div>
             <div>
-              <p className="font-medium text-green-800">Thanks for your feedback!</p>
-              <p className="text-sm text-green-600">
+              <p className="font-medium text-green-800 dark:text-green-300">Thanks for your feedback!</p>
+              <p className="text-sm text-green-600 dark:text-green-400">
                 {feedback.helpful 
                   ? "We're glad this article was helpful." 
                   : "We'll work on improving this article."}
@@ -424,20 +424,20 @@ Access Settings > Notifications to configure your preferences.`
     // Show comment input after selecting feedback
     if (isPending) {
       return (
-        <div className="mt-8 pt-6 border-t border-gray-200">
-          <div className={`p-4 rounded-xl border ${pendingFeedback.isHelpful ? 'bg-green-50 border-green-200' : 'bg-orange-50 border-orange-200'}`}>
+        <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
+          <div className={`p-4 rounded-xl border ${pendingFeedback.isHelpful ? 'bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-800' : 'bg-orange-50 dark:bg-orange-900/30 border-orange-200 dark:border-orange-800'}`}>
             <div className="flex items-center gap-2 mb-3">
               {pendingFeedback.isHelpful ? (
-                <ThumbsUp className="w-5 h-5 text-green-600" />
+                <ThumbsUp className="w-5 h-5 text-green-600 dark:text-green-400" />
               ) : (
-                <ThumbsDown className="w-5 h-5 text-orange-600" />
+                <ThumbsDown className="w-5 h-5 text-orange-600 dark:text-orange-400" />
               )}
-              <span className={`font-medium ${pendingFeedback.isHelpful ? 'text-green-700' : 'text-orange-700'}`}>
+              <span className={`font-medium ${pendingFeedback.isHelpful ? 'text-green-700 dark:text-green-300' : 'text-orange-700 dark:text-orange-300'}`}>
                 {pendingFeedback.isHelpful ? 'Glad it helped!' : 'Sorry to hear that'}
               </span>
             </div>
             
-            <p className="text-sm text-gray-600 mb-3">
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
               {pendingFeedback.isHelpful 
                 ? 'Would you like to share any additional thoughts? (optional)' 
                 : 'How can we improve this article? (optional)'}
@@ -449,7 +449,7 @@ Access Settings > Notifications to configure your preferences.`
               placeholder={pendingFeedback.isHelpful 
                 ? 'What did you find most helpful?' 
                 : 'What information was missing or unclear?'}
-              className="w-full p-3 border border-gray-200 rounded-xl text-sm resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full p-3 border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 rounded-xl text-sm resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               rows={3}
             />
             
@@ -464,7 +464,7 @@ Access Settings > Notifications to configure your preferences.`
               <button
                 onClick={skipComment}
                 disabled={feedbackLoading}
-                className="px-4 py-2.5 bg-gray-100 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-200 transition-colors disabled:opacity-50"
+                className="px-4 py-2.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl text-sm font-medium hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors disabled:opacity-50"
               >
                 Skip
               </button>
@@ -476,19 +476,19 @@ Access Settings > Notifications to configure your preferences.`
 
     // User hasn't given feedback yet
     return (
-      <div className="mt-8 pt-6 border-t border-gray-200">
-        <p className="text-sm text-gray-600 mb-4">Was this article helpful?</p>
+      <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">Was this article helpful?</p>
         <div className="flex gap-3">
           <button 
             onClick={() => handleFeedback(articleId, true)}
-            className="flex items-center gap-2 px-5 py-2.5 bg-green-50 text-green-700 rounded-xl text-sm font-medium hover:bg-green-100 border border-green-200 transition-all hover:scale-105"
+            className="flex items-center gap-2 px-5 py-2.5 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-xl text-sm font-medium hover:bg-green-100 dark:hover:bg-green-900/50 border border-green-200 dark:border-green-800 transition-all hover:scale-105"
           >
             <ThumbsUp className="w-4 h-4" />
             Yes, helpful
           </button>
           <button 
             onClick={() => handleFeedback(articleId, false)}
-            className="flex items-center gap-2 px-5 py-2.5 bg-gray-50 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-100 border border-gray-200 transition-all hover:scale-105"
+            className="flex items-center gap-2 px-5 py-2.5 bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-600 border border-gray-200 dark:border-gray-600 transition-all hover:scale-105"
           >
             <ThumbsDown className="w-4 h-4" />
             Not really
@@ -504,22 +504,22 @@ Access Settings > Notifications to configure your preferences.`
     <ClientDashboardLayout pageTitle="Help Center" breadcrumbs={breadcrumbs} pageSubtitleBottom="Find guides, tutorials, and answers to help you get the most out of A Data">
       <div className="p-6">
         {/* Header Card */}
-        <div className="bg-gradient-to-r from-cyan-500 via-blue-500 to-indigo-600 rounded-2xl p-8 mb-6 text-white relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32"></div>
-          <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/10 rounded-full -ml-24 -mb-24"></div>
+        <div className="bg-gradient-to-r from-cyan-500 via-blue-500 to-indigo-600 dark:from-gray-800 dark:via-gray-800 dark:to-gray-700 rounded-2xl p-8 mb-6 text-white relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 dark:bg-white/5 rounded-full -mr-32 -mt-32"></div>
+          <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/10 dark:bg-white/5 rounded-full -ml-24 -mb-24"></div>
           <div className="relative">
             <div className="flex items-center gap-4 mb-4">
-              <div className="w-14 h-14 bg-white/20 backdrop-blur-xl rounded-xl flex items-center justify-center">
+              <div className="w-14 h-14 bg-white/20 dark:bg-white/10 backdrop-blur-xl rounded-xl flex items-center justify-center">
                 <Lightbulb className="w-7 h-7" />
               </div>
               <div>
                 <h1 className="text-2xl font-bold">How can we help you?</h1>
-                <p className="text-cyan-100">Search our knowledge base or browse topics below</p>
+                <p className="text-cyan-100 dark:text-gray-400">Search our knowledge base or browse topics below</p>
               </div>
             </div>
             <div className="relative max-w-2xl">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Search for guides, tutorials, or topics..." className="w-full pl-12 pr-4 py-4 rounded-xl text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-4 focus:ring-white/30 shadow-lg" />
+              <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Search for guides, tutorials, or topics..." className="w-full pl-12 pr-4 py-4 rounded-xl bg-white dark:bg-gray-800 text-gray-800 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-4 focus:ring-white/30 shadow-lg" />
             </div>
           </div>
         </div>
@@ -605,7 +605,7 @@ Access Settings > Notifications to configure your preferences.`
                       </div>
                       <div className="grid sm:grid-cols-2 gap-3">
                         {section.articles.map(article => (
-                          <button key={article.id} onClick={() => { setSelectedArticle(article); if (!expandedSections.includes(section.id)) toggleSection(section.id); }} className="flex items-center justify-between p-4 rounded-xl border border-gray-200 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all text-left group">
+                          <button key={article.id} onClick={() => { setSelectedArticle(article); if (!expandedSections.includes(section.id)) toggleSection(section.id); }} className="flex items-center justify-between p-4 rounded-xl bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-all text-left group">
                             <div>
                               <span className="text-gray-800 dark:text-gray-200 font-medium text-sm group-hover:text-blue-700 dark:group-hover:text-blue-400">{article.title}</span>
                               <span className="flex items-center gap-1 text-gray-500 dark:text-gray-400 text-xs mt-1"><Clock className="w-3 h-3" />{article.readTime}</span>
@@ -652,12 +652,12 @@ Access Settings > Notifications to configure your preferences.`
                 </div>
               ))}
             </div>
-            <div className="mt-8 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-8 text-center">
-              <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Video className="w-8 h-8 text-amber-600" />
+            <div className="mt-8 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-8 text-center">
+              <div className="w-16 h-16 bg-amber-100 dark:bg-amber-900/40 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Video className="w-8 h-8 text-amber-600 dark:text-amber-400" />
               </div>
-              <h3 className="text-xl font-bold text-amber-800 mb-2">Video Tutorials Coming Soon</h3>
-              <p className="text-amber-700 max-w-md mx-auto">We're working on creating comprehensive video tutorials. Check back soon!</p>
+              <h3 className="text-xl font-bold text-amber-800 dark:text-amber-300 mb-2">Video Tutorials Coming Soon</h3>
+              <p className="text-amber-700 dark:text-amber-400 max-w-md mx-auto">We're working on creating comprehensive video tutorials. Check back soon!</p>
             </div>
           </div>
         )}

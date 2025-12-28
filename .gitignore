@@ -2,11 +2,19 @@
 # SECURITY - NEVER COMMIT THESE FILES!
 # ==============================================
 .env
-.env.*
+.env.local
+.env.production
+!.env.production.example
 !.env.template
 *.key
 *.pem
 *.p12
+
+# ==============================================
+# LOGS
+# ==============================================
+logs/
+*.log
 
 # ==============================================
 # PYTHON

@@ -9,7 +9,7 @@ import {
 import { CATEGORIES } from '../../constants/categories';
 import { useRecords, useFilterOptions } from '../../hooks/useDatabase';
 import api from '../../utils/api';
-import FilterSidebar from '../../components/database/FilterSidebar';
+import CompanyFilterSidebar from '../../components/database/CompanyFilterSidebar';
 import Pagination from '../../components/database/Pagination';
 
 // Fields that should be blurred for guests
@@ -795,26 +795,40 @@ const GuestDashboard = () => {
       </main>
 
       {/* Filter Sidebar */}
-      {showFilters && (
-        <FilterSidebar
-          isOpen={showFilters}
-          onClose={() => setShowFilters(false)}
-          filters={filters}
-          filterOptions={filterOptions}
-          countryFilters={countryFilters}
-          onCountryFilterChange={setCountryFilters}
-          allCountries={stats.allCountries}
-          onApply={(newFilters) => {
-            setFilters(newFilters);
-            setCurrentPage(1);
-          }}
-          onReset={() => {
-            setFilters({});
-            setCountryFilters([]);
-            setCurrentPage(1);
-          }}
-        />
-      )}
+      <CompanyFilterSidebar
+        isOpen={showFilters}
+        onClose={() => setShowFilters(false)}
+        filterGroups={[]}
+        filterOptions={filterOptions}
+        technicalFilterOptions={[]}
+        statusFilters={['COMPLETE']}
+        onStatusFilterChange={() => {}}
+        countryFilters={countryFilters}
+        onCountryFilterChange={setCountryFilters}
+        allCountries={stats.allCountries}
+        categoryFilters={Array.from(selectedCategories).filter(c => c !== 'ALL')}
+        onCategoryFilterChange={(cats) => {
+          if (cats.length === 0) {
+            setSelectedCategories(new Set(['ALL']));
+          } else {
+            setSelectedCategories(new Set(cats));
+          }
+          setCurrentPage(1);
+        }}
+        availableCategories={CATEGORIES.filter(c => c.value !== 'ALL').map(c => c.value)}
+        onApply={(filterGroups) => {
+          // Extract filters from first group
+          const newFilters = filterGroups.length > 0 ? filterGroups[0].filters : {};
+          setFilters(newFilters);
+          setCurrentPage(1);
+        }}
+        onReset={() => {
+          setFilters({});
+          setCountryFilters([]);
+          setSelectedCategories(new Set(['ALL']));
+          setCurrentPage(1);
+        }}
+      />
 
       {/* Record Detail Modal */}
       {selectedRecord && (

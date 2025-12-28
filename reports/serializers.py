@@ -72,10 +72,78 @@ class CustomReportSerializer(serializers.ModelSerializer):
         if request and hasattr(request, 'user'):
             validated_data['created_by'] = request.user
 
+        # SNAPSHOT CATEGORIES AND COUNTRIES AT CREATION TIME
+        # This ensures the report scope is frozen and doesn't change when new data is added
+        filter_criteria = validated_data.get('filter_criteria', {})
+        filter_criteria = self._snapshot_filter_criteria(filter_criteria)
+        validated_data['filter_criteria'] = filter_criteria
+
         report = CustomReport.objects.create(**validated_data)
         # Update record count after creation
         report.update_record_count()
         return report
+
+    def _snapshot_filter_criteria(self, filter_criteria):
+        """
+        Snapshot the filter criteria at creation time.
+        If categories/countries are empty (meaning 'all'), resolve them to explicit lists
+        based on what currently exists in the database.
+        
+        This ensures:
+        - Reports don't automatically include new categories/countries added later
+        - Reports maintain their original scope over time
+        - The scope is frozen at creation time
+        """
+        from .company_models import Company, CompanyStatus, ProductionSite
+        from django.db.models import Count
+        
+        # Make a copy to avoid modifying the original
+        criteria = dict(filter_criteria) if filter_criteria else {}
+        
+        # Get the status filter to apply (needed for accurate category/country counts)
+        status_filter = criteria.get('status', ['COMPLETE'])
+        if isinstance(status_filter, str):
+            status_filter = [status_filter]
+        
+        # Build base queryset with status filter
+        base_queryset = Company.objects.exclude(status=CompanyStatus.DELETED)
+        if status_filter:
+            base_queryset = base_queryset.filter(status__in=status_filter)
+        
+        # SNAPSHOT CATEGORIES
+        # If categories is empty, missing, or explicitly set to all 11 categories,
+        # resolve to only categories that currently have companies
+        categories = criteria.get('categories', [])
+        if not categories or len(categories) == 0:
+            # Get all categories that have at least one company with matching status
+            category_data = ProductionSite.objects.filter(
+                company__in=base_queryset
+            ).values('category').annotate(
+                count=Count('company', distinct=True)
+            ).filter(count__gt=0)
+            
+            available_categories = [item['category'] for item in category_data if item['category']]
+            
+            if available_categories:
+                criteria['categories'] = sorted(available_categories)
+                print(f"📸 Snapshot: Resolved 'all categories' to {len(available_categories)} categories: {available_categories}")
+        
+        # SNAPSHOT COUNTRIES
+        # If country is empty or missing, resolve to only countries that currently have companies
+        countries = criteria.get('country', [])
+        if not countries or len(countries) == 0:
+            # Get all countries that have at least one company with matching status
+            country_data = base_queryset.values('country').annotate(
+                count=Count('company_id')
+            ).filter(count__gt=0, country__isnull=False).exclude(country='')
+            
+            available_countries = [item['country'] for item in country_data if item['country']]
+            
+            if available_countries:
+                criteria['country'] = sorted(available_countries)
+                print(f"📸 Snapshot: Resolved 'all countries' to {len(available_countries)} countries: {available_countries}")
+        
+        return criteria
 
     def update(self, instance, validated_data):
         # Update filter criteria if changed

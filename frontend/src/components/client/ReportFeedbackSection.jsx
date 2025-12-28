@@ -75,7 +75,7 @@ const ReportFeedbackSection = ({ reportId, reportTitle, onSuccess }) => {
   const [dataQualityRating, setDataQualityRating] = useState(0);
   const [dataCompletenessRating, setDataCompletenessRating] = useState(0);
   const [easeOfUseRating, setEaseOfUseRating] = useState(0);
-  const [showDetailedRatings, setShowDetailedRatings] = useState(false);
+  const [showDetailedRatings, setShowDetailedRatings] = useState(true);
 
   // Fetch existing feedback
   useEffect(() => {
@@ -377,7 +377,7 @@ const ReportFeedbackSection = ({ reportId, reportTitle, onSuccess }) => {
         className="flex items-center gap-2 text-sm text-indigo-600 hover:text-indigo-700"
       >
         {showDetailedRatings ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-        {showDetailedRatings ? 'Hide detailed ratings' : 'Add detailed ratings (optional)'}
+        {showDetailedRatings ? 'Hide detailed ratings (optional)' : 'Show detailed ratings (optional)'}
       </button>
 
       {/* Detailed Ratings */}

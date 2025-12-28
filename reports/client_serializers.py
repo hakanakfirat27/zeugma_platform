@@ -3,13 +3,17 @@
 Client Report Record Serializer for Company Database Architecture
 
 Uses the new Company Database models from reports.company_models
+
+OPTIMIZED VERSION:
+- ClientReportRecordListSerializer: For Focus View and table views - includes ALL fields
+- Uses prefetched data to avoid N+1 queries
 """
 
 from rest_framework import serializers
 from reports.company_models import Company, ProductionSite, ProductionSiteVersion
 
 
-class ClientReportRecordSerializer(serializers.Serializer):
+class ClientReportRecordListSerializer(serializers.Serializer):
     """
     Serializer for Client Report View that flattens Company + ProductionSite data
     into a single record format compatible with the frontend table.
@@ -20,7 +24,8 @@ class ClientReportRecordSerializer(serializers.Serializer):
     3. Returns ProductionSite category
     4. Returns ALL technical fields from ProductionSiteVersion (current_version)
     
-    Structure matches CompanyDetailPage expectations.
+    OPTIMIZED: Uses prefetched data to avoid N+1 queries while still
+    returning all fields needed for Focus View and detail modals.
     """
     
     # Primary identifiers
@@ -64,9 +69,23 @@ class ClientReportRecordSerializer(serializers.Serializer):
     position_4 = serializers.CharField(source='company.position_4', allow_blank=True, default='')
     
     # Frontend compatibility fields
-    category = serializers.CharField(read_only=True)  # Direct category field for exports
-    categories = serializers.SerializerMethodField()  # Array format for frontend table
+    category = serializers.CharField(read_only=True)
+    categories = serializers.SerializerMethodField()
     status = serializers.CharField(source='company.status', read_only=True)
+    
+    def _get_current_version(self, obj):
+        """Get current version from prefetched data or query"""
+        # Try prefetched_current_version first (set by optimized queryset)
+        if hasattr(obj, 'prefetched_current_version') and obj.prefetched_current_version:
+            return obj.prefetched_current_version[0] if obj.prefetched_current_version else None
+        # Try prefetched versions cache
+        if hasattr(obj, '_prefetched_objects_cache') and 'versions' in obj._prefetched_objects_cache:
+            for v in obj._prefetched_objects_cache['versions']:
+                if v.is_current:
+                    return v
+            return None
+        # Fallback to property (will cause extra query if not prefetched)
+        return obj.current_version
     
     def to_representation(self, instance):
         """
@@ -75,21 +94,13 @@ class ClientReportRecordSerializer(serializers.Serializer):
         
         This ensures all technical fields (ps, pp, hdpe, custom, etc.) are included
         in the API response without having to list them explicitly.
-        
-        Args:
-            instance: ProductionSite object with current_version
-        
-        Returns:
-            dict: Complete serialized data including all technical fields
         """
         # Get base representation (company fields + contacts)
         data = super().to_representation(instance)
         
         # Add ALL technical fields from current_version
-        if hasattr(instance, 'current_version') and instance.current_version:
-            version = instance.current_version
-            version_data = version.__dict__
-            
+        version = self._get_current_version(instance)
+        if version:
             # Fields to exclude (Django internal fields and foreign keys)
             excluded_fields = {
                 '_state', 'id', 'version_id', 'production_site', 'production_site_id',
@@ -100,34 +111,34 @@ class ClientReportRecordSerializer(serializers.Serializer):
                 'technical_data_snapshot', 'is_initial'
             }
             
-            # Add all technical fields from the version
-            for field_name, value in version_data.items():
+            # Iterate through model fields explicitly to ensure all are included
+            # Using _meta.fields ensures we get all defined fields, not just loaded ones
+            for field in version._meta.fields:
+                field_name = field.name
                 if field_name not in excluded_fields:
-                    data[field_name] = value
+                    # Use getattr to properly fetch the field value
+                    data[field_name] = getattr(version, field_name, None)
         
         return data
     
     def get_id(self, obj):
         """Use production site ID as the record ID"""
-        # Use site_id (UUID) if available, otherwise fall back to pk
         if hasattr(obj, 'site_id'):
             return str(obj.site_id)
         return str(obj.id)
     
     def get_factory_id(self, obj):
         """Use production site ID as factory_id for backward compatibility"""
-        # Use site_id (UUID) if available, otherwise fall back to pk
         if hasattr(obj, 'site_id'):
             return str(obj.site_id)
         return str(obj.id)
     
     def get_categories(self, obj):
-        """
-        Return category as an array for frontend compatibility.
-        
-        Frontend expects: categories = ["INJECTION"]
-        Backend has: category = "INJECTION"
-        """
+        """Return category as an array for frontend compatibility."""
         if obj.category:
             return [obj.category]
         return []
+
+
+# Alias for backward compatibility
+ClientReportRecordSerializer = ClientReportRecordListSerializer

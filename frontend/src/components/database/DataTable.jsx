@@ -226,12 +226,24 @@ const DataTable = ({
     <div className="relative border border-gray-200 dark:border-gray-700 rounded-lg overflow-auto h-[70vh]">
       <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
         <thead className="bg-gray-100 dark:bg-gray-700 sticky top-0 z-20">
-          {table.getHeaderGroups().map(headerGroup => (
+          {table.getHeaderGroups().map(headerGroup => {
+            // Check if select column exists in this table
+            const hasSelectColumn = headerGroup.headers.some(h => h.column.id === 'select');
+            
+            return (
             <tr key={headerGroup.id}>
               {headerGroup.headers.map(header => {
                 const isSticky = header.column.id === 'select' || header.column.id === 'company_name';
                 const canSort = header.column.getCanSort() && header.column.columnDef.enableSorting;
                 const sortState = getSortState(header.column.id);
+                
+                // Calculate left position for sticky columns
+                let leftPosition = undefined;
+                if (header.column.id === 'select') {
+                  leftPosition = 0;
+                } else if (header.column.id === 'company_name') {
+                  leftPosition = hasSelectColumn ? '48px' : 0;
+                }
 
                 return (
                   <th
@@ -240,7 +252,7 @@ const DataTable = ({
                     style={{
                       width: header.column.getSize(),
                       minWidth: header.column.columnDef.minSize,
-                      left: header.column.id === 'select' ? 0 : (header.column.id === 'company_name' ? '48px' : undefined),
+                      left: leftPosition,
                       zIndex: isSticky ? 30 : 20
                     }}
                     onClick={() => canSort && handleSort(header.column.id)}
@@ -260,10 +272,14 @@ const DataTable = ({
                 );
               })}
             </tr>
-          ))}
+          )})}  
         </thead>
         <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-          {table.getRowModel().rows.map((row, index) => (
+          {table.getRowModel().rows.map((row, index) => {
+            // Check if select column exists
+            const hasSelectColumn = row.getVisibleCells().some(c => c.column.id === 'select');
+            
+            return (
             <tr
               key={row.id}
               className={`transition-colors ${index % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-slate-50 dark:bg-gray-900/50'} hover:bg-blue-50 dark:hover:bg-blue-900/20 cursor-pointer`}
@@ -272,6 +288,15 @@ const DataTable = ({
               {row.getVisibleCells().map(cell => {
                 const isSticky = cell.column.id === 'select' || cell.column.id === 'company_name';
                 const baseBg = index % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-slate-50 dark:bg-gray-900/50';
+                
+                // Calculate left position for sticky columns
+                let leftPosition = undefined;
+                if (cell.column.id === 'select') {
+                  leftPosition = 0;
+                } else if (cell.column.id === 'company_name') {
+                  leftPosition = hasSelectColumn ? '48px' : 0;
+                }
+                
                 return (
                   <td
                     key={cell.id}
@@ -279,7 +304,7 @@ const DataTable = ({
                     style={{
                       width: cell.column.getSize(),
                       minWidth: cell.column.columnDef.minSize,
-                      left: cell.column.id === 'select' ? 0 : (cell.column.id === 'company_name' ? '48px' : undefined),
+                      left: leftPosition,
                       zIndex: isSticky ? 10 : 1
                     }}
                   >
@@ -288,7 +313,7 @@ const DataTable = ({
                 )
               })}
             </tr>
-          ))}
+          )})}
         </tbody>
       </table>
     </div>

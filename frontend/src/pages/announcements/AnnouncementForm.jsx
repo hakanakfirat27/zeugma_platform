@@ -197,7 +197,7 @@ const AnnouncementForm = () => {
       pageSubtitleBottom="Craft engaging announcements for your users"
       breadcrumbs={breadcrumbs}
     >
-      <div className="max-w-7xl mx-auto p-6">
+      <div className="p-6">
         {/* Hero Header */}
         <div className={`relative overflow-hidden rounded-3xl bg-gradient-to-r ${selectedColor.gradient} p-8 mb-8 shadow-xl`}>
           <div className="absolute inset-0 bg-black/10"></div>

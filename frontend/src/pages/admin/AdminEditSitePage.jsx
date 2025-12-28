@@ -353,7 +353,7 @@ const AdminEditSitePage = () => {
     pageTitle={`Edit: ${originalCompanyName}`}
     breadcrumbs={breadcrumbs}
     >
-      <div className="p-6 max-w-7xl mx-auto">
+      <div className="p-6">
 
         {/* Header with navigation */}
         <div className="mb-6 flex justify-between items-center">

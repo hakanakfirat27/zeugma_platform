@@ -250,7 +250,7 @@ const AddCompanyPage = () => {
       <div className="flex-1 overflow-auto bg-gray-50">
 
         {/* Form Content */}
-        <div className="max-w-6xl mx-auto px-6 py-6">
+        <div className="px-6 py-6">
           {/* Error Alert */}
           {error && (
             <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3">

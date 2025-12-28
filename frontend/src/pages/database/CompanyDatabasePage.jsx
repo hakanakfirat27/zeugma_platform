@@ -102,8 +102,10 @@ const CompanyDatabasePage = () => {
   const [searchInput, setSearchInput] = useState(searchParams.get('search') || '');
   const debouncedSearch = useDebounce(searchInput, 300);
   
+  // Default to ALL statuses so all companies are shown
+  const ALL_STATUSES = ['COMPLETE', 'INCOMPLETE', 'DELETED', 'NONE'];
   const [statusFilters, setStatusFilters] = useState(
-    searchParams.get('status')?.split(',').filter(Boolean) || ['COMPLETE']
+    searchParams.get('status')?.split(',').filter(Boolean) || ALL_STATUSES
   );
   const [categoryFilters, setCategoryFilters] = useState(
     searchParams.get('category')?.split(',').filter(Boolean) || []
@@ -119,6 +121,9 @@ const CompanyDatabasePage = () => {
   
   // Available countries for filter (unfiltered - all countries)
   const [allCountries, setAllCountries] = useState([]);
+  
+  // Available categories with companies (unfiltered)
+  const [categoriesWithCompanies, setCategoriesWithCompanies] = useState([]);
 
   // Get filter options for material/boolean filters
   const filterOptionsCategory = categoryFilters.length === 1 ? categoryFilters[0] : 'ALL';
@@ -191,16 +196,23 @@ const CompanyDatabasePage = () => {
     }
   }, [statusFilters, categoryFilters, countryFilters, debouncedSearch, filterGroups]);
 
-  // Fetch all countries once (unfiltered) for the sidebar
-  const fetchAllCountries = async () => {
+  // Fetch all countries and categories once (unfiltered) for the sidebar
+  const fetchUnfilteredData = async () => {
     try {
       const data = await companyService.getStats({});
       if (data.by_country) {
         const countries = data.by_country.map(c => c.country).filter(Boolean).sort();
         setAllCountries(countries);
       }
+      if (data.by_category) {
+        // Only include categories with at least 1 company
+        const categories = data.by_category
+          .filter(cat => cat.count > 0)
+          .map(cat => cat.category);
+        setCategoriesWithCompanies(categories);
+      }
     } catch (err) {
-      console.error('Error fetching all countries:', err);
+      console.error('Error fetching unfiltered data:', err);
     }
   };
 
@@ -213,9 +225,9 @@ const CompanyDatabasePage = () => {
     fetchStats();
   }, [fetchStats]);
 
-  // Fetch all countries once on mount
+  // Fetch all countries and categories once on mount (unfiltered)
   useEffect(() => {
-    fetchAllCountries();
+    fetchUnfilteredData();
   }, []);
 
   // Reset to page 1 when debounced search changes
@@ -283,7 +295,7 @@ const CompanyDatabasePage = () => {
   };
 
   const clearFilters = () => {
-    setStatusFilters(['COMPLETE']);  // Reset to new default (Complete only)
+    setStatusFilters(ALL_STATUSES);  // Reset to default (all statuses)
     setCategoryFilters([]);
     setCountryFilters([]);
     setSearchInput('');
@@ -331,7 +343,7 @@ const CompanyDatabasePage = () => {
     // Refresh data after import
     fetchCompanies();
     fetchStats();
-    fetchAllCountries();
+    fetchUnfilteredData();
   };
 
   // Count active filters
@@ -341,8 +353,8 @@ const CompanyDatabasePage = () => {
     return sum + booleanFilters + techFilters;
   }, 0);
 
-  // Check if status differs from default (Complete only)
-  const isStatusNonDefault = !(statusFilters.length === 1 && statusFilters[0] === 'COMPLETE');
+  // Check if status differs from default (all statuses selected)
+  const isStatusNonDefault = statusFilters.length !== ALL_STATUSES.length;
 
   const activeFiltersCount = 
     categoryFilters.length + 
@@ -358,8 +370,14 @@ const CompanyDatabasePage = () => {
     isStatusNonDefault ||
     debouncedSearch;
 
-  // Available categories
-  const availableCategories = Object.keys(CATEGORY_DISPLAY);
+  // Available categories - only show categories that have at least 1 company (from unfiltered data)
+  const availableCategories = useMemo(() => {
+    if (categoriesWithCompanies.length > 0) {
+      return categoriesWithCompanies;
+    }
+    // Fallback to all categories if not loaded yet
+    return Object.keys(CATEGORY_DISPLAY);
+  }, [categoriesWithCompanies]);
 
   // Get unique countries count from filtered stats
   const uniqueCountriesCount = stats?.countries_count || 0;
@@ -381,7 +399,7 @@ const CompanyDatabasePage = () => {
       breadcrumbs={breadcrumbs}
     >
       <div className="flex-1 overflow-auto bg-white">
-        <div className="max-w-7xl mx-auto px-8 py-6">
+        <div className="px-6 py-6">
           {/* Action Bar */}
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-3">

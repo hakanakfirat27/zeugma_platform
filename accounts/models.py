@@ -12,6 +12,9 @@ from .security_models import (
     FailedLoginAttempt, AuditLog
 )
 
+# Import user settings models
+from .user_settings_models import UserSettings, DefaultUserSettings
+
 
 # This class defines the choices for the 'role' field.
 # It makes the code more readable and prevents typos.

@@ -8,7 +8,7 @@ import {
   Settings, ChevronDown, ChevronRight, Trash2, Play,
   Info, Terminal, FileText, Mail, Globe, Shield,
   BarChart3, PieChart, TrendingUp, Gauge, Layers,
-  CheckCircle, Monitor, Cloud, Box, Package
+  CheckCircle, Monitor, Cloud, Box, Package, X
 } from 'lucide-react';
 import api from '../../utils/api';
 import { useToast } from '../../contexts/ToastContext';
@@ -46,6 +46,104 @@ const colorMap = {
   yellow: statusColors.warning,
   red: statusColors.error,
   gray: statusColors.unknown,
+};
+
+// ============================================
+// CONFIRM MODAL COMPONENT
+// ============================================
+const ConfirmModal = ({ isOpen, onClose, onConfirm, title, message, confirmText = 'Confirm', confirmColor = 'red', icon: Icon = AlertTriangle }) => {
+  if (!isOpen) return null;
+
+  const colorClasses = {
+    red: {
+      iconBg: 'bg-red-100 dark:bg-red-900/30',
+      iconText: 'text-red-600 dark:text-red-400',
+      button: 'bg-red-600 hover:bg-red-700 focus:ring-red-500'
+    },
+    yellow: {
+      iconBg: 'bg-yellow-100 dark:bg-yellow-900/30',
+      iconText: 'text-yellow-600 dark:text-yellow-400',
+      button: 'bg-yellow-600 hover:bg-yellow-700 focus:ring-yellow-500'
+    },
+    blue: {
+      iconBg: 'bg-blue-100 dark:bg-blue-900/30',
+      iconText: 'text-blue-600 dark:text-blue-400',
+      button: 'bg-blue-600 hover:bg-blue-700 focus:ring-blue-500'
+    },
+    purple: {
+      iconBg: 'bg-purple-100 dark:bg-purple-900/30',
+      iconText: 'text-purple-600 dark:text-purple-400',
+      button: 'bg-purple-600 hover:bg-purple-700 focus:ring-purple-500'
+    },
+    cyan: {
+      iconBg: 'bg-cyan-100 dark:bg-cyan-900/30',
+      iconText: 'text-cyan-600 dark:text-cyan-400',
+      button: 'bg-cyan-600 hover:bg-cyan-700 focus:ring-cyan-500'
+    }
+  };
+
+  const colors = colorClasses[confirmColor] || colorClasses.red;
+
+  return (
+    <div className="fixed inset-0 z-50 overflow-y-auto">
+      {/* Backdrop */}
+      <div 
+        className="fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity"
+        onClick={onClose}
+      />
+      
+      {/* Modal */}
+      <div className="flex min-h-full items-center justify-center p-4">
+        <div className="relative w-full max-w-md transform overflow-hidden rounded-2xl bg-white dark:bg-gray-800 shadow-2xl transition-all">
+          {/* Close button */}
+          <button
+            onClick={onClose}
+            className="absolute right-4 top-4 p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+
+          <div className="p-6">
+            {/* Icon */}
+            <div className="flex justify-center mb-4">
+              <div className={`w-16 h-16 rounded-full ${colors.iconBg} flex items-center justify-center`}>
+                <Icon className={`w-8 h-8 ${colors.iconText}`} />
+              </div>
+            </div>
+
+            {/* Title */}
+            <h3 className="text-xl font-semibold text-center text-gray-900 dark:text-white mb-2">
+              {title}
+            </h3>
+
+            {/* Message */}
+            <p className="text-center text-gray-600 dark:text-gray-400 mb-6">
+              {message}
+            </p>
+
+            {/* Buttons */}
+            <div className="flex gap-3">
+              <button
+                onClick={onClose}
+                className="flex-1 px-4 py-2.5 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-xl font-medium transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  onConfirm();
+                  onClose();
+                }}
+                className={`flex-1 px-4 py-2.5 text-white rounded-xl font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 ${colors.button}`}
+              >
+                {confirmText}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 };
 
 // ============================================
@@ -148,7 +246,7 @@ const SystemSettingsSection = () => {
       )}
 
       {/* Tab Navigation */}
-      <div className="flex gap-2 p-1 bg-gray-100 dark:bg-gray-800 rounded-xl overflow-x-auto">
+      <div className="flex gap-1 p-1.5 bg-gray-100 dark:bg-gray-800 rounded-xl overflow-x-auto">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           return (
@@ -157,8 +255,8 @@ const SystemSettingsSection = () => {
               onClick={() => setActiveTab(tab.id)}
               className={`flex-1 min-w-max px-4 py-2.5 rounded-lg font-medium text-sm transition-all flex items-center justify-center gap-2 ${
                 activeTab === tab.id
-                  ? 'bg-white dark:bg-gray-700 shadow-sm text-gray-900 dark:text-white'
-                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                  ? 'bg-gradient-to-r from-slate-600 to-gray-700 text-white shadow-lg shadow-gray-500/25'
+                  : 'text-gray-600 dark:text-gray-400 hover:bg-white/60 dark:hover:bg-gray-700/60 hover:text-gray-900 dark:hover:text-white'
               }`}
             >
               <Icon className="w-4 h-4" />
@@ -566,12 +664,9 @@ const DatabaseTab = ({ dbStats, onRefresh }) => {
 // ============================================
 const CacheTab = ({ cacheStats, toast, onRefresh }) => {
   const [clearing, setClearing] = useState(false);
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false, type: null });
 
   const handleClearCache = async (type = 'all') => {
-    if (!confirm(`Are you sure you want to clear ${type === 'all' ? 'all cache' : type}?`)) {
-      return;
-    }
-
     setClearing(true);
     try {
       const response = await api.post('/dashboard/api/admin/system/cache/clear/', { type });
@@ -587,6 +682,10 @@ const CacheTab = ({ cacheStats, toast, onRefresh }) => {
     } finally {
       setClearing(false);
     }
+  };
+
+  const openClearCacheModal = (type = 'all') => {
+    setConfirmModal({ isOpen: true, type });
   };
 
   if (!cacheStats) {
@@ -607,7 +706,7 @@ const CacheTab = ({ cacheStats, toast, onRefresh }) => {
             Cache Configuration
           </h3>
           <button
-            onClick={() => handleClearCache('all')}
+            onClick={() => openClearCacheModal('all')}
             disabled={clearing}
             className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 disabled:opacity-50 transition-colors text-sm"
           >
@@ -720,6 +819,18 @@ const CacheTab = ({ cacheStats, toast, onRefresh }) => {
           </div>
         </div>
       </div>
+
+      {/* Confirm Modal */}
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        onClose={() => setConfirmModal({ isOpen: false, type: null })}
+        onConfirm={() => handleClearCache(confirmModal.type)}
+        title="Clear All Cache"
+        message="Are you sure you want to clear all cache? This may temporarily affect system performance while the cache is rebuilt."
+        confirmText="Clear Cache"
+        confirmColor="red"
+        icon={Trash2}
+      />
     </div>
   );
 };
@@ -902,15 +1013,28 @@ const PerformanceTab = ({ perfStats }) => {
 const MaintenanceTab = ({ toast, onRefresh }) => {
   const [runningTask, setRunningTask] = useState(null);
   const [taskResults, setTaskResults] = useState({});
+  const [showOutput, setShowOutput] = useState(null);
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false, taskId: null, task: null });
 
   const maintenanceTasks = [
     {
-      id: 'clear_sessions',
-      name: 'Clear Expired Sessions',
-      description: 'Remove all expired session records from the database',
-      icon: Clock,
-      color: 'blue',
-      warning: false
+      id: 'sync_widgets',
+      name: 'Sync Dashboard Widgets',
+      description: 'Synchronize widget registry with database. Updates widget categories and removes orphaned widgets.',
+      icon: RefreshCw,
+      color: 'violet',
+      warning: false,
+      apiEndpoint: '/api/management/sync-widgets/',
+      extraParams: { delete_orphans: true }
+    },
+    {
+      id: 'build_frontend',
+      name: 'Build Frontend',
+      description: 'Run npm build to compile frontend assets. This may take a few minutes.',
+      icon: Package,
+      color: 'cyan',
+      warning: true,
+      apiEndpoint: '/api/management/build-frontend/'
     },
     {
       id: 'clear_cache',
@@ -918,7 +1042,25 @@ const MaintenanceTab = ({ toast, onRefresh }) => {
       description: 'Clear all cached data to force fresh data retrieval',
       icon: Zap,
       color: 'purple',
-      warning: true
+      warning: true,
+      apiEndpoint: '/api/management/clear-cache/'
+    },
+    {
+      id: 'collect_static',
+      name: 'Collect Static Files',
+      description: 'Collect all static files to the static directory',
+      icon: Box,
+      color: 'teal',
+      warning: false,
+      apiEndpoint: '/api/management/collect-static/'
+    },
+    {
+      id: 'clear_sessions',
+      name: 'Clear Expired Sessions',
+      description: 'Remove all expired session records from the database',
+      icon: Clock,
+      color: 'blue',
+      warning: false
     },
     {
       id: 'vacuum_db',
@@ -935,14 +1077,6 @@ const MaintenanceTab = ({ toast, onRefresh }) => {
       icon: FileText,
       color: 'orange',
       warning: false
-    },
-    {
-      id: 'collect_static',
-      name: 'Collect Static Files',
-      description: 'Collect all static files to the static directory',
-      icon: Package,
-      color: 'teal',
-      warning: false
     }
   ];
 
@@ -952,33 +1086,58 @@ const MaintenanceTab = ({ toast, onRefresh }) => {
     green: { bg: 'bg-green-100 dark:bg-green-900/30', text: 'text-green-600 dark:text-green-400', button: 'bg-green-600 hover:bg-green-700' },
     orange: { bg: 'bg-orange-100 dark:bg-orange-900/30', text: 'text-orange-600 dark:text-orange-400', button: 'bg-orange-600 hover:bg-orange-700' },
     teal: { bg: 'bg-teal-100 dark:bg-teal-900/30', text: 'text-teal-600 dark:text-teal-400', button: 'bg-teal-600 hover:bg-teal-700' },
+    violet: { bg: 'bg-violet-100 dark:bg-violet-900/30', text: 'text-violet-600 dark:text-violet-400', button: 'bg-violet-600 hover:bg-violet-700' },
+    cyan: { bg: 'bg-cyan-100 dark:bg-cyan-900/30', text: 'text-cyan-600 dark:text-cyan-400', button: 'bg-cyan-600 hover:bg-cyan-700' },
   };
 
-  const runTask = async (taskId) => {
+  const handleRunTask = (taskId) => {
     const task = maintenanceTasks.find(t => t.id === taskId);
     if (task?.warning) {
-      if (!confirm(`Are you sure you want to ${task.name.toLowerCase()}? This action may affect system performance temporarily.`)) {
-        return;
-      }
+      setConfirmModal({ isOpen: true, taskId, task });
+    } else {
+      executeTask(taskId);
     }
+  };
 
+  const executeTask = async (taskId) => {
+    const task = maintenanceTasks.find(t => t.id === taskId);
     setRunningTask(taskId);
     setTaskResults(prev => ({ ...prev, [taskId]: null }));
+    setShowOutput(null);
 
     try {
-      const response = await api.post('/dashboard/api/admin/system/maintenance/', { task: taskId });
-      setTaskResults(prev => ({ ...prev, [taskId]: response.data }));
+      let response;
+      
+      // Use custom API endpoint if defined
+      if (task.apiEndpoint) {
+        const params = task.extraParams || {};
+        response = await api.post(task.apiEndpoint, params);
+      } else {
+        // Fallback to original maintenance endpoint
+        response = await api.post('/dashboard/api/admin/system/maintenance/', { task: taskId });
+      }
+      
+      const result = {
+        ...response.data,
+        output: response.data.output || null
+      };
+      
+      setTaskResults(prev => ({ ...prev, [taskId]: result }));
       
       if (response.data.success) {
         toast.success(response.data.message);
+        if (response.data.output) {
+          setShowOutput(taskId);
+        }
         onRefresh();
       } else {
-        toast.error(response.data.message || 'Task failed');
+        toast.error(response.data.error || response.data.message || 'Task failed');
       }
     } catch (error) {
       console.error('Error running maintenance task:', error);
-      toast.error('Failed to run maintenance task');
-      setTaskResults(prev => ({ ...prev, [taskId]: { success: false, message: 'Failed to execute task' } }));
+      const errorMessage = error.response?.data?.error || 'Failed to run maintenance task';
+      toast.error(errorMessage);
+      setTaskResults(prev => ({ ...prev, [taskId]: { success: false, message: errorMessage } }));
     } finally {
       setRunningTask(null);
     }
@@ -1028,24 +1187,44 @@ const MaintenanceTab = ({ toast, onRefresh }) => {
                   
                   {/* Result Display */}
                   {result && (
-                    <div className={`mt-3 p-2 rounded-lg text-sm ${
-                      result.success 
-                        ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400' 
-                        : 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400'
-                    }`}>
-                      <div className="flex items-center gap-2">
-                        {result.success ? (
-                          <CheckCircle className="w-4 h-4" />
-                        ) : (
-                          <XCircle className="w-4 h-4" />
-                        )}
-                        {result.message}
+                    <div className="mt-3 space-y-2">
+                      <div className={`p-2 rounded-lg text-sm ${
+                        result.success 
+                          ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400' 
+                          : 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400'
+                      }`}>
+                        <div className="flex items-center gap-2">
+                          {result.success ? (
+                            <CheckCircle className="w-4 h-4" />
+                          ) : (
+                            <XCircle className="w-4 h-4" />
+                          )}
+                          {result.message}
+                        </div>
                       </div>
+                      
+                      {/* Command Output */}
+                      {result.output && (
+                        <div className="relative">
+                          <button
+                            onClick={() => setShowOutput(showOutput === task.id ? null : task.id)}
+                            className="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 flex items-center gap-1"
+                          >
+                            <Terminal className="w-3 h-3" />
+                            {showOutput === task.id ? 'Hide Output' : 'Show Output'}
+                          </button>
+                          {showOutput === task.id && (
+                            <pre className="mt-2 p-3 bg-gray-900 text-gray-100 rounded-lg text-xs overflow-x-auto max-h-48 overflow-y-auto font-mono">
+                              {result.output}
+                            </pre>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
                 <button
-                  onClick={() => runTask(task.id)}
+                  onClick={() => handleRunTask(task.id)}
                   disabled={isRunning || runningTask !== null}
                   className={`px-4 py-2 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 text-sm ${colors.button}`}
                 >
@@ -1071,23 +1250,43 @@ const MaintenanceTab = ({ toast, onRefresh }) => {
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
         <h3 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
           <Settings className="w-5 h-5 text-gray-500" />
-          System Information
+          Task Descriptions
         </h3>
         <div className="space-y-3 text-sm text-gray-600 dark:text-gray-400">
           <p>
-            <strong>Database Vacuum:</strong> Reclaims disk space and updates query planner statistics. 
-            PostgreSQL-only feature that helps maintain optimal query performance.
+            <strong>Sync Dashboard Widgets:</strong> Updates the database to match the widget registry. 
+            Adds new widgets, updates existing ones, and removes orphaned widgets no longer in the registry.
           </p>
           <p>
-            <strong>Clear Sessions:</strong> Removes expired user sessions from the database. 
-            This doesn't affect currently logged-in users with valid sessions.
+            <strong>Build Frontend:</strong> Compiles the React frontend application using npm. 
+            This creates optimized production bundles. May take 1-3 minutes to complete.
           </p>
           <p>
             <strong>Clear Cache:</strong> Removes all cached data. The cache will be rebuilt automatically 
             as users access the application, which may cause temporary slowdowns.
           </p>
+          <p>
+            <strong>Collect Static:</strong> Gathers all static files (CSS, JS, images) into the static directory 
+            for serving in production.
+          </p>
+          <p>
+            <strong>Database Vacuum:</strong> Reclaims disk space and updates query planner statistics. 
+            PostgreSQL-only feature that helps maintain optimal query performance.
+          </p>
         </div>
       </div>
+
+      {/* Confirm Modal */}
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        onClose={() => setConfirmModal({ isOpen: false, taskId: null, task: null })}
+        onConfirm={() => executeTask(confirmModal.taskId)}
+        title={confirmModal.task?.name || 'Confirm Action'}
+        message={`Are you sure you want to ${confirmModal.task?.name?.toLowerCase() || 'run this task'}? This action may affect system performance temporarily.`}
+        confirmText="Run Task"
+        confirmColor={confirmModal.task?.color === 'cyan' ? 'cyan' : confirmModal.task?.color === 'purple' ? 'purple' : 'yellow'}
+        icon={confirmModal.task?.icon || AlertTriangle}
+      />
     </div>
   );
 };

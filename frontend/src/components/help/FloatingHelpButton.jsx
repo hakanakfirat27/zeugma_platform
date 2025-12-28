@@ -51,7 +51,7 @@ const FloatingHelpButton = ({ onStartTour }) => {
 
   const menuItems = [
     {
-      icon: <Compass className="w-5 h-5" />,
+      icon: <Compass className="w-4 h-4" />,
       label: 'Take a Tour',
       onClick: () => {
         setIsOpen(false);
@@ -61,7 +61,7 @@ const FloatingHelpButton = ({ onStartTour }) => {
       delay: '0ms',
     },
     {
-      icon: <BookOpen className="w-5 h-5" />,
+      icon: <BookOpen className="w-4 h-4" />,
       label: 'Help Center',
       onClick: () => {
         setIsOpen(false);
@@ -71,7 +71,7 @@ const FloatingHelpButton = ({ onStartTour }) => {
       delay: '50ms',
     },
     {
-      icon: <Video className="w-5 h-5" />,
+      icon: <Video className="w-4 h-4" />,
       label: 'Tutorials',
       onClick: () => {
         setIsOpen(false);
@@ -81,7 +81,7 @@ const FloatingHelpButton = ({ onStartTour }) => {
       delay: '100ms',
     },
     {
-      icon: <FileText className="w-5 h-5" />,
+      icon: <FileText className="w-4 h-4" />,
       label: 'FAQ',
       onClick: () => {
         setIsOpen(false);
@@ -98,7 +98,7 @@ const FloatingHelpButton = ({ onStartTour }) => {
       <style>{`
         @keyframes float {
           0%, 100% { transform: translateY(0px); }
-          50% { transform: translateY(-6px); }
+          50% { transform: translateY(-4px); }
         }
         
         @keyframes pulse-ring {
@@ -164,7 +164,7 @@ const FloatingHelpButton = ({ onStartTour }) => {
         }
       `}</style>
 
-      <div ref={menuRef} className="fixed bottom-4 right-3 z-[9000]" data-tour="help-button">
+      <div ref={menuRef} className="fixed bottom-1.5 right-3 z-[9000]" data-tour="help-button">
         {/* Backdrop when open */}
         <div 
           className={`fixed inset-0 bg-black/20 backdrop-blur-sm transition-opacity duration-300 ${
@@ -174,13 +174,13 @@ const FloatingHelpButton = ({ onStartTour }) => {
         />
 
         {/* Menu Items - Vertical stack */}
-        <div className={`absolute bottom-20 right-0 flex flex-col items-end gap-3 transition-all duration-300 ${
+        <div className={`absolute bottom-14 right-0 flex flex-col items-end gap-2 transition-all duration-300 ${
           isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}>
           {menuItems.map((item, index) => (
             <div
               key={index}
-              className={`flex items-center gap-3 transition-all duration-300 ${
+              className={`flex items-center gap-2 transition-all duration-300 ${
                 isOpen ? 'translate-x-0 opacity-100' : 'translate-x-8 opacity-0'
               }`}
               style={{ 
@@ -188,14 +188,14 @@ const FloatingHelpButton = ({ onStartTour }) => {
               }}
             >
               {/* Label */}
-              <span className="px-3 py-1.5 bg-gray-900/90 text-white text-sm font-medium rounded-lg shadow-lg whitespace-nowrap backdrop-blur-sm">
+              <span className="px-2.5 py-1 bg-gray-900/90 text-white text-xs font-medium rounded-lg shadow-lg whitespace-nowrap backdrop-blur-sm">
                 {item.label}
               </span>
               
               {/* Icon Button */}
               <button
                 onClick={item.onClick}
-                className={`w-12 h-12 rounded-full bg-gradient-to-r ${item.color} text-white shadow-lg 
+                className={`w-9 h-9 rounded-full bg-gradient-to-r ${item.color} text-white shadow-lg 
                   hover:scale-110 hover:shadow-xl active:scale-95 transition-all duration-200
                   flex items-center justify-center`}
                 style={{
@@ -226,7 +226,7 @@ const FloatingHelpButton = ({ onStartTour }) => {
             onClick={() => setIsOpen(!isOpen)}
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
-            className={`relative w-14 h-14 rounded-full flex items-center justify-center transition-all duration-500 ${
+            className={`relative w-11 h-11 rounded-full flex items-center justify-center transition-all duration-500 ${
               isOpen 
                 ? 'bg-gray-800 rotate-180' 
                 : 'bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600 glow-animation'
@@ -244,13 +244,13 @@ const FloatingHelpButton = ({ onStartTour }) => {
             {/* Icon */}
             <div className={`transition-transform duration-500 ${isOpen ? 'rotate-180' : ''}`}>
               {isOpen ? (
-                <X className="w-6 h-6 text-white" />
+                <X className="w-5 h-5 text-white" />
               ) : (
                 <div className="relative">
-                  <HelpCircle className={`w-6 h-6 text-white ${isHovered ? 'wiggle-animation' : ''}`} />
+                  <HelpCircle className={`w-5 h-5 text-white ${isHovered ? 'wiggle-animation' : ''}`} />
                   {/* Sparkle effect on hover */}
                   {isHovered && (
-                    <Sparkles className="absolute -top-1 -right-1 w-3 h-3 text-yellow-300 animate-pulse" />
+                    <Sparkles className="absolute -top-1 -right-1 w-2.5 h-2.5 text-yellow-300 animate-pulse" />
                   )}
                 </div>
               )}
@@ -259,14 +259,14 @@ const FloatingHelpButton = ({ onStartTour }) => {
 
           {/* Tooltip on hover */}
           {!isOpen && isHovered && (
-            <div className="absolute bottom-full right-0 mb-3 bounce-in-animation">
-              <div className="relative px-4 py-2 bg-gray-900 text-white text-sm font-medium rounded-xl shadow-xl whitespace-nowrap">
-                <span className="flex items-center gap-2">
+            <div className="absolute bottom-full right-0 mb-2 bounce-in-animation">
+              <div className="relative px-3 py-1.5 bg-gray-900 text-white text-xs font-medium rounded-lg shadow-xl whitespace-nowrap">
+                <span className="flex items-center gap-1.5">
                   Need help?
-                  <kbd className="px-1.5 py-0.5 bg-gray-700 rounded text-xs font-mono">?</kbd>
+                  <kbd className="px-1 py-0.5 bg-gray-700 rounded text-[10px] font-mono">?</kbd>
                 </span>
                 {/* Arrow */}
-                <div className="absolute -bottom-2 right-4 w-4 h-4 bg-gray-900 rotate-45" />
+                <div className="absolute -bottom-1.5 right-3 w-3 h-3 bg-gray-900 rotate-45" />
               </div>
             </div>
           )}

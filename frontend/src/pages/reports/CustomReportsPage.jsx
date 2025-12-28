@@ -275,7 +275,7 @@ const CustomReportsPage = () => {
 
       <div className="flex-1 overflow-auto bg-white">
         {/* Stats Cards Section */}
-        <div className="max-w-7xl mx-auto px-8 py-6">
+        <div className="px-6 py-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             <StatsCard
               icon={FileText}
@@ -311,7 +311,7 @@ const CustomReportsPage = () => {
             />
           </div>
         </div>
-        <div className="max-w-7xl mx-auto px-8 py-6">
+        <div className="px-6 py-6">
           {/* Action Bar */}
           <div className="flex items-center justify-between mb-6 gap-4">
             <div className="flex-1">
